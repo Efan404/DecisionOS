@@ -89,6 +89,17 @@ async def patch_idea_context(idea_id: str, payload: PatchIdeaContextRequest) -> 
     return _to_idea_detail(updated)
 
 
+@router.delete("/{idea_id}", status_code=204)
+async def delete_idea(idea_id: str) -> None:
+    try:
+        _repo.delete_idea(idea_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "IDEA_NOT_FOUND", "message": f"Idea {idea_id} not found"},
+        )
+
+
 def _parse_statuses(raw: list[str] | None) -> list[IdeaStatus]:
     if raw is None or len(raw) == 0:
         return list(_DEFAULT_STATUSES)
