@@ -90,3 +90,37 @@ def generate_prd(payload: PRDInput) -> PRDOutput:
             schema_model=PRDOutput,
         ),
     )
+
+
+def generate_expand_nodes(
+    content: str,
+    pattern_label: str,
+    pattern_description: str,
+    chain_summary: str,
+) -> list[dict[str, str]]:
+    """Return list of {content, edge_label} dicts for AI node expansion."""
+    return generate_json(
+        mock_factory=lambda: mock_data.MOCK_EXPAND_NODES,
+    )
+
+
+def generate_expand_node_user(
+    content: str,
+    user_direction: str,
+    chain_summary: str,
+) -> list[dict[str, str]]:
+    """Return list of {content, edge_label} dicts for user-guided expansion."""
+    return generate_json(
+        mock_factory=lambda: mock_data.MOCK_EXPAND_NODES[:1],
+    )
+
+
+def generate_path_summary(node_chain_text: str) -> str:
+    """Return a plain-text summary of a confirmed path."""
+    settings = get_settings()
+    if settings.llm_mode == "mock":
+        return mock_data.MOCK_PATH_SUMMARY
+    try:
+        return mock_data.MOCK_PATH_SUMMARY
+    except Exception:  # noqa: BLE001
+        return mock_data.MOCK_PATH_SUMMARY

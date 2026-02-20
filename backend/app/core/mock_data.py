@@ -237,6 +237,17 @@ def generate_prd_output(payload: PRDInput) -> PRDOutput:
     return PRDOutput(markdown=markdown, sections=sections)
 
 
+MOCK_EXPAND_NODES: list[dict[str, str]] = [
+    {"content": "Mock child idea A — narrow focus on power users", "edge_label": "缩小用户群体"},
+    {"content": "Mock child idea B — extend to enterprise workflow", "edge_label": "缩小用户群体"},
+]
+
+MOCK_PATH_SUMMARY = (
+    "This idea evolved from a broad concept to a focused solution "
+    "for a specific user segment, validating core assumptions along the way."
+)
+
+
 def _seed_int(seed: str) -> int:
     digest = hashlib.sha256(seed.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], byteorder="big", signed=False)
