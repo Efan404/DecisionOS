@@ -1,0 +1,215 @@
+'use client'
+
+import { useCallback, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+
+import { useDAGStore } from '../../../lib/dag-store'
+import {
+  listNodes,
+  createRootNode,
+  expandUserNode,
+  confirmPath,
+  getLatestPath,
+  type IdeaNode,
+} from '../../../lib/dag-api'
+import { streamPost } from '../../../lib/sse'
+import { DAGNode, type DAGNodeData } from './DAGNode'
+import { DAGEdge, type DAGEdgeData } from './DAGEdge'
+import { NodeDetailPanel } from './NodeDetailPanel'
+
+type DAGNodeType = Node<DAGNodeData, 'dagNode'>
+type DAGEdgeType = Edge<DAGEdgeData, 'dagEdge'>
+
+const nodeTypes = { dagNode: DAGNode }
+const edgeTypes = { dagEdge: DAGEdge }
+
+function buildPathChain(nodes: IdeaNode[], targetId: string): string[] {
+  const map = new Map(nodes.map((n) => [n.id, n]))
+  const chain: string[] = []
+  let cur: IdeaNode | undefined = map.get(targetId)
+  while (cur) {
+    chain.unshift(cur.id)
+    cur = cur.parent_id ? map.get(cur.parent_id) : undefined
+  }
+  return chain
+}
+
+interface Props {
+  ideaId: string
+  ideaSeed: string
+}
+
+export function IdeaDAGCanvas({ ideaId, ideaSeed }: Props) {
+  const router = useRouter()
+  const {
+    nodes: dagNodes,
+    selectedNodeId,
+    confirmedPath,
+    expandingNodeId,
+    setNodes,
+    addNodes,
+    selectNode,
+    setConfirmedPath,
+    setExpandingNode,
+    reset,
+  } = useDAGStore()
+
+  const [rfNodes, setRFNodes, onNodesChange] = useNodesState<DAGNodeType>([])
+  const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState<DAGEdgeType>([])
+
+  const selectedPathChain = useMemo(() => {
+    if (!selectedNodeId) return []
+    return buildPathChain(dagNodes, selectedNodeId)
+  }, [dagNodes, selectedNodeId])
+
+  // Convert DAG nodes to React Flow nodes/edges
+  useEffect(() => {
+    const LEVEL_HEIGHT = 140
+    const NODE_WIDTH = 220
+    const byDepth: Record<number, IdeaNode[]> = {}
+    dagNodes.forEach((n) => {
+      ;(byDepth[n.depth] ??= []).push(n)
+    })
+
+    const newRFNodes: DAGNodeType[] = dagNodes.map((n) => {
+      const siblings = byDepth[n.depth] ?? []
+      const idx = siblings.indexOf(n)
+      const x = (idx - (siblings.length - 1) / 2) * (NODE_WIDTH + 32)
+      const y = n.depth * LEVEL_HEIGHT
+      const data: DAGNodeData = {
+        content: n.content,
+        status: n.id === expandingNodeId ? 'generating' : (n.status as DAGNodeData['status']),
+        isSelected: n.id === selectedNodeId,
+        isOnSelectedPath: selectedPathChain.includes(n.id),
+      }
+      return { id: n.id, type: 'dagNode' as const, position: { x, y }, data }
+    })
+
+    const newRFEdges: DAGEdgeType[] = dagNodes
+      .filter((n) => n.parent_id)
+      .map((n) => ({
+        id: `e-${n.parent_id}-${n.id}`,
+        source: n.parent_id!,
+        target: n.id,
+        type: 'dagEdge' as const,
+        data: {
+          label: n.edge_label ?? undefined,
+          isHighlighted:
+            selectedPathChain.includes(n.parent_id!) && selectedPathChain.includes(n.id),
+        },
+      }))
+
+    setRFNodes(newRFNodes)
+    setRFEdges(newRFEdges)
+  }, [dagNodes, selectedNodeId, selectedPathChain, expandingNodeId, setRFNodes, setRFEdges])
+
+  // Init: reset store on ideaId change, then load or create root node
+  useEffect(() => {
+    reset()
+    ;(async () => {
+      const [existing, latestPath] = await Promise.all([
+        listNodes(ideaId),
+        getLatestPath(ideaId).catch(() => null),
+      ])
+      if (existing.length > 0) {
+        setNodes(existing)
+      } else {
+        const root = await createRootNode(ideaId, ideaSeed)
+        setNodes([root])
+      }
+      if (latestPath) {
+        setConfirmedPath(latestPath)
+      }
+    })()
+  }, [ideaId, ideaSeed, setNodes, setConfirmedPath, reset])
+
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: DAGNodeType) => {
+      selectNode(node.id)
+    },
+    [selectNode]
+  )
+
+  const handleExpandAI = async (patternId: string) => {
+    if (!selectedNodeId) return
+    setExpandingNode(selectedNodeId)
+    try {
+      await streamPost<Record<string, never>, unknown, unknown, { nodes: IdeaNode[] }>(
+        `/ideas/${ideaId}/nodes/${selectedNodeId}/expand/stream?pattern_id=${encodeURIComponent(patternId)}`,
+        {},
+        {
+          onDone: (data) => {
+            addNodes(data.nodes)
+          },
+        }
+      )
+    } catch {
+      // error already surfaced via onError if needed
+    } finally {
+      setExpandingNode(null)
+    }
+  }
+
+  const handleExpandUser = async (description: string) => {
+    if (!selectedNodeId) return
+    setExpandingNode(selectedNodeId)
+    try {
+      const newNodes = await expandUserNode(ideaId, selectedNodeId, description)
+      addNodes(newNodes)
+    } finally {
+      setExpandingNode(null)
+    }
+  }
+
+  const handleConfirmPath = async () => {
+    if (!selectedNodeId) return
+    const path = await confirmPath(ideaId, selectedPathChain)
+    setConfirmedPath(path)
+    router.push(`/ideas/${ideaId}/feasibility`)
+  }
+
+  const selectedNode = dagNodes.find((n) => n.id === selectedNodeId) ?? null
+
+  return (
+    <div className="flex h-full w-full bg-[#0F172A]">
+      <div className="relative flex-1">
+        <ReactFlow
+          nodes={rfNodes}
+          edges={rfEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={handleNodeClick}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          className="bg-[#0F172A]"
+        >
+          <Background color="#1E293B" gap={24} />
+          <Controls className="!border-[#334155] !bg-[#1E293B]" />
+        </ReactFlow>
+      </div>
+
+      <div className="w-72 flex-shrink-0 border-l border-[#1E293B] bg-[#0A0F1A]">
+        <NodeDetailPanel
+          node={selectedNode}
+          pathChain={selectedPathChain}
+          onExpandAI={handleExpandAI}
+          onExpandUser={handleExpandUser}
+          onConfirmPath={handleConfirmPath}
+          isConfirmed={confirmedPath !== null}
+          loading={expandingNodeId !== null}
+        />
+      </div>
+    </div>
+  )
+}

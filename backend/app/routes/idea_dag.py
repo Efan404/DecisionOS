@@ -118,13 +118,16 @@ async def expand_stream(idea_id: str, node_id: str, pattern_id: str) -> Streamin
         )
     chain_summary = _chain_summary(idea_id, [node_id])
 
+    def _evt(event: str, payload: dict[str, object]) -> str:
+        return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
     async def event_stream() -> None:
-        yield f"data: {json.dumps({'type': 'progress', 'pct': 10})}\n\n"  # type: ignore[misc]
+        yield _evt("progress", {"step": "generating", "pct": 10})  # type: ignore[misc]
         try:
             children_data = llm.generate_expand_nodes(
                 parent.content, pattern["label"], pattern["description"], chain_summary
             )
-            yield f"data: {json.dumps({'type': 'progress', 'pct': 70})}\n\n"  # type: ignore[misc]
+            yield _evt("progress", {"step": "persisting", "pct": 70})  # type: ignore[misc]
             created = []
             for child in children_data:
                 node = repo_dag.create_node(
@@ -143,17 +146,29 @@ async def expand_stream(idea_id: str, node_id: str, pattern_id: str) -> Streamin
                     "expansion_pattern": node.expansion_pattern,
                     "status": node.status,
                     "created_at": node.created_at,
+                    "idea_id": node.idea_id,
                 })
-            yield f"data: {json.dumps({'type': 'done', 'idea_id': idea_id, 'data': {'nodes': created}})}\n\n"  # type: ignore[misc]
+            yield _evt("done", {"idea_id": idea_id, "nodes": created})  # type: ignore[misc]
         except Exception as exc:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"  # type: ignore[misc]
+            yield _evt("error", {"code": "EXPAND_FAILED", "message": str(exc)})  # type: ignore[misc]
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")  # type: ignore[arg-type]
 
 
 @router.post("/paths", response_model=IdeaPathOut, status_code=201)
 async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
-    _require_idea(idea_id)
+    idea = _repo.get_idea(idea_id)
+    if idea is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "IDEA_NOT_FOUND", "message": f"Idea {idea_id} not found"},
+        )
+    if idea.status == "archived":
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "IDEA_ARCHIVED", "message": "Idea is archived"},
+        )
+
     nodes = {n.id: n for n in repo_dag.list_nodes(idea_id)}
 
     lines = ["# Idea Path\n"]
@@ -192,6 +207,14 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
         path_md=path_md,
         path_json=json.dumps(path_json_data, ensure_ascii=False),
     )
+
+    # Stamp confirmed_dag_path_id onto the idea context so guards unlock Feasibility
+    _repo.apply_agent_update(
+        idea_id,
+        version=idea.version,
+        mutate_context=lambda ctx: ctx.model_copy(update={"confirmed_dag_path_id": path.id}),
+    )
+
     return IdeaPathOut(**path.__dict__)
 
 

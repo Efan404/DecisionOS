@@ -135,8 +135,6 @@ export function AppShell({ children }: AppShellProps) {
     },
   ]
 
-  const doneCount = steps.filter((item) => item.done).length
-  const progressPct = Math.round((doneCount / steps.length) * 100)
   const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
   const getStepHref = (step: StepItem['step']): string => {
     if (step === 'ideas') {
@@ -154,7 +152,7 @@ export function AppShell({ children }: AppShellProps) {
       >
         Skip to main content
       </a>
-      <header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75">
+      <header className="fixed top-0 right-0 left-0 z-30 border-b border-slate-200/90 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75">
         <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -235,7 +233,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1480px] gap-6 px-4 pt-6 pb-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
+      <div className="mx-auto w-full max-w-[1480px] px-4 pt-44 pb-8 sm:px-6 lg:px-8">
         <section
           id="main-content"
           tabIndex={-1}
@@ -243,119 +241,6 @@ export function AppShell({ children }: AppShellProps) {
         >
           {children}
         </section>
-
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-[0_12px_38px_-28px_rgba(15,23,42,0.45)] lg:sticky lg:top-[7.5rem]">
-          <div className="space-y-4">
-            <section>
-              <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                Workflow Health
-              </p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {isHydrated
-                  ? `${doneCount} / ${steps.length} steps complete`
-                  : 'Syncing session state...'}
-              </p>
-              <div className="mt-3 h-2 rounded-full bg-slate-200">
-                <div
-                  className="h-full rounded-full bg-blue-600 transition-[width] duration-300 motion-reduce:transition-none"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </section>
-
-            <section className="space-y-2 border-t border-slate-200 pt-4">
-              <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                Status Signals
-              </p>
-              <dl className="space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-slate-600">Feasibility access</dt>
-                  <dd
-                    className={
-                      isHydrated
-                        ? feasibilityOpen
-                          ? 'text-emerald-700'
-                          : 'text-amber-700'
-                        : 'text-slate-500'
-                    }
-                  >
-                    {isHydrated ? (feasibilityOpen ? 'Ready' : 'Blocked') : 'Syncing...'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-slate-600">Scope access</dt>
-                  <dd
-                    className={
-                      isHydrated
-                        ? scopeOpen
-                          ? 'text-emerald-700'
-                          : 'text-amber-700'
-                        : 'text-slate-500'
-                    }
-                  >
-                    {isHydrated ? (scopeOpen ? 'Ready' : 'Blocked') : 'Syncing...'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-slate-600">PRD access</dt>
-                  <dd
-                    className={
-                      isHydrated
-                        ? prdOpen
-                          ? 'text-emerald-700'
-                          : 'text-amber-700'
-                        : 'text-slate-500'
-                    }
-                  >
-                    {isHydrated ? (prdOpen ? 'Ready' : 'Blocked') : 'Syncing...'}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="space-y-2 border-t border-slate-200 pt-4">
-              <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                Decision Context
-              </p>
-              <dl className="space-y-2 text-sm text-slate-600">
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Direction</dt>
-                  <dd className="font-medium text-slate-900">
-                    {hydratedContext?.selected_direction_id ?? 'Pending'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Path</dt>
-                  <dd className="font-medium text-slate-900">
-                    {hydratedContext?.path_id ?? 'Pending'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Plan</dt>
-                  <dd className="font-medium text-slate-900">
-                    {hydratedContext?.selected_plan_id ?? 'Pending'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Scope</dt>
-                  <dd className="font-medium text-slate-900">
-                    {hydratedContext?.scope_frozen
-                      ? 'Frozen'
-                      : hydratedContext?.scope
-                        ? 'Drafted'
-                        : 'Pending'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Session start</dt>
-                  <dd className="font-medium text-slate-900">
-                    {hydratedContext ? hydratedContext.created_at.slice(0, 16) : 'Syncing...'}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-          </div>
-        </aside>
       </div>
     </div>
   )

@@ -29,6 +29,7 @@ class DecisionContext(BaseModel):
     scope: ScopeOutput | None = None
     scope_frozen: bool = False
     prd: PRDOutput | None = None
+    confirmed_dag_path_id: str | None = None
 
 
 class WorkspaceDetail(BaseModel):

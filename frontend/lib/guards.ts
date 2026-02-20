@@ -11,15 +11,7 @@ const hasSelectedPlan = (context: DecisionContext): boolean => {
 }
 
 export const canRunFeasibility = (context: DecisionContext): boolean => {
-  return Boolean(
-    context.idea_seed &&
-    context.opportunity &&
-    context.selected_direction_id &&
-    context.path_id &&
-    context.opportunity.directions.some(
-      (direction) => direction.id === context.selected_direction_id
-    )
-  )
+  return Boolean(context.confirmed_dag_path_id)
 }
 
 export const canOpenScope = (context: DecisionContext): boolean => {

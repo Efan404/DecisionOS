@@ -44,6 +44,20 @@
 - `context_json`, `version`
 - `created_at`, `updated_at`, `archived_at`
 
+### IdeaNode (DAG Canvas)
+
+- `id`, `idea_id`, `parent_id` (NULL = root)
+- `content`, `expansion_pattern`, `edge_label`, `depth`
+- `status` (`active` | `deleted`), `created_at`
+
+### IdeaPath (Confirmed Decision Path)
+
+- `id`, `idea_id`
+- `node_chain` (JSON array of node ids, root → leaf)
+- `path_md` (Markdown narrative, LLM context for Feasibility/PRD)
+- `path_json` (structured JSON with node chain + AI summary)
+- `created_at`
+
 ## 4. API Baseline
 
 - `GET /ideas`
@@ -66,6 +80,16 @@ Agent 路由必须迁移为 idea-scoped：
 - `/ideas/{idea_id}/agents/feasibility/stream`
 - `/ideas/{idea_id}/agents/scope`
 - `/ideas/{idea_id}/agents/prd`
+
+DAG canvas 路由（idea-scoped）：
+
+- `GET /ideas/{idea_id}/nodes`
+- `POST /ideas/{idea_id}/nodes`
+- `GET /ideas/{idea_id}/nodes/{node_id}`
+- `POST /ideas/{idea_id}/nodes/{node_id}/expand/user`
+- `POST /ideas/{idea_id}/nodes/{node_id}/expand/stream`
+- `POST /ideas/{idea_id}/paths`
+- `GET /ideas/{idea_id}/paths/latest`
 
 Agent 契约：
 

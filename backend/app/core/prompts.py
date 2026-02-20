@@ -95,12 +95,9 @@ def expand_node_prompt(
         f"Path so far:\n{chain_summary}\n\n"
         f"Expansion lens: {pattern_label} — {pattern_description}\n\n"
         "Generate 2-3 distinct child ideas that extend the current node through this lens.\n"
-        "Return JSON array:\n"
-        "[\n"
-        f'  {{"content": "...", "edge_label": "{pattern_label}"}},\n'
-        "  ...\n"
-        "]\n"
-        "Only return the JSON array, no other text."
+        'Return a JSON object with key "nodes" containing an array of objects, each with "content" and "edge_label":\n'
+        '{"nodes": [{"content": "...", "edge_label": "' + pattern_label + '"}, ...]}\n'
+        "Only return the JSON object, no other text."
     )
 
 
@@ -115,12 +112,9 @@ def expand_node_user_prompt(
         f"Path so far:\n{chain_summary}\n\n"
         f"User's direction: {user_direction}\n\n"
         "Generate 1-2 child ideas that follow the user's direction.\n"
-        "Return JSON array:\n"
-        "[\n"
-        '  {"content": "...", "edge_label": "<short label for the relationship>"},\n'
-        "  ...\n"
-        "]\n"
-        "Only return the JSON array, no other text."
+        'Return a JSON object with key "nodes" containing an array of objects, each with "content" and "edge_label":\n'
+        '{"nodes": [{"content": "...", "edge_label": "<short label>"}, ...]}\n'
+        "Only return the JSON object, no other text."
     )
 
 
@@ -129,5 +123,5 @@ def summarize_path_prompt(node_chain_text: str) -> str:
         "Summarize this idea evolution chain in 2-3 sentences, "
         "explaining the reasoning arc from start to finish:\n\n"
         f"{node_chain_text}\n\n"
-        "Return only the summary paragraph."
+        'Return a JSON object: {"summary": "<your summary paragraph>"}'
     )
