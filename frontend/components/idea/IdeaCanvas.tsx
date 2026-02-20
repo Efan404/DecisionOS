@@ -246,7 +246,7 @@ export function IdeaCanvas() {
 
   const selectedDirectionId = context.selected_direction_id
   const hasDirections = visibleDirections.length > 0
-  const bubbleCenterClass = hasDirections ? 'top-[60%]' : 'top-1/2'
+  const bubbleCenterClass = hasDirections ? 'top-[56%]' : 'top-1/2'
 
   const bubbleLayout = useMemo(() => {
     const total = visibleDirections.length
@@ -275,69 +275,56 @@ export function IdeaCanvas() {
         </p>
       </header>
 
+      <form
+        onSubmit={handleSubmit}
+        className="w-full rounded-3xl border border-black/15 bg-white/95 p-5 shadow-lg backdrop-blur"
+      >
+        <label htmlFor="idea-seed" className="text-sm font-medium">
+          Idea Seed
+        </label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <input
+            id="idea-seed"
+            value={ideaSeedInput}
+            onChange={(event) => setIdeaSeedInput(event.currentTarget.value)}
+            placeholder="e.g. A 7-day delivery decision assistant for indie developers"
+            className="w-full rounded-md border border-black/20 px-3 py-2 text-sm outline-none focus:border-black"
+          />
+          <button
+            type="submit"
+            disabled={loading || !ideaSeedInput.trim()}
+            className="rounded-md border border-black px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? 'Generating...' : 'Generate Directions'}
+          </button>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <label htmlFor="direction-count" className="text-xs text-black/70">
+            Direction count
+          </label>
+          <select
+            id="direction-count"
+            value={directionCount}
+            onChange={(event) =>
+              setDirectionCount(clampDirectionCount(Number(event.currentTarget.value)))
+            }
+            className="rounded-md border border-black/20 px-2 py-1 text-xs outline-none focus:border-black"
+          >
+            {DIRECTION_COUNT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loading ? <p className="mt-2 text-xs text-black/60">Streaming {progressPct}%</p> : null}
+        {errorMessage ? <p className="mt-2 text-xs text-red-600">{errorMessage}</p> : null}
+      </form>
+
       <div className="relative isolate h-[620px] overflow-hidden rounded-[32px] border border-black/10 bg-[radial-gradient(circle_at_20%_20%,rgba(0,0,0,0.06),transparent_35%),radial-gradient(circle_at_80%_80%,rgba(0,0,0,0.05),transparent_40%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]">
         <div
           className={`pointer-events-none absolute ${bubbleCenterClass} left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/5`}
         />
-
-        <motion.form
-          onSubmit={handleSubmit}
-          animate={{
-            opacity: selectedDirectionId ? 0.28 : 1,
-            scale: selectedDirectionId ? 0.95 : 1,
-          }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className={`pointer-events-none absolute left-1/2 z-30 w-[min(92vw,460px)] rounded-3xl border border-black/15 bg-white/95 p-5 shadow-lg backdrop-blur ${
-            hasDirections
-              ? 'top-4 -translate-x-1/2 md:top-6'
-              : 'top-1/2 -translate-x-1/2 -translate-y-1/2'
-          }`}
-        >
-          <div className="pointer-events-auto">
-            <label htmlFor="idea-seed" className="text-sm font-medium">
-              Idea Seed
-            </label>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              <input
-                id="idea-seed"
-                value={ideaSeedInput}
-                onChange={(event) => setIdeaSeedInput(event.currentTarget.value)}
-                placeholder="e.g. A 7-day delivery decision assistant for indie developers"
-                className="w-full rounded-md border border-black/20 px-3 py-2 text-sm outline-none focus:border-black"
-              />
-              <button
-                type="submit"
-                disabled={loading || !ideaSeedInput.trim()}
-                className="rounded-md border border-black px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? 'Generating...' : 'Generate Directions'}
-              </button>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <label htmlFor="direction-count" className="text-xs text-black/70">
-                Direction count
-              </label>
-              <select
-                id="direction-count"
-                value={directionCount}
-                onChange={(event) =>
-                  setDirectionCount(clampDirectionCount(Number(event.currentTarget.value)))
-                }
-                className="rounded-md border border-black/20 px-2 py-1 text-xs outline-none focus:border-black"
-              >
-                {DIRECTION_COUNT_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {loading ? (
-              <p className="mt-2 text-xs text-black/60">Streaming {progressPct}%</p>
-            ) : null}
-            {errorMessage ? <p className="mt-2 text-xs text-red-600">{errorMessage}</p> : null}
-          </div>
-        </motion.form>
 
         {bubbleLayout.map(({ direction, x, y }) => {
           const selected = selectedDirectionId === direction.id

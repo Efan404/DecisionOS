@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import logging
 from typing import TypeVar
 
 from app.core import ai_gateway
@@ -13,6 +14,7 @@ from app.schemas.prd import PRDInput, PRDOutput
 from app.schemas.scope import ScopeInput, ScopeOutput
 
 SchemaT = TypeVar("SchemaT")
+logger = logging.getLogger(__name__)
 
 
 def generate_json(
@@ -21,11 +23,11 @@ def generate_json(
     model_factory: Callable[[], SchemaT] | None = None,
 ) -> SchemaT:
     settings = get_settings()
-    if settings.llm_mode == "modelscope" and model_factory is not None:
+    if settings.llm_mode != "mock" and model_factory is not None:
         try:
             return model_factory()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("AI provider call failed, fallback to mock output: %s", exc)
     return mock_factory()
 
 

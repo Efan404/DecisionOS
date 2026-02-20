@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
-LLMMode = Literal["mock", "modelscope"]
+LLMMode = Literal["mock", "modelscope", "auto"]
 
 
 @dataclass(frozen=True)
@@ -19,8 +19,13 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    raw_mode = os.getenv("LLM_MODE", "mock").strip().lower()
-    llm_mode: LLMMode = "modelscope" if raw_mode == "modelscope" else "mock"
+    raw_mode = os.getenv("LLM_MODE", "auto").strip().lower()
+    if raw_mode == "modelscope":
+        llm_mode: LLMMode = "modelscope"
+    elif raw_mode == "mock":
+        llm_mode = "mock"
+    else:
+        llm_mode = "auto"
 
     return Settings(
         app_name="DecisionOS API",

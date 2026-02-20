@@ -23,9 +23,17 @@ def generate_structured(
     schema_model: type[SchemaT],
 ) -> SchemaT:
     settings = _settings_repo.get_settings().config
-    provider_map = {provider.id: provider for provider in settings.providers if provider.enabled}
+    enabled_providers = [provider for provider in settings.providers if provider.enabled]
+    provider_map = {provider.id: provider for provider in enabled_providers}
     ordered_provider_ids = getattr(settings.routing, task)
-    providers = [provider_map[provider_id] for provider_id in ordered_provider_ids if provider_id in provider_map]
+    if ordered_provider_ids:
+        providers = [
+            provider_map[provider_id]
+            for provider_id in ordered_provider_ids
+            if provider_id in provider_map
+        ]
+    else:
+        providers = enabled_providers
 
     if not providers:
         raise RuntimeError(f"No enabled providers configured for task: {task}")

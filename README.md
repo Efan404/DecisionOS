@@ -68,9 +68,13 @@ UV_CACHE_DIR=../.uv-cache uv run --python .venv/bin/python uvicorn app.main:app 
 Optional env vars:
 
 ```bash
-export LLM_MODE=modelscope
+export LLM_MODE=auto  # default; set mock to force deterministic mock-only mode
 export DECISIONOS_SECRET_KEY="replace-with-strong-secret"
 ```
+
+AI routing behavior:
+
+- If a task routing list is empty, backend will try all enabled providers in order as fallback.
 
 Type checking:
 
