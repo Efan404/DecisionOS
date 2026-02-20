@@ -15,7 +15,7 @@ export default async function IdeaCanvasScopedPage({ params }: IdeaCanvasScopedP
   return (
     <IdeaScopedHydration ideaId={ideaId}>
       <main className="h-[calc(100vh-4rem)]">
-        <IdeaDAGCanvas ideaId={idea.id} ideaSeed={idea.idea_seed ?? ''} />
+        <IdeaDAGCanvas ideaId={idea.id} ideaSeed={idea.idea_seed ?? idea.title} />
       </main>
     </IdeaScopedHydration>
   )

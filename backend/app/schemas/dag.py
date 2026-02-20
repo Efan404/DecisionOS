@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class IdeaNodeOut(BaseModel):
@@ -16,7 +16,7 @@ class IdeaNodeOut(BaseModel):
 
 
 class CreateRootNodeRequest(BaseModel):
-    content: str
+    content: str = Field(min_length=1)
 
 
 class UserExpandRequest(BaseModel):
