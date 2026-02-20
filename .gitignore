@@ -51,3 +51,6 @@ next-env.d.ts
 # local agent workspace
 .agents/
 .cluade/
+.claude/
+.playwright-mcp/
+/frontend/node_modules/
