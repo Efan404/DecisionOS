@@ -446,6 +446,42 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertIsNone(final_detail["context"]["selected_direction_id"])
         self.assertIsNone(final_detail["context"]["path_id"])
 
+    def test_patch_context_persists_selected_plan_id(self) -> None:
+        idea_id, initial_version = self._create_idea("Persist Selected Plan")
+        opportunity = self._generate_opportunity(idea_id, initial_version)
+        feasibility = self._generate_feasibility(
+            idea_id,
+            version=opportunity["idea_version"],
+            confirmed_path_id="dag-path-selected-plan",
+            confirmed_node_id="dag-node-selected-plan",
+            confirmed_node_content="Selected plan node content",
+            confirmed_path_summary="Selected plan path summary",
+        )
+        selected_plan_id = feasibility["data"]["plans"][0]["id"]
+
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+
+        context_payload = dict(detail["context"])
+        context_payload["selected_plan_id"] = selected_plan_id
+
+        patch_status, patched = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": detail["version"], "context": context_payload},
+        )
+        self.assertEqual(patch_status, 200)
+        assert patched is not None
+        self.assertEqual(patched["context"]["selected_plan_id"], selected_plan_id)
+        self.assertEqual(patched["stage"], "scope_freeze")
+        self.assertEqual(patched["version"], detail["version"] + 1)
+
+        persisted_status, persisted = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(persisted_status, 200)
+        assert persisted is not None
+        self.assertEqual(persisted["context"]["selected_plan_id"], selected_plan_id)
+        self.assertEqual(persisted["stage"], "scope_freeze")
 
     def test_delete_idea_returns_204(self) -> None:
         r = self.client.request_raw("DELETE", f"/ideas/{self.idea_id}")

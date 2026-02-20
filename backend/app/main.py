@@ -10,6 +10,7 @@ from app.routes.ai_settings import router as ai_settings_router
 from app.routes.health import router as health_router
 from app.routes.idea_agents import router as idea_agents_router
 from app.routes.idea_dag import router as idea_dag_router
+from app.routes.idea_scope import router as idea_scope_router
 from app.routes.ideas import router as ideas_router
 from app.routes.workspaces import router as workspaces_router
 
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(ideas_router)
     app.include_router(idea_agents_router)
     app.include_router(idea_dag_router)
+    app.include_router(idea_scope_router)
     app.include_router(agents_router)
     return app
 

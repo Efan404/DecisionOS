@@ -28,6 +28,8 @@ class DecisionContext(BaseModel):
     selected_plan_id: str | None = Field(default=None, min_length=1)
     scope: ScopeOutput | None = None
     scope_frozen: bool = False
+    current_scope_baseline_id: str | None = Field(default=None, min_length=1)
+    current_scope_baseline_version: int | None = Field(default=None, ge=1)
     prd: PRDOutput | None = None
     confirmed_dag_path_id: str | None = None
     confirmed_dag_node_id: str | None = Field(default=None, min_length=1)

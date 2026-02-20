@@ -69,4 +69,33 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         created_at  TEXT NOT NULL
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS scope_baselines (
+        id TEXT PRIMARY KEY,
+        idea_id TEXT NOT NULL REFERENCES idea(id),
+        version INTEGER NOT NULL CHECK (version >= 1),
+        status TEXT NOT NULL CHECK (status IN ('draft', 'frozen', 'superseded')),
+        source_baseline_id TEXT,
+        created_at TEXT NOT NULL,
+        frozen_at TEXT
+    );
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_scope_baselines_idea_version_unique
+    ON scope_baselines(idea_id, version);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS scope_baseline_items (
+        id TEXT PRIMARY KEY,
+        baseline_id TEXT NOT NULL REFERENCES scope_baselines(id) ON DELETE CASCADE,
+        lane TEXT NOT NULL CHECK (lane IN ('in', 'out')),
+        content TEXT NOT NULL,
+        display_order INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_scope_baseline_items_order
+    ON scope_baseline_items(baseline_id, lane, display_order);
+    """,
 )
