@@ -121,7 +121,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 import os
 import pytest
-from app.db.bootstrap import initialize_database, DEFAULT_WORKSPACE_ID
+from app.db.bootstrap import initialize_database
 from app.db.repo_ideas import IdeaRepository
 from app.db import repo_dag as _repo_dag
 
