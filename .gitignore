@@ -54,3 +54,5 @@ next-env.d.ts
 .claude/
 .playwright-mcp/
 /frontend/node_modules/
+/decisionos.db
+/decisions.db
