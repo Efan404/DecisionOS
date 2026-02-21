@@ -29,7 +29,7 @@ graph LR
 ## Features
 
 - **Idea Canvas**: Visual DAG-based ideation with AI-powered node expansion
-- **Feasibility Analysis**: Compare multiple implementation plans with AI assistance
+- **Feasibility Analysis**: Compare three implementation plans generated concurrently via SSE streaming
 - **Scope Management**: Define IN/OUT scope with versioned baselines
 - **PRD Generation**: Generate structured product requirements with full context
 - **Multi-Idea Support**: Manage multiple ideas within a single workspace
@@ -97,6 +97,8 @@ export DECISIONOS_SECRET_KEY=your-secret-key
 ```
 
 > ⚠️ **Security**: You MUST set admin credentials via environment variables. The application will fail to start without them.
+
+> **Local dev CORS**: The frontend proxies all `/api-proxy/*` requests to `http://127.0.0.1:8000` via Next.js rewrites, so no CORS configuration is needed locally. `NEXT_PUBLIC_API_BASE_URL` is only required for production/Docker deployments.
 
 ### 3. Start Backend
 
@@ -179,7 +181,7 @@ Two seed users are created on first startup:
 
 1. **Idea Canvas**: Explore ideas using a visual DAG. Start with a seed, expand nodes using AI patterns (narrow audience, expand features, scenario shift, etc.), and confirm a path.
 
-2. **Feasibility**: Evaluate multiple implementation approaches. AI generates plans with effort estimates, trade-offs, and recommendations. Select one plan to proceed.
+2. **Feasibility**: Evaluate three implementation approaches generated concurrently (bootstrapped, VC-funded, platform/ecosystem). Plans stream to the UI as they arrive via SSE, with animated skeleton placeholders while generation is in flight. Select one plan to proceed.
 
 3. **Scope Freeze**: Define clear IN/OUT scope. Create versioned baselines. Once frozen, scope becomes immutable for PRD generation.
 
