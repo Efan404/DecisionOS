@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -76,6 +76,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isLoginRoute = pathname === '/login'
+  const [mounted, setMounted] = useState(false)
   const authSession = useSyncExternalStore(
     subscribeAuthSession,
     getAuthSessionSnapshot,
@@ -83,6 +84,11 @@ export function AppShell({ children }: AppShellProps) {
   )
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     if (!authSession && !isLoginRoute) {
       router.replace('/login')
       return
@@ -90,7 +96,7 @@ export function AppShell({ children }: AppShellProps) {
     if (authSession && isLoginRoute) {
       router.replace('/ideas')
     }
-  }, [authSession, isLoginRoute, pathname, router])
+  }, [mounted, authSession, isLoginRoute, pathname, router])
 
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
   const setActiveIdeaId = useIdeasStore((state) => state.setActiveIdeaId)
@@ -181,7 +187,7 @@ export function AppShell({ children }: AppShellProps) {
     return <>{children}</>
   }
 
-  if (!authSession) {
+  if (!mounted || !authSession) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-6 text-sm text-slate-600">
         Verifying session...
