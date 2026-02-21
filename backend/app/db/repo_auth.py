@@ -12,7 +12,7 @@ from app.core.auth_crypto import (
     verify_password,
 )
 from app.core.settings import get_settings
-from app.core.time import utc_now_iso
+from app.core.time import utc_from_datetime_iso, utc_now_iso
 from app.db.engine import db_session
 
 
@@ -54,8 +54,8 @@ class AuthRepository:
                 (
                     token_hash,
                     user.id,
-                    _to_iso(now),
-                    _to_iso(expires_at),
+                    utc_from_datetime_iso(now),
+                    utc_from_datetime_iso(expires_at),
                 ),
             )
             return LoginResult(user=user, access_token=token, expires_in=expires_in)
@@ -157,7 +157,3 @@ def _row_to_user(row: sqlite3.Row) -> UserRecord:
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
-
-
-def _to_iso(dt: datetime) -> str:
-    return dt.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")

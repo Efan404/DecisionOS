@@ -17,6 +17,10 @@ SchemaT = TypeVar("SchemaT", bound=BaseModel)
 _settings_repo = AISettingsRepository()
 logger = logging.getLogger(__name__)
 
+# Keep provider payloads bounded to avoid untrusted large responses consuming memory.
+_POST_JSON_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+_POST_JSON_READ_CHUNK_BYTES = 64 * 1024
+
 
 def _get_active_provider() -> AIProviderConfig:
     """Return the single enabled provider, or raise if none configured."""
@@ -296,5 +300,29 @@ def _post_json(
         method="POST",
     )
     with request.urlopen(req, timeout=timeout_seconds) as response:
-        raw = response.read().decode("utf-8")
+        content_length_header = response.headers.get("Content-Length")
+        if content_length_header is not None:
+            try:
+                content_length = int(content_length_header)
+            except ValueError:
+                content_length = None
+            if content_length is not None and content_length > _POST_JSON_MAX_RESPONSE_BYTES:
+                raise RuntimeError(
+                    "Provider response Content-Length "
+                    f"{content_length} exceeds limit {_POST_JSON_MAX_RESPONSE_BYTES} bytes"
+                )
+
+        buffer = bytearray()
+        while True:
+            chunk = response.read(_POST_JSON_READ_CHUNK_BYTES)
+            if not chunk:
+                break
+            buffer.extend(chunk)
+            if len(buffer) > _POST_JSON_MAX_RESPONSE_BYTES:
+                raise RuntimeError(
+                    "Provider response body exceeds limit "
+                    f"{_POST_JSON_MAX_RESPONSE_BYTES} bytes"
+                )
+
+        raw = buffer.decode("utf-8")
     return json.loads(raw)
