@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -20,6 +21,7 @@ from app.schemas.dag import (
 
 router = APIRouter(prefix="/ideas/{idea_id}", tags=["idea-dag"])
 _repo = IdeaRepository()
+logger = logging.getLogger(__name__)
 
 
 def _require_idea(idea_id: str) -> None:
@@ -177,7 +179,16 @@ async def expand_stream(idea_id: str, node_id: str, pattern_id: str) -> Streamin
                 })
             yield _evt("done", {"idea_id": idea_id, "nodes": created})  # type: ignore[misc]
         except Exception as exc:
-            yield _evt("error", {"code": "EXPAND_FAILED", "message": str(exc)})  # type: ignore[misc]
+            logger.exception(
+                "DAG node expand stream failed idea_id=%s node_id=%s pattern_id=%s",
+                idea_id,
+                node_id,
+                pattern_id,
+                exc_info=exc,
+            )
+            yield _evt(
+                "error", {"code": "EXPAND_FAILED", "message": "Failed to expand node"}
+            )  # type: ignore[misc]
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")  # type: ignore[arg-type]
 

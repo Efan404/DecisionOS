@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from dataclasses import dataclass
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 from tests._test_env import ensure_required_seed_env
 
@@ -231,6 +232,47 @@ class DagApiTestCase(unittest.TestCase):
         status, _ = self.client.request_json("GET", "/ideas/nonexistent/nodes")
         self.assertEqual(status, 404)
 
+    def test_expand_stream_exception_is_sanitized_and_logged(self) -> None:
+        idea_id = self._create_idea()
+        _, root = self.client.request_json(
+            "POST", f"/ideas/{idea_id}/nodes", {"content": "root"}
+        )
+        assert root is not None
+
+        leaked_message = "provider secret leaked"
+        with patch(
+            "app.routes.idea_dag.llm.generate_expand_nodes",
+            side_effect=RuntimeError(leaked_message),
+        ), patch("app.routes.idea_dag.logger.exception") as mock_log_exception:
+            response = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/nodes/{root['id']}/expand/stream?pattern_id=narrow_users",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        raw = response.body.decode("utf-8")
+        self.assertNotIn(leaked_message, raw)
+        self.assertIn("event: error", raw)
+
+        error_payload: dict[str, object] | None = None
+        for chunk in raw.split("\n\n"):
+            if "event: error" not in chunk:
+                continue
+            data_line = next(
+                (line for line in chunk.splitlines() if line.startswith("data: ")),
+                None,
+            )
+            if data_line is None:
+                continue
+            error_payload = json.loads(data_line[len("data: ") :])
+            break
+
+        self.assertIsNotNone(error_payload)
+        assert error_payload is not None
+        self.assertEqual(error_payload["code"], "EXPAND_FAILED")
+        self.assertEqual(error_payload["message"], "Failed to expand node")
+        mock_log_exception.assert_called_once()
+
 
 @dataclass(frozen=True)
 class _RawResponse:
@@ -274,6 +316,10 @@ async def _run_asgi_request(
     path: str,
     body: bytes,
 ) -> _RawResponse:
+    split = urlsplit(path)
+    scope_path = split.path or path
+    query_string = split.query.encode("utf-8")
+
     request_sent = False
     response_started = False
     response_status = 500
@@ -308,9 +354,9 @@ async def _run_asgi_request(
         "http_version": "1.1",
         "method": method.upper(),
         "scheme": "http",
-        "path": path,
-        "raw_path": path.encode("ascii"),
-        "query_string": b"",
+        "path": scope_path,
+        "raw_path": scope_path.encode("ascii"),
+        "query_string": query_string,
         "root_path": "",
         "headers": [(b"content-type", b"application/json")],
         "client": ("testclient", 123),
