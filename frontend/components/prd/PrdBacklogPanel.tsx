@@ -79,7 +79,7 @@ export function PrdBacklogPanel({
                 : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
             }`}
           >
-            {filterByRequirement && selectedRequirementId ? 'Req filter ON' : 'Req filter OFF'}
+            {filterByRequirement && selectedRequirementId ? 'Linked to req' : 'All items'}
           </button>
         </div>
       </header>
