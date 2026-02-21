@@ -168,6 +168,12 @@ export function AppShell({ children }: AppShellProps) {
       return '/ideas'
     }
 
+    if (step === 'prd' && routeIdeaId && hydratedContext?.current_scope_baseline_id) {
+      return buildIdeaStepHref(routeIdeaId, step, {
+        baseline_id: hydratedContext.current_scope_baseline_id,
+      })
+    }
+
     return routeIdeaId ? buildIdeaStepHref(routeIdeaId, step) : '/ideas'
   }
 
