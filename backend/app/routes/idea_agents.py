@@ -309,6 +309,16 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
     async def event_generator() -> AsyncIterator[dict[str, str]]:
         yield _sse_event("progress", {"step": "received_request", "pct": 5})
 
+        # Check version before launching LLM calls so a stale-version request
+        # gets an SSE error event rather than crashing inside the thread pool.
+        current = _repo.get_idea(idea_id)
+        if current is None:
+            yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+            return
+        if current.version != payload.version:
+            yield _sse_event("error", {"code": "IDEA_VERSION_CONFLICT", "message": f"Version conflict: expected {current.version}, got {payload.version}"})
+            return
+
         loop = asyncio.get_running_loop()
 
         # Launch all 3 plan requests concurrently in a thread pool (LLM calls are blocking I/O)

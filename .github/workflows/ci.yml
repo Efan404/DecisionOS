@@ -36,7 +36,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
           DECISIONOS_SEED_ADMIN_USERNAME: admin
-          DECISIONOS_SEED_ADMIN_PASSWORD: ci-test-password
+          DECISIONOS_SEED_ADMIN_PASSWORD: AIHackathon20250225!
 
   # ── 2. Frontend type-check + build ─────────────────────────────────────────
   test-frontend:
