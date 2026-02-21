@@ -8,6 +8,10 @@ const hasScopeBaselinePointer = (context: DecisionContext): boolean => {
   return Boolean(context.current_scope_baseline_id)
 }
 
+const hasFrozenScopeBaseline = (context: DecisionContext): boolean => {
+  return Boolean(hasScopeBaselinePointer(context) && context.scope_frozen)
+}
+
 export const canRunFeasibility = (context: DecisionContext): boolean => {
   return Boolean(context.confirmed_dag_path_id)
 }
@@ -17,5 +21,5 @@ export const canOpenScope = (context: DecisionContext): boolean => {
 }
 
 export const canOpenPrd = (context: DecisionContext): boolean => {
-  return Boolean(hasSelectedPlan(context) && (hasScopeBaselinePointer(context) || context.scope))
+  return Boolean(hasSelectedPlan(context) && hasFrozenScopeBaseline(context))
 }

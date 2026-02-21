@@ -12,6 +12,7 @@ import {
   freezeScope,
   getScopeDraft,
   patchIdeaContext,
+  postIdeaScopedAgent,
   patchScopeDraft,
 } from '../../../lib/api'
 
@@ -25,6 +26,7 @@ vi.mock('../../../lib/api', async (importOriginal) => {
     freezeScope: vi.fn(),
     createScopeNewVersion: vi.fn(),
     patchIdeaContext: vi.fn(),
+    postIdeaScopedAgent: vi.fn(),
   }
 })
 
@@ -89,6 +91,10 @@ const initStores = () => {
       created_at: '2026-02-20T00:00:00.000Z',
       idea_seed: 'seed',
       selected_plan_id: 'plan-a',
+      confirmed_dag_path_id: 'path-1',
+      confirmed_dag_node_id: 'node-1',
+      confirmed_dag_node_content: 'Confirmed node',
+      confirmed_dag_path_summary: 'Confirmed summary',
       feasibility: {
         plans: [
           {
@@ -115,21 +121,30 @@ const initStores = () => {
   nextNavigationMock.setPathname('/ideas/idea-1/scope-freeze')
 }
 
+const buildIdeaDetail = (version: number) => ({
+  id: 'idea-1',
+  workspace_id: 'default',
+  title: 'Idea 1',
+  stage: 'scope_freeze' as const,
+  status: 'draft' as const,
+  version,
+  created_at: '2026-02-20T00:00:00.000Z',
+  updated_at: '2026-02-20T00:00:00.000Z',
+  context: useDecisionStore.getState().context,
+})
+
 describe('ScopeFreezePage baseline flow', () => {
+  let loadIdeaDetailMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
+    vi.clearAllMocks()
     initStores()
     vi.mocked(getScopeDraft).mockResolvedValue(draftData)
-    vi.mocked(patchIdeaContext).mockResolvedValue({
-      id: 'idea-1',
-      workspace_id: 'default',
-      title: 'Idea 1',
-      stage: 'scope_freeze',
-      status: 'draft',
-      version: 9,
-      created_at: '2026-02-20T00:00:00.000Z',
-      updated_at: '2026-02-20T00:00:00.000Z',
-      context: useDecisionStore.getState().context,
+    loadIdeaDetailMock = vi.fn().mockResolvedValue(buildIdeaDetail(9))
+    useIdeasStore.setState({
+      loadIdeaDetail: loadIdeaDetailMock,
     })
+    vi.mocked(patchIdeaContext).mockResolvedValue(buildIdeaDetail(9))
   })
 
   test('loads scope draft and renders both lanes', async () => {
@@ -182,7 +197,7 @@ describe('ScopeFreezePage baseline flow', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Create New Version' }))
     await waitFor(() => {
-      expect(createScopeNewVersion).toHaveBeenCalledWith('idea-1', { version: 8 })
+      expect(createScopeNewVersion).toHaveBeenCalledWith('idea-1', { version: 9 })
     })
   })
 
@@ -250,6 +265,163 @@ describe('ScopeFreezePage baseline flow', () => {
     render(<ScopeFreezePage />)
     await waitFor(() => {
       expect(bootstrapScopeDraft).toHaveBeenCalledWith('idea-1', { version: 7 })
+    })
+  })
+
+  test('hydrates empty draft from persisted context.scope', async () => {
+    useDecisionStore.setState({
+      context: {
+        ...useDecisionStore.getState().context,
+        scope: {
+          in_scope: [{ id: 'in-1', title: 'In One', desc: 'desc', priority: 'P1' }],
+          out_scope: [{ id: 'out-1', title: 'Out One', desc: 'desc', reason: 'later' }],
+        },
+      },
+    })
+    vi.mocked(getScopeDraft).mockResolvedValueOnce({
+      ...draftData,
+      items: [],
+    })
+    vi.mocked(patchScopeDraft).mockResolvedValueOnce({
+      idea_id: 'idea-1',
+      idea_version: 8,
+      data: {
+        ...draftData,
+        items: [
+          {
+            id: 'item-1',
+            baseline_id: 'baseline-1',
+            lane: 'in',
+            content: 'In One',
+            display_order: 0,
+            created_at: '2026-02-20T00:00:00.000Z',
+          },
+          {
+            id: 'item-2',
+            baseline_id: 'baseline-1',
+            lane: 'out',
+            content: 'Out One',
+            display_order: 0,
+            created_at: '2026-02-20T00:00:00.000Z',
+          },
+        ],
+      },
+    })
+
+    render(<ScopeFreezePage />)
+
+    await waitFor(() => {
+      expect(patchScopeDraft).toHaveBeenCalledWith('idea-1', {
+        version: 7,
+        items: [
+          { lane: 'in', content: 'In One', display_order: 0 },
+          { lane: 'out', content: 'Out One', display_order: 0 },
+        ],
+      })
+    })
+    expect(postIdeaScopedAgent).not.toHaveBeenCalled()
+  })
+
+  test('generates scope then patches empty draft using latest idea version', async () => {
+    vi.mocked(getScopeDraft).mockResolvedValueOnce({
+      ...draftData,
+      items: [],
+    })
+    vi.mocked(postIdeaScopedAgent).mockResolvedValueOnce({
+      idea_id: 'idea-1',
+      idea_version: 8,
+      data: {
+        in_scope: [{ id: 'in-1', title: 'Generated In', desc: 'desc', priority: 'P1' }],
+        out_scope: [{ id: 'out-1', title: 'Generated Out', desc: 'desc', reason: 'later' }],
+      },
+    })
+    vi.mocked(patchScopeDraft).mockResolvedValueOnce({
+      idea_id: 'idea-1',
+      idea_version: 9,
+      data: {
+        ...draftData,
+        items: [
+          {
+            id: 'item-in-generated',
+            baseline_id: 'baseline-1',
+            lane: 'in',
+            content: 'Generated In',
+            display_order: 0,
+            created_at: '2026-02-20T00:00:00.000Z',
+          },
+          {
+            id: 'item-out-generated',
+            baseline_id: 'baseline-1',
+            lane: 'out',
+            content: 'Generated Out',
+            display_order: 0,
+            created_at: '2026-02-20T00:00:00.000Z',
+          },
+        ],
+      },
+    })
+
+    render(<ScopeFreezePage />)
+
+    await waitFor(() => {
+      expect(postIdeaScopedAgent).toHaveBeenCalledWith('idea-1', 'scope', {
+        version: 7,
+        idea_seed: 'seed',
+        confirmed_path_id: 'path-1',
+        confirmed_node_id: 'node-1',
+        confirmed_node_content: 'Confirmed node',
+        confirmed_path_summary: 'Confirmed summary',
+        selected_plan_id: 'plan-a',
+        feasibility: expect.any(Object),
+      })
+    })
+    await waitFor(() => {
+      expect(patchScopeDraft).toHaveBeenCalledWith('idea-1', {
+        version: 8,
+        items: [
+          { lane: 'in', content: 'Generated In', display_order: 0 },
+          { lane: 'out', content: 'Generated Out', display_order: 0 },
+        ],
+      })
+    })
+  })
+
+  test('continue to PRD stays disabled for draft baseline and enables only when frozen', async () => {
+    vi.mocked(freezeScope).mockResolvedValueOnce({
+      idea_id: 'idea-1',
+      idea_version: 8,
+      data: {
+        ...draftData,
+        readonly: true,
+        baseline: {
+          ...draftData.baseline,
+          status: 'frozen',
+          frozen_at: '2026-02-20T00:20:00.000Z',
+        },
+      },
+    })
+
+    render(<ScopeFreezePage />)
+    await screen.findByText('Core workflow')
+
+    const continueButton = screen.getByRole('button', { name: 'Continue to PRD' })
+    expect(continueButton).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Freeze Baseline' }))
+    await waitFor(() => {
+      expect(freezeScope).toHaveBeenCalledWith('idea-1', { version: 7 })
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Continue to PRD' })).toBeEnabled()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to PRD' }))
+    await waitFor(() => {
+      expect(loadIdeaDetailMock).toHaveBeenCalled()
+      expect(nextNavigationMock.router.push).toHaveBeenCalledWith(
+        '/ideas/idea-1/prd?baseline_id=baseline-1'
+      )
     })
   })
 })

@@ -56,6 +56,9 @@ const initStores = () => {
       created_at: '2026-02-20T00:00:00.000Z',
       idea_seed: 'seed',
       selected_plan_id: 'plan-a',
+      scope_frozen: true,
+      current_scope_baseline_id: 'baseline-1',
+      current_scope_baseline_version: 1,
       feasibility: {
         plans: [
           {

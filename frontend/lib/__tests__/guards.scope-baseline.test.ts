@@ -44,26 +44,39 @@ describe('scope baseline guards', () => {
     expect(canOpenScope(withSelectedPlan())).toBe(true)
   })
 
-  test('canOpenPrd with frozen baseline pointer even without draft scope payload', () => {
+  test('canOpenPrd requires frozen baseline pointer', () => {
     expect(
       canOpenPrd({
         ...withSelectedPlan(),
         current_scope_baseline_id: 'baseline-1',
         current_scope_baseline_version: 1,
+        scope_frozen: true,
         scope: undefined,
       })
     ).toBe(true)
   })
 
-  test('canOpenPrd falls back to draft scope when baseline pointer is absent', () => {
+  test('canOpenPrd is false when baseline exists but not frozen', () => {
     expect(
       canOpenPrd({
         ...withSelectedPlan(),
+        current_scope_baseline_id: 'baseline-1',
+        current_scope_baseline_version: 1,
+        scope_frozen: false,
+      })
+    ).toBe(false)
+  })
+
+  test('canOpenPrd does not fall back to draft scope payload', () => {
+    expect(
+      canOpenPrd({
+        ...withSelectedPlan(),
+        scope_frozen: false,
         scope: {
           in_scope: [{ id: 'in-1', title: 'MVP', desc: 'desc', priority: 'P1' }],
           out_scope: [{ id: 'out-1', title: 'Billing', desc: 'desc', reason: 'later' }],
         },
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 })

@@ -13,14 +13,18 @@ import {
   freezeScope,
   getScopeDraft,
   patchScopeDraft,
+  postIdeaScopedAgent,
 } from '../../lib/api'
 import { canOpenScope } from '../../lib/guards'
 import { buildIdeaStepHref, resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
 import {
+  type DecisionContext,
+  type ScopeInput,
   type ScopeBaselineItem,
   type ScopeDraftItemInput,
   type ScopeDraftResponse,
+  type ScopeOutput,
 } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
 
@@ -58,6 +62,51 @@ const toDraftUpdateItems = (items: ScopeBaselineItem[]): ScopeDraftItemInput[] =
   }))
 }
 
+const scopeHasContent = (scope: ScopeOutput | undefined): scope is ScopeOutput => {
+  return Boolean(scope && (scope.in_scope.length > 0 || scope.out_scope.length > 0))
+}
+
+const toDraftItemsFromScopeOutput = (scope: ScopeOutput): ScopeDraftItemInput[] => {
+  const inScopeItems = scope.in_scope.map((item, index) => ({
+    lane: 'in' as const,
+    content: item.title,
+    display_order: index,
+  }))
+  const outScopeItems = scope.out_scope.map((item, index) => ({
+    lane: 'out' as const,
+    content: item.title,
+    display_order: index,
+  }))
+  return [...inScopeItems, ...outScopeItems]
+}
+
+const toScopeGenerationPayload = (
+  context: DecisionContext,
+  version: number
+): (ScopeInput & { version: number }) | null => {
+  if (
+    !context.idea_seed ||
+    !context.confirmed_dag_path_id ||
+    !context.confirmed_dag_node_id ||
+    !context.confirmed_dag_node_content ||
+    !context.selected_plan_id ||
+    !context.feasibility
+  ) {
+    return null
+  }
+
+  return {
+    version,
+    idea_seed: context.idea_seed,
+    confirmed_path_id: context.confirmed_dag_path_id,
+    confirmed_node_id: context.confirmed_dag_node_id,
+    confirmed_node_content: context.confirmed_dag_node_content,
+    confirmed_path_summary: context.confirmed_dag_path_summary,
+    selected_plan_id: context.selected_plan_id,
+    feasibility: context.feasibility,
+  }
+}
+
 export function ScopeFreezePage() {
   const router = useRouter()
   const pathname = usePathname()
@@ -80,7 +129,91 @@ export function ScopeFreezePage() {
     [activeIdeaId, ideas, routeIdeaId]
   )
   const readonly = Boolean(draft?.readonly)
-  const canEnterPrd = Boolean(draft?.baseline.id)
+  const canEnterPrd = Boolean(draft?.baseline.id && draft?.baseline.status === 'frozen')
+
+  const syncContextFromServer = async (
+    fallbackVersion: number
+  ): Promise<{ version: number; synced: boolean }> => {
+    if (!routeIdeaId) {
+      return { version: fallbackVersion, synced: false }
+    }
+    const detail = await loadIdeaDetail(routeIdeaId)
+    if (!detail) {
+      return { version: fallbackVersion, synced: false }
+    }
+    replaceContext(detail.context)
+    setIdeaVersion(routeIdeaId, detail.version)
+    setLocalIdeaVersion(detail.version)
+    return { version: detail.version, synced: true }
+  }
+
+  const hydrateDraftIfEmpty = async (
+    ideaId: string,
+    currentDraft: ScopeDraftResponse,
+    startVersion: number
+  ): Promise<{ draft: ScopeDraftResponse; version: number; versionChanged: boolean }> => {
+    if (currentDraft.readonly || currentDraft.items.length > 0) {
+      return { draft: currentDraft, version: startVersion, versionChanged: false }
+    }
+
+    let workingVersion = startVersion
+    let sourceScope = scopeHasContent(context.scope) ? context.scope : undefined
+    let versionChanged = false
+
+    if (!sourceScope) {
+      const payload = toScopeGenerationPayload(context, workingVersion)
+      if (!payload) {
+        return { draft: currentDraft, version: workingVersion, versionChanged }
+      }
+
+      try {
+        const envelope = await postIdeaScopedAgent<ScopeInput & { version: number }, ScopeOutput>(
+          ideaId,
+          'scope',
+          payload
+        )
+        sourceScope = envelope.data
+        workingVersion = envelope.idea_version
+        versionChanged = true
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          const synced = await syncContextFromServer(workingVersion)
+          return {
+            draft: currentDraft,
+            version: synced.version,
+            versionChanged: synced.version !== startVersion,
+          }
+        }
+        throw error
+      }
+    }
+
+    if (!sourceScope || !scopeHasContent(sourceScope)) {
+      return { draft: currentDraft, version: workingVersion, versionChanged }
+    }
+
+    try {
+      const envelope = await patchScopeDraft(ideaId, {
+        version: workingVersion,
+        items: toDraftItemsFromScopeOutput(sourceScope),
+      })
+      return {
+        draft: envelope.data,
+        version: envelope.idea_version,
+        versionChanged: true,
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        const synced = await syncContextFromServer(workingVersion)
+        return {
+          draft: currentDraft,
+          version: synced.version,
+          versionChanged: synced.version !== startVersion,
+        }
+      }
+      throw error
+    }
+  }
 
   useEffect(() => {
     if (!activeIdea) {
@@ -108,26 +241,32 @@ export function ScopeFreezePage() {
 
     let cancelled = false
     const run = async () => {
+      let loadedDraft: ScopeDraftResponse | null = null
+      let workingVersion = activeIdea.version
+      let versionChanged = false
+
       try {
-        setLoading(true)
-        setErrorMessage(null)
-        const loadedDraft = await getScopeDraft(routeIdeaId)
-        if (!cancelled) {
-          setDraft(loadedDraft)
-          setLoadedIdeaId(routeIdeaId)
-        }
-      } catch (error) {
-        if (isNotFoundError(error)) {
+        try {
+          setLoading(true)
+          setErrorMessage(null)
+          loadedDraft = await getScopeDraft(routeIdeaId)
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            if (!cancelled) {
+              const message = error instanceof Error ? error.message : 'Failed to load scope draft.'
+              setErrorMessage(message)
+              toast.error(message)
+            }
+            return
+          }
+
           try {
             const envelope = await bootstrapScopeDraft(routeIdeaId, {
               version: activeIdea.version,
             })
-            if (!cancelled) {
-              setIdeaVersion(routeIdeaId, envelope.idea_version)
-              setLocalIdeaVersion(envelope.idea_version)
-              setDraft(envelope.data)
-              setLoadedIdeaId(routeIdeaId)
-            }
+            loadedDraft = envelope.data
+            workingVersion = envelope.idea_version
+            versionChanged = true
           } catch (bootstrapError) {
             if (!cancelled) {
               const message =
@@ -137,11 +276,37 @@ export function ScopeFreezePage() {
               setErrorMessage(message)
               toast.error(message)
             }
+            return
           }
-        } else if (!cancelled) {
-          const message = error instanceof Error ? error.message : 'Failed to load scope draft.'
-          setErrorMessage(message)
-          toast.error(message)
+        }
+
+        if (!loadedDraft) {
+          return
+        }
+
+        try {
+          const hydrated = await hydrateDraftIfEmpty(routeIdeaId, loadedDraft, workingVersion)
+          loadedDraft = hydrated.draft
+          workingVersion = hydrated.version
+          versionChanged = versionChanged || hydrated.versionChanged
+        } catch (hydrateError) {
+          if (!cancelled) {
+            const message =
+              hydrateError instanceof Error
+                ? hydrateError.message
+                : 'Failed to initialize scope draft.'
+            setErrorMessage(message)
+            toast.error(message)
+          }
+        }
+
+        if (!cancelled) {
+          if (versionChanged) {
+            setIdeaVersion(routeIdeaId, workingVersion)
+          }
+          setLocalIdeaVersion(workingVersion)
+          setDraft(loadedDraft)
+          setLoadedIdeaId(routeIdeaId)
         }
       } finally {
         if (!cancelled) {
@@ -155,20 +320,6 @@ export function ScopeFreezePage() {
       cancelled = true
     }
   }, [activeIdea, canOpen, loadedIdeaId, routeIdeaId, setIdeaVersion])
-
-  const syncContextFromServer = async (fallbackVersion: number): Promise<number> => {
-    if (!routeIdeaId) {
-      return fallbackVersion
-    }
-    const detail = await loadIdeaDetail(routeIdeaId)
-    if (!detail) {
-      return fallbackVersion
-    }
-    replaceContext(detail.context)
-    setIdeaVersion(routeIdeaId, detail.version)
-    setLocalIdeaVersion(detail.version)
-    return detail.version
-  }
 
   const applyDraftItems = async (nextItems: ScopeBaselineItem[]) => {
     if (!routeIdeaId || !draft || draft.readonly) {
@@ -194,11 +345,7 @@ export function ScopeFreezePage() {
       setErrorMessage(message)
       toast.error(message)
       if (error instanceof ApiError && error.status === 409) {
-        const detail = await loadIdeaDetail(routeIdeaId)
-        if (detail) {
-          replaceContext(detail.context)
-          setLocalIdeaVersion(detail.version)
-        }
+        await syncContextFromServer(currentVersion)
       }
     } finally {
       setSaving(false)
@@ -317,6 +464,31 @@ export function ScopeFreezePage() {
     }
   }
 
+  const handleContinueToPrd = async () => {
+    if (!routeIdeaId || !draft?.baseline.id || draft.baseline.status !== 'frozen') {
+      return
+    }
+    const currentVersion = ideaVersion ?? activeIdea?.version
+    if (!currentVersion) {
+      setErrorMessage('Missing idea version for PRD navigation.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const synced = await syncContextFromServer(currentVersion)
+      if (!synced.synced) {
+        const message = 'Failed to sync latest scope context before opening PRD.'
+        setErrorMessage(message)
+        toast.error(message)
+        return
+      }
+      router.push(buildIdeaStepHref(routeIdeaId, 'prd', { baseline_id: draft.baseline.id }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!canOpen) {
     return (
       <main className="p-6">
@@ -327,11 +499,6 @@ export function ScopeFreezePage() {
       </main>
     )
   }
-
-  const continueHref =
-    routeIdeaId && draft?.baseline.id
-      ? buildIdeaStepHref(routeIdeaId, 'prd', { baseline_id: draft.baseline.id })
-      : '/ideas'
 
   return (
     <main>
@@ -367,10 +534,8 @@ export function ScopeFreezePage() {
           )}
           <button
             type="button"
-            onClick={() => {
-              router.push(continueHref)
-            }}
-            disabled={!canEnterPrd}
+            onClick={handleContinueToPrd}
+            disabled={!canEnterPrd || saving}
             className="rounded-md border border-cyan-600 bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue to PRD
