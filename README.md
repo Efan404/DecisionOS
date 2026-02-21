@@ -2,6 +2,8 @@
 
 A single-user, single-workspace decision management system for product ideas. DecisionOS guides you through a structured workflow from initial idea to production-ready PRD.
 
+> 🌐 **English** | [中文](README.zh-CN.md)
+
 ## Overview
 
 DecisionOS helps product managers and indie hackers make better decisions by providing a structured framework for:
