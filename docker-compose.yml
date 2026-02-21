@@ -13,8 +13,8 @@ services:
       DECISIONOS_SEED_ADMIN_PASSWORD: ${DECISIONOS_SEED_ADMIN_PASSWORD:?Admin password is required. Set DECISIONOS_SEED_ADMIN_PASSWORD env variable.}
     volumes:
       - decisionos_data:/data
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
       interval: 15s

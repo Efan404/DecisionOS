@@ -1,0 +1,6 @@
+# Local development only — exposes the api port to the host machine.
+# This file is NOT used in production (Coolify / CI).
+services:
+  api:
+    ports:
+      - "8000:8000"
