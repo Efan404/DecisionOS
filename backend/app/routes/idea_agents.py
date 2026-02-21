@@ -221,9 +221,14 @@ def _apply_prd(
     context.confirmed_dag_node_content = payload.confirmed_node_content
     context.confirmed_dag_path_summary = payload.confirmed_path_summary
     context.selected_plan_id = payload.selected_plan_id
-    context.scope = payload.scope
+    if _scope_has_content(payload.scope) or context.scope is None:
+        context.scope = payload.scope
     context.prd = output
     return context
+
+
+def _scope_has_content(scope: ScopeOutput) -> bool:
+    return len(scope.in_scope) > 0 or len(scope.out_scope) > 0
 
 
 def _unwrap_update(result: UpdateIdeaResult) -> int:

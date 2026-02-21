@@ -37,6 +37,104 @@ class ScopeRepoTestCase(unittest.TestCase):
         self.assertEqual(result.baseline.status, "draft")
         self.assertEqual(result.baseline.items, [])
 
+    def test_bootstrap_returns_existing_draft_before_other_sources(self) -> None:
+        bootstrapped = self.scope_repo.bootstrap_draft(self.idea.id, version=self.idea.version)
+        assert bootstrapped.idea_version is not None
+        assert bootstrapped.baseline is not None
+
+        from app.db.repo_scope import ScopeDraftItemInput
+
+        patched = self.scope_repo.patch_draft(
+            self.idea.id,
+            version=bootstrapped.idea_version,
+            items=[ScopeDraftItemInput(lane="in", content="Existing Draft Item")],
+        )
+        self.assertEqual(patched.kind, "ok")
+        assert patched.idea_version is not None
+        assert patched.baseline is not None
+
+        existing = self.scope_repo.bootstrap_draft(
+            self.idea.id,
+            version=patched.idea_version,
+            items=[],
+        )
+        self.assertEqual(existing.kind, "ok")
+        assert existing.idea_version is not None
+        assert existing.baseline is not None
+        self.assertEqual(existing.idea_version, patched.idea_version)
+        self.assertEqual(existing.baseline.id, patched.baseline.id)
+        self.assertEqual(
+            [(item.lane, item.content) for item in existing.baseline.items],
+            [("in", "Existing Draft Item")],
+        )
+
+    def test_bootstrap_without_items_clones_latest_frozen(self) -> None:
+        bootstrapped = self.scope_repo.bootstrap_draft(self.idea.id, version=self.idea.version)
+        assert bootstrapped.idea_version is not None
+
+        from app.db.repo_scope import ScopeDraftItemInput
+
+        patched = self.scope_repo.patch_draft(
+            self.idea.id,
+            version=bootstrapped.idea_version,
+            items=[
+                ScopeDraftItemInput(lane="in", content="Clone in"),
+                ScopeDraftItemInput(lane="out", content="Clone out"),
+            ],
+        )
+        assert patched.idea_version is not None
+
+        frozen = self.scope_repo.freeze_draft(self.idea.id, version=patched.idea_version)
+        self.assertEqual(frozen.kind, "ok")
+        assert frozen.idea_version is not None
+        assert frozen.baseline is not None
+
+        cloned = self.scope_repo.bootstrap_draft(self.idea.id, version=frozen.idea_version)
+        self.assertEqual(cloned.kind, "ok")
+        assert cloned.idea_version is not None
+        assert cloned.baseline is not None
+        self.assertEqual(cloned.idea_version, frozen.idea_version + 1)
+        self.assertEqual(cloned.baseline.status, "draft")
+        self.assertEqual(cloned.baseline.version, frozen.baseline.version + 1)
+        self.assertEqual(cloned.baseline.source_baseline_id, frozen.baseline.id)
+        self.assertEqual(
+            [(item.lane, item.content) for item in cloned.baseline.items],
+            [("in", "Clone in"), ("out", "Clone out")],
+        )
+
+    def test_bootstrap_without_items_migrates_legacy_context_scope(self) -> None:
+        idea = self.idea_repo.get_idea(self.idea.id)
+        assert idea is not None
+        next_context = dict(idea.context)
+        next_context["scope"] = {
+            "in_scope": [
+                {"id": "legacy-in-1", "title": "Legacy In", "desc": "keep", "priority": "P0"}
+            ],
+            "out_scope": [
+                {
+                    "id": "legacy-out-1",
+                    "title": "Legacy Out",
+                    "desc": "drop",
+                    "reason": "not now",
+                }
+            ],
+        }
+        updated = self.idea_repo.update_context(
+            self.idea.id,
+            version=idea.version,
+            context=next_context,
+        )
+        self.assertEqual(updated.kind, "ok")
+        assert updated.idea is not None
+
+        migrated = self.scope_repo.bootstrap_draft(self.idea.id, version=updated.idea.version)
+        self.assertEqual(migrated.kind, "ok")
+        assert migrated.baseline is not None
+        self.assertEqual(
+            [(item.lane, item.content) for item in migrated.baseline.items],
+            [("in", "Legacy In"), ("out", "Legacy Out")],
+        )
+
     def test_patch_draft_replaces_items_and_order(self) -> None:
         bootstrapped = self.scope_repo.bootstrap_draft(self.idea.id, version=self.idea.version)
         assert bootstrapped.idea_version is not None
@@ -75,6 +173,65 @@ class ScopeRepoTestCase(unittest.TestCase):
         assert idea is not None
         self.assertEqual(idea.context["current_scope_baseline_id"], frozen.baseline.id)
         self.assertEqual(idea.context["current_scope_baseline_version"], frozen.baseline.version)
+
+    def test_freeze_preserves_legacy_scope_metadata_when_titles_match(self) -> None:
+        idea = self.idea_repo.get_idea(self.idea.id)
+        assert idea is not None
+        next_context = dict(idea.context)
+        next_context["scope"] = {
+            "in_scope": [
+                {
+                    "id": "legacy-in-keep",
+                    "title": "Keep In Metadata",
+                    "desc": "in-desc",
+                    "priority": "P2",
+                }
+            ],
+            "out_scope": [
+                {
+                    "id": "legacy-out-keep",
+                    "title": "Keep Out Metadata",
+                    "desc": "out-desc",
+                    "reason": "out-reason",
+                }
+            ],
+        }
+        updated = self.idea_repo.update_context(
+            self.idea.id,
+            version=idea.version,
+            context=next_context,
+        )
+        self.assertEqual(updated.kind, "ok")
+        assert updated.idea is not None
+
+        from app.db.repo_scope import ScopeDraftItemInput
+
+        bootstrapped = self.scope_repo.bootstrap_draft(
+            self.idea.id,
+            version=updated.idea.version,
+            items=[
+                ScopeDraftItemInput(lane="in", content="Keep In Metadata"),
+                ScopeDraftItemInput(lane="out", content="Keep Out Metadata"),
+            ],
+        )
+        assert bootstrapped.idea_version is not None
+        frozen = self.scope_repo.freeze_draft(self.idea.id, version=bootstrapped.idea_version)
+        self.assertEqual(frozen.kind, "ok")
+
+        latest = self.idea_repo.get_idea(self.idea.id)
+        assert latest is not None
+        scope = latest.context.get("scope")
+        assert isinstance(scope, dict)
+        in_scope = scope.get("in_scope")
+        out_scope = scope.get("out_scope")
+        assert isinstance(in_scope, list)
+        assert isinstance(out_scope, list)
+        self.assertEqual(in_scope[0]["title"], "Keep In Metadata")
+        self.assertEqual(in_scope[0]["desc"], "in-desc")
+        self.assertEqual(in_scope[0]["priority"], "P2")
+        self.assertEqual(out_scope[0]["title"], "Keep Out Metadata")
+        self.assertEqual(out_scope[0]["desc"], "out-desc")
+        self.assertEqual(out_scope[0]["reason"], "out-reason")
 
     def test_new_version_creates_next_draft_from_latest_frozen(self) -> None:
         bootstrapped = self.scope_repo.bootstrap_draft(self.idea.id, version=self.idea.version)

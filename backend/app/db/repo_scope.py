@@ -4,7 +4,7 @@ import json
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Callable, Literal, cast
+from typing import Callable, Literal, TypeVar, cast
 from uuid import uuid4
 
 from app.core.contexts import infer_stage_from_context
@@ -23,6 +23,7 @@ ScopeUpdateKind = Literal[
     "draft_not_found",
     "baseline_not_found",
 ]
+MatchT = TypeVar("MatchT")
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,11 @@ class ScopeRepository:
                     baseline=baseline,
                 )
 
+            bootstrap_items, source_baseline_id = _resolve_bootstrap_items(
+                connection,
+                idea_id=idea_id,
+                requested_items=items,
+            )
             baseline_version = _next_baseline_version(connection, idea_id)
             now = utc_now_iso()
             baseline_id = str(uuid4())
@@ -113,9 +119,17 @@ class ScopeRepository:
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (baseline_id, idea_id, baseline_version, "draft", None, now, None),
+                (
+                    baseline_id,
+                    idea_id,
+                    baseline_version,
+                    "draft",
+                    source_baseline_id,
+                    now,
+                    None,
+                ),
             )
-            _replace_items(connection, baseline_id=baseline_id, items=items)
+            _replace_items(connection, baseline_id=baseline_id, items=bootstrap_items)
 
             baseline = _must_get_baseline(connection, idea_id=idea_id, baseline_id=baseline_id)
             next_idea_version = _update_idea_context(
@@ -211,7 +225,10 @@ class ScopeRepository:
                         "current_scope_baseline_id": baseline.id,
                         "current_scope_baseline_version": baseline.version,
                         "scope_frozen": True,
-                        "scope": _build_legacy_scope_output(baseline.items),
+                        "scope": _build_legacy_scope_output(
+                            baseline.items,
+                            existing_scope=context.scope,
+                        ),
                     }
                 ),
             )
@@ -422,6 +439,67 @@ def _replace_items(
         )
 
 
+def _resolve_bootstrap_items(
+    connection: sqlite3.Connection,
+    *,
+    idea_id: str,
+    requested_items: Sequence[ScopeDraftItemInput],
+) -> tuple[list[ScopeDraftItemInput], str | None]:
+    direct_items = _clone_items(requested_items)
+    if direct_items:
+        return direct_items, None
+
+    latest_frozen = _select_latest_baseline_row(connection, idea_id=idea_id, status="frozen")
+    if latest_frozen is not None:
+        source = _row_to_baseline(connection, latest_frozen)
+        return _clone_items_from_baseline(source), source.id
+
+    legacy_items = _legacy_scope_to_items(connection, idea_id=idea_id)
+    if legacy_items:
+        return legacy_items, None
+
+    # Reserved extension point for future bootstrap generation.
+    generated = _reserved_bootstrap_items_from_generation(connection, idea_id=idea_id)
+    return generated, None
+
+
+def _clone_items(items: Sequence[ScopeDraftItemInput]) -> list[ScopeDraftItemInput]:
+    return [ScopeDraftItemInput(lane=item.lane, content=item.content) for item in items]
+
+
+def _clone_items_from_baseline(baseline: ScopeBaselineRecord) -> list[ScopeDraftItemInput]:
+    return [ScopeDraftItemInput(lane=item.lane, content=item.content) for item in baseline.items]
+
+
+def _legacy_scope_to_items(connection: sqlite3.Connection, *, idea_id: str) -> list[ScopeDraftItemInput]:
+    row = _select_idea_row(connection, idea_id)
+    if row is None:
+        return []
+    context = DecisionContext.model_validate(json.loads(str(row["context_json"])))
+    if context.scope is None:
+        return []
+
+    migrated: list[ScopeDraftItemInput] = []
+    for item in context.scope.in_scope:
+        title = item.title.strip()
+        if title:
+            migrated.append(ScopeDraftItemInput(lane="in", content=title))
+    for item in context.scope.out_scope:
+        title = item.title.strip()
+        if title:
+            migrated.append(ScopeDraftItemInput(lane="out", content=title))
+    return migrated
+
+
+def _reserved_bootstrap_items_from_generation(
+    connection: sqlite3.Connection,
+    *,
+    idea_id: str,
+) -> list[ScopeDraftItemInput]:
+    del connection, idea_id
+    return []
+
+
 def _update_idea_context(
     connection: sqlite3.Connection,
     *,
@@ -458,16 +536,62 @@ def _update_idea_context(
     return expected_version + 1
 
 
-def _build_legacy_scope_output(items: Sequence[ScopeBaselineItemRecord]) -> ScopeOutput:
+def _build_legacy_scope_output(
+    items: Sequence[ScopeBaselineItemRecord],
+    *,
+    existing_scope: ScopeOutput | None,
+) -> ScopeOutput:
+    in_by_title: dict[str, list[InScopeItem]] = {}
+    out_by_title: dict[str, list[OutScopeItem]] = {}
+    if existing_scope is not None:
+        for item in existing_scope.in_scope:
+            in_by_title.setdefault(_normalize_scope_title(item.title), []).append(item)
+        for item in existing_scope.out_scope:
+            out_by_title.setdefault(_normalize_scope_title(item.title), []).append(item)
+
+    default_priority = _default_in_scope_priority(existing_scope)
     in_scope: list[InScopeItem] = []
     out_scope: list[OutScopeItem] = []
     for item in items:
+        normalized_title = _normalize_scope_title(item.content)
         if item.lane == "in":
+            matched_in = _pop_title_match(in_by_title, normalized_title)
             in_scope.append(
-                InScopeItem(id=item.id, title=item.content, desc="", priority="P1")
+                InScopeItem(
+                    id=item.id,
+                    title=item.content,
+                    desc=matched_in.desc if matched_in is not None else "",
+                    priority=matched_in.priority if matched_in is not None else default_priority,
+                )
             )
         else:
+            matched_out = _pop_title_match(out_by_title, normalized_title)
             out_scope.append(
-                OutScopeItem(id=item.id, title=item.content, desc="", reason="")
+                OutScopeItem(
+                    id=item.id,
+                    title=item.content,
+                    desc=matched_out.desc if matched_out is not None else "",
+                    reason=matched_out.reason if matched_out is not None else "",
+                )
             )
     return ScopeOutput(in_scope=in_scope, out_scope=out_scope)
+
+
+def _normalize_scope_title(title: str) -> str:
+    return " ".join(title.split()).strip().lower()
+
+
+def _default_in_scope_priority(existing_scope: ScopeOutput | None) -> str:
+    if existing_scope is not None and existing_scope.in_scope:
+        return existing_scope.in_scope[0].priority
+    return "P1"
+
+
+def _pop_title_match(pool: dict[str, list[MatchT]], title: str) -> MatchT | None:
+    matches = pool.get(title)
+    if not matches:
+        return None
+    matched = matches.pop(0)
+    if not matches:
+        pool.pop(title, None)
+    return matched

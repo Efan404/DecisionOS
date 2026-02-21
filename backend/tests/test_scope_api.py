@@ -54,6 +54,45 @@ class ScopeApiTestCase(unittest.TestCase):
         self.assertEqual(body["data"]["status"], "draft")
         self.assertEqual(body["data"]["version"], 1)
 
+    def test_bootstrap_without_items_clones_latest_frozen(self) -> None:
+        idea_id, version = self._create_idea("Scope Bootstrap Clone Frozen")
+        bootstrap_status, bootstrap = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/scope/draft/bootstrap",
+            {
+                "version": version,
+                "items": [
+                    {"lane": "in", "content": "Clone in"},
+                    {"lane": "out", "content": "Clone out"},
+                ],
+            },
+        )
+        self.assertEqual(bootstrap_status, 200)
+        assert bootstrap is not None
+
+        freeze_status, frozen = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/scope/freeze",
+            {"version": bootstrap["idea_version"]},
+        )
+        self.assertEqual(freeze_status, 200)
+        assert frozen is not None
+
+        clone_status, cloned = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/scope/draft/bootstrap",
+            {"version": frozen["idea_version"]},
+        )
+        self.assertEqual(clone_status, 200)
+        assert cloned is not None
+        self.assertEqual(cloned["data"]["status"], "draft")
+        self.assertEqual(cloned["data"]["version"], 2)
+        self.assertEqual(cloned["data"]["source_baseline_id"], frozen["data"]["id"])
+        self.assertEqual(
+            [(item["lane"], item["content"]) for item in cloned["data"]["items"]],
+            [("in", "Clone in"), ("out", "Clone out")],
+        )
+
     def test_patch_draft_requires_version_and_returns_new_idea_version(self) -> None:
         idea_id, version = self._create_idea("Scope Patch")
         bootstrap_status, bootstrap = self.client.request_json(
@@ -116,6 +155,72 @@ class ScopeApiTestCase(unittest.TestCase):
         assert detail is not None
         self.assertEqual(detail["context"]["current_scope_baseline_id"], frozen["data"]["id"])
         self.assertEqual(detail["context"]["current_scope_baseline_version"], 1)
+
+    def test_freeze_preserves_legacy_scope_metadata_when_titles_match(self) -> None:
+        idea_id, version = self._create_idea("Scope Freeze Metadata")
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+
+        context = detail["context"]
+        assert isinstance(context, dict)
+        context["scope"] = {
+            "in_scope": [
+                {
+                    "id": "legacy-in-1",
+                    "title": "Keep Metadata In",
+                    "desc": "in-desc",
+                    "priority": "P2",
+                }
+            ],
+            "out_scope": [
+                {
+                    "id": "legacy-out-1",
+                    "title": "Keep Metadata Out",
+                    "desc": "out-desc",
+                    "reason": "out-reason",
+                }
+            ],
+        }
+        patch_status, patched = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": version, "context": context},
+        )
+        self.assertEqual(patch_status, 200)
+        assert patched is not None
+
+        bootstrap_status, bootstrap = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/scope/draft/bootstrap",
+            {
+                "version": patched["version"],
+                "items": [
+                    {"lane": "in", "content": "Keep Metadata In"},
+                    {"lane": "out", "content": "Keep Metadata Out"},
+                ],
+            },
+        )
+        self.assertEqual(bootstrap_status, 200)
+        assert bootstrap is not None
+
+        freeze_status, _ = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/scope/freeze",
+            {"version": bootstrap["idea_version"]},
+        )
+        self.assertEqual(freeze_status, 200)
+
+        latest_status, latest = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(latest_status, 200)
+        assert latest is not None
+        latest_scope = latest["context"]["scope"]
+        self.assertEqual(latest_scope["in_scope"][0]["title"], "Keep Metadata In")
+        self.assertEqual(latest_scope["in_scope"][0]["desc"], "in-desc")
+        self.assertEqual(latest_scope["in_scope"][0]["priority"], "P2")
+        self.assertEqual(latest_scope["out_scope"][0]["title"], "Keep Metadata Out")
+        self.assertEqual(latest_scope["out_scope"][0]["desc"], "out-desc")
+        self.assertEqual(latest_scope["out_scope"][0]["reason"], "out-reason")
 
     def test_new_version_clones_latest_frozen(self) -> None:
         idea_id, version = self._create_idea("Scope New Version")
@@ -196,6 +301,53 @@ class ScopeApiTestCase(unittest.TestCase):
         self.assertEqual(bad_status, 404)
         assert bad_body is not None
         self.assertEqual(bad_body["detail"]["code"], "SCOPE_BASELINE_NOT_FOUND")
+
+    def test_prd_agent_keeps_existing_scope_when_payload_scope_empty(self) -> None:
+        idea_id, version = self._create_idea("PRD Empty Scope")
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+
+        context = detail["context"]
+        assert isinstance(context, dict)
+        context["scope"] = {
+            "in_scope": [
+                {"id": "legacy-in", "title": "Keep Scope", "desc": "legacy", "priority": "P0"}
+            ],
+            "out_scope": [],
+        }
+        patch_status, patched = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": version, "context": context},
+        )
+        self.assertEqual(patch_status, 200)
+        assert patched is not None
+
+        prd_status, prd_response = self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/agents/prd",
+            {
+                "version": patched["version"],
+                "idea_seed": "seed",
+                "confirmed_path_id": "path-1",
+                "confirmed_node_id": "node-1",
+                "confirmed_node_content": "node-content",
+                "confirmed_path_summary": "summary",
+                "selected_plan_id": "plan-1",
+                "scope": {"in_scope": [], "out_scope": []},
+            },
+        )
+        self.assertEqual(prd_status, 200)
+        assert prd_response is not None
+
+        latest_status, latest = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(latest_status, 200)
+        assert latest is not None
+        latest_scope = latest["context"]["scope"]
+        self.assertEqual(latest_scope["in_scope"][0]["title"], "Keep Scope")
+        self.assertEqual(latest_scope["in_scope"][0]["desc"], "legacy")
+        self.assertEqual(latest_scope["in_scope"][0]["priority"], "P0")
 
 
 @dataclass(frozen=True)
