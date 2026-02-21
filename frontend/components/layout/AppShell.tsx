@@ -168,6 +168,12 @@ export function AppShell({ children }: AppShellProps) {
       return '/ideas'
     }
 
+    if (step === 'prd' && routeIdeaId && hydratedContext?.current_scope_baseline_id) {
+      return buildIdeaStepHref(routeIdeaId, step, {
+        baseline_id: hydratedContext.current_scope_baseline_id,
+      })
+    }
+
     return routeIdeaId ? buildIdeaStepHref(routeIdeaId, step) : '/ideas'
   }
 
@@ -209,7 +215,7 @@ export function AppShell({ children }: AppShellProps) {
               </p>
               <Link
                 href="/settings"
-                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
               >
                 Settings
               </Link>
@@ -219,7 +225,7 @@ export function AppShell({ children }: AppShellProps) {
                   clearAuthSession()
                   router.replace('/login')
                 }}
-                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
               >
                 Logout
               </button>
@@ -231,7 +237,7 @@ export function AppShell({ children }: AppShellProps) {
                 const isActive = getIsActive(pathname, item.step)
                 const badgeLabel = getBadgeLabel(item, isHydrated)
                 const sharedClassName =
-                  'group flex min-h-16 flex-col rounded-xl border px-3 py-2 text-left transition-colors duration-200'
+                  'group flex min-h-16 flex-col rounded-xl border px-3 py-2 text-left transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400'
                 const stateClassName = isActive
                   ? 'border-blue-400 bg-blue-50/90 shadow-sm'
                   : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/60'

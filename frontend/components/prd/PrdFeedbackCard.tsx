@@ -41,7 +41,7 @@ const RatingButtons = ({
           key={score}
           type="button"
           onClick={() => onChange(score)}
-          className={`min-h-11 min-w-11 rounded-md border text-sm ${
+          className={`min-h-11 min-w-11 cursor-pointer rounded-md border text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400 ${
             value === score
               ? 'border-cyan-600 bg-cyan-600 text-white'
               : 'border-slate-300 bg-white text-slate-700'
@@ -100,7 +100,7 @@ export function PrdFeedbackCard({
               rating_dimensions: { clarity: 5, completeness: 5, actionability: 5, scope_fit: 5 },
             })
           }
-          className="min-h-11 rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm text-emerald-800 disabled:opacity-50"
+          className="min-h-11 cursor-pointer rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm text-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 disabled:opacity-50"
         >
           Good
         </button>
@@ -113,14 +113,14 @@ export function PrdFeedbackCard({
               rating_dimensions: { clarity: 2, completeness: 2, actionability: 2, scope_fit: 2 },
             })
           }
-          className="min-h-11 rounded-md border border-amber-300 bg-amber-50 px-4 text-sm text-amber-800 disabled:opacity-50"
+          className="min-h-11 cursor-pointer rounded-md border border-amber-300 bg-amber-50 px-4 text-sm text-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 disabled:opacity-50"
         >
           Needs Work
         </button>
         <button
           type="button"
           onClick={() => setExpanded((previous) => !previous)}
-          className="min-h-11 rounded-md border border-slate-300 px-3 text-sm"
+          className="min-h-11 cursor-pointer rounded-md border border-slate-300 px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
         >
           {expanded ? 'Hide Details' : 'Detailed Rating'}
         </button>
@@ -171,7 +171,7 @@ export function PrdFeedbackCard({
           <button
             type="submit"
             disabled={disabled || submitting}
-            className="min-h-11 rounded-md bg-slate-900 px-4 text-sm text-white disabled:opacity-50"
+            className="min-h-11 cursor-pointer rounded-md bg-slate-900 px-4 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Submit Feedback'}
           </button>

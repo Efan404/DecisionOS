@@ -41,7 +41,14 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
   const inFlightGenerationKeyRef = useRef<string | null>(null)
-  const baselineId = baselineIdProp ?? searchParams.get('baseline_id')
+  // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
+  // This prevents a spurious "Select a frozen baseline" error when navigating via the
+  // sidebar (which omits the query param) but a frozen baseline already exists.
+  const baselineId =
+    baselineIdProp ??
+    searchParams.get('baseline_id') ??
+    context.current_scope_baseline_id ??
+    null
 
   const generationKey = useMemo(
     () =>
