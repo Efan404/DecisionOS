@@ -220,6 +220,23 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         assert payload is not None
         self.assertEqual(payload["detail"]["code"], "LEGACY_AGENTS_ROUTE_GONE")
 
+    def test_request_id_header_echoes_when_provided(self) -> None:
+        response = self.client.request_raw(
+            "GET",
+            "/ideas",
+            headers={"x-request-id": "req-test-echo-1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("x-request-id"), "req-test-echo-1")
+
+    def test_request_id_header_generated_when_missing(self) -> None:
+        response = self.client.request_raw("GET", "/ideas")
+        self.assertEqual(response.status_code, 200)
+        generated = response.headers.get("x-request-id")
+        self.assertIsNotNone(generated)
+        assert generated is not None
+        self.assertNotEqual(generated.strip(), "")
+
     def test_opportunity_count_defaults_to_three(self) -> None:
         idea_id, version = self._create_idea("Default Count Idea")
         status_code, payload = self.client.request_json(
@@ -779,6 +796,7 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
 class _RawResponse:
     status_code: int
     body: bytes
+    headers: dict[str, str]
 
 
 class _AsgiTestClient:
@@ -792,12 +810,14 @@ class _AsgiTestClient:
         payload: dict[str, object] | None = None,
         *,
         disconnect_after_body_chunks: int | None = None,
+        headers: dict[str, str] | None = None,
     ) -> tuple[int, dict[str, object] | None]:
         response = self.request_raw(
             method,
             path,
             payload,
             disconnect_after_body_chunks=disconnect_after_body_chunks,
+            headers=headers,
         )
         if not response.body:
             return response.status_code, None
@@ -810,6 +830,7 @@ class _AsgiTestClient:
         payload: dict[str, object] | None = None,
         *,
         disconnect_after_body_chunks: int | None = None,
+        headers: dict[str, str] | None = None,
     ) -> _RawResponse:
         body = b""
         if payload is not None:
@@ -822,6 +843,7 @@ class _AsgiTestClient:
                 path=path,
                 body=body,
                 disconnect_after_body_chunks=disconnect_after_body_chunks,
+                headers=headers,
             )
         )
 
@@ -833,12 +855,14 @@ async def _run_asgi_request(
     path: str,
     body: bytes,
     disconnect_after_body_chunks: int | None,
+    headers: dict[str, str] | None,
 ) -> _RawResponse:
     request_sent = False
     body_chunk_count = 0
     response_started = False
     response_status = 500
     body_parts: list[bytes] = []
+    response_headers: dict[str, str] = {}
     hold_receive = asyncio.Event()
 
     async def receive() -> dict[str, object]:
@@ -863,6 +887,14 @@ async def _run_asgi_request(
         if message_type == "http.response.start":
             response_started = True
             response_status = int(message.get("status", 500))
+            raw_headers = message.get("headers", [])
+            if isinstance(raw_headers, list):
+                for item in raw_headers:
+                    if not isinstance(item, tuple) or len(item) != 2:
+                        continue
+                    raw_name, raw_value = item
+                    if isinstance(raw_name, bytes) and isinstance(raw_value, bytes):
+                        response_headers[raw_name.decode("latin-1").lower()] = raw_value.decode("latin-1")
             return
 
         if message_type == "http.response.body":
@@ -872,6 +904,13 @@ async def _run_asgi_request(
                 body_parts.append(raw)
             elif isinstance(raw, str):
                 body_parts.append(raw.encode("utf-8"))
+
+    incoming_headers: list[tuple[bytes, bytes]] = [(b"content-type", b"application/json")]
+    if headers is not None:
+        for name, value in headers.items():
+            incoming_headers.append(
+                (name.encode("latin-1").lower(), value.encode("latin-1"))
+            )
 
     scope = {
         "type": "http",
@@ -883,7 +922,7 @@ async def _run_asgi_request(
         "raw_path": path.encode("ascii"),
         "query_string": b"",
         "root_path": "",
-        "headers": [(b"content-type", b"application/json")],
+        "headers": incoming_headers,
         "client": ("testclient", 123),
         "server": ("testserver", 80),
         "state": {},
@@ -894,7 +933,7 @@ async def _run_asgi_request(
     if not response_started:
         raise RuntimeError("ASGI response did not start")
 
-    return _RawResponse(status_code=response_status, body=b"".join(body_parts))
+    return _RawResponse(status_code=response_status, body=b"".join(body_parts), headers=response_headers)
 
 
 def _read_sse_events(body: bytes) -> list[tuple[str, dict[str, object] | None]]:

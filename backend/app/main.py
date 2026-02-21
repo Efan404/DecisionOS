@@ -4,6 +4,8 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.auth import require_authenticated_user
+from app.core.logging_config import setup_logging
+from app.core.request_logging import RequestLoggingMiddleware
 from app.core.settings import get_settings
 from app.db.bootstrap import initialize_database
 from app.routes.agents import router as agents_router
@@ -20,6 +22,7 @@ from app.routes.workspaces import router as workspaces_router
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    setup_logging()
     initialize_database()
 
     app = FastAPI(title=settings.app_name)
@@ -28,8 +31,10 @@ def create_app() -> FastAPI:
         allow_origins=list(settings.cors_origins),
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "Accept"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-Id"],
     )
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.include_router(health_router)
     app.include_router(auth_router)

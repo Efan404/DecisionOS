@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
@@ -42,6 +43,7 @@ from app.schemas.scope import InScopeItem, OutScopeItem, ScopeOutput
 router = APIRouter(prefix="/ideas/{idea_id}/agents", tags=["idea-agents"])
 _repo = IdeaRepository()
 _scope_repo = ScopeRepository()
+_logger = logging.getLogger(__name__)
 
 
 def _sse_event(event: str, payload: dict[str, object]) -> dict[str, str]:
@@ -50,63 +52,147 @@ def _sse_event(event: str, payload: dict[str, object]) -> dict[str, str]:
 
 @router.post("/opportunity", response_model=OpportunityAgentResponse)
 async def post_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> OpportunityAgentResponse:
-    output = llm.generate_opportunity(payload)
-    result = _repo.apply_agent_update(
-        idea_id,
-        version=payload.version,
-        mutate_context=lambda context: _apply_opportunity(context, payload, output),
-    )
-    idea_version = _unwrap_update(result)
+    _logger.info("agent.opportunity.start idea_id=%s version=%s", idea_id, payload.version)
+    try:
+        output = llm.generate_opportunity(payload)
+        result = _repo.apply_agent_update(
+            idea_id,
+            version=payload.version,
+            mutate_context=lambda context: _apply_opportunity(context, payload, output),
+        )
+        idea_version = _unwrap_update(result)
+    except HTTPException as exc:
+        _logger.warning(
+            "agent.opportunity.failed idea_id=%s version=%s code=%s",
+            idea_id,
+            payload.version,
+            _http_error_code(exc),
+        )
+        raise
+    except Exception:
+        _logger.exception(
+            "agent.opportunity.failed idea_id=%s version=%s code=UNHANDLED_ERROR",
+            idea_id,
+            payload.version,
+        )
+        raise
+    _logger.info("agent.opportunity.done idea_id=%s idea_version=%s", idea_id, idea_version)
     return OpportunityAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
 
 
 @router.post("/feasibility", response_model=FeasibilityAgentResponse)
 async def post_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> FeasibilityAgentResponse:
-    output = llm.generate_feasibility(payload)
-    result = _repo.apply_agent_update(
-        idea_id,
-        version=payload.version,
-        mutate_context=lambda context: _apply_feasibility(context, payload, output),
-    )
-    idea_version = _unwrap_update(result)
+    _logger.info("agent.feasibility.start idea_id=%s version=%s", idea_id, payload.version)
+    try:
+        output = llm.generate_feasibility(payload)
+        result = _repo.apply_agent_update(
+            idea_id,
+            version=payload.version,
+            mutate_context=lambda context: _apply_feasibility(context, payload, output),
+        )
+        idea_version = _unwrap_update(result)
+    except HTTPException as exc:
+        _logger.warning(
+            "agent.feasibility.failed idea_id=%s version=%s code=%s",
+            idea_id,
+            payload.version,
+            _http_error_code(exc),
+        )
+        raise
+    except Exception:
+        _logger.exception(
+            "agent.feasibility.failed idea_id=%s version=%s code=UNHANDLED_ERROR",
+            idea_id,
+            payload.version,
+        )
+        raise
+    _logger.info("agent.feasibility.done idea_id=%s idea_version=%s", idea_id, idea_version)
     return FeasibilityAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
 
 
 @router.post("/scope", response_model=ScopeAgentResponse)
 async def post_scope(idea_id: str, payload: ScopeIdeaRequest) -> ScopeAgentResponse:
-    output = llm.generate_scope(payload)
-    result = _repo.apply_agent_update(
-        idea_id,
-        version=payload.version,
-        mutate_context=lambda context: _apply_scope(context, payload, output),
-    )
-    idea_version = _unwrap_update(result)
+    _logger.info("agent.scope.start idea_id=%s version=%s", idea_id, payload.version)
+    try:
+        output = llm.generate_scope(payload)
+        result = _repo.apply_agent_update(
+            idea_id,
+            version=payload.version,
+            mutate_context=lambda context: _apply_scope(context, payload, output),
+        )
+        idea_version = _unwrap_update(result)
+    except HTTPException as exc:
+        _logger.warning(
+            "agent.scope.failed idea_id=%s version=%s code=%s",
+            idea_id,
+            payload.version,
+            _http_error_code(exc),
+        )
+        raise
+    except Exception:
+        _logger.exception(
+            "agent.scope.failed idea_id=%s version=%s code=UNHANDLED_ERROR",
+            idea_id,
+            payload.version,
+        )
+        raise
+    _logger.info("agent.scope.done idea_id=%s idea_version=%s", idea_id, idea_version)
     return ScopeAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
 
 
 @router.post("/prd", response_model=PRDAgentResponse)
 async def post_prd(idea_id: str, payload: PRDIdeaRequest) -> PRDAgentResponse:
+    _logger.info(
+        "agent.prd.start idea_id=%s version=%s baseline_id=%s",
+        idea_id,
+        payload.version,
+        payload.baseline_id,
+    )
     idea = _repo.get_idea(idea_id)
     if idea is None:
+        _logger.warning(
+            "agent.prd.failed idea_id=%s version=%s code=IDEA_NOT_FOUND",
+            idea_id,
+            payload.version,
+        )
         raise HTTPException(
             status_code=404,
             detail={"code": "IDEA_NOT_FOUND", "message": "Idea not found"},
         )
     if idea.status == "archived":
+        _logger.warning(
+            "agent.prd.failed idea_id=%s version=%s code=IDEA_ARCHIVED",
+            idea_id,
+            payload.version,
+        )
         raise HTTPException(
             status_code=409,
             detail={"code": "IDEA_ARCHIVED", "message": "Idea is archived"},
         )
 
-    pack = _build_prd_context_pack(
-        idea_id=idea_id,
-        baseline_id=payload.baseline_id,
-        context=parse_context_strict(idea.context),
-    )
+    try:
+        pack = _build_prd_context_pack(
+            idea_id=idea_id,
+            baseline_id=payload.baseline_id,
+            context=parse_context_strict(idea.context),
+        )
+    except HTTPException as exc:
+        _logger.warning(
+            "agent.prd.failed idea_id=%s version=%s code=%s",
+            idea_id,
+            payload.version,
+            _http_error_code(exc),
+        )
+        raise
     fingerprint = _context_pack_fingerprint(pack)
     try:
         output = llm.generate_prd_strict(pack)
     except llm.PRDGenerationError as exc:
+        _logger.warning(
+            "agent.prd.failed idea_id=%s version=%s code=PRD_GENERATION_FAILED",
+            idea_id,
+            payload.version,
+        )
         raise HTTPException(
             status_code=502,
             detail={
@@ -127,13 +213,32 @@ async def post_prd(idea_id: str, payload: PRDIdeaRequest) -> PRDAgentResponse:
         version=payload.version,
         mutate_context=lambda context: _apply_prd(context, pack, bundle),
     )
-    idea_version = _unwrap_update(result)
+    try:
+        idea_version = _unwrap_update(result)
+    except HTTPException as exc:
+        _logger.warning(
+            "agent.prd.failed idea_id=%s version=%s code=%s",
+            idea_id,
+            payload.version,
+            _http_error_code(exc),
+        )
+        raise
+    _logger.info("agent.prd.done idea_id=%s idea_version=%s", idea_id, idea_version)
     return PRDAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
 
 
 @router.post("/opportunity/stream")
 async def stream_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> EventSourceResponse:
-    output = llm.generate_opportunity(payload)
+    _logger.info("agent.opportunity.stream.start idea_id=%s version=%s", idea_id, payload.version)
+    try:
+        output = llm.generate_opportunity(payload)
+    except Exception:
+        _logger.exception(
+            "agent.opportunity.stream.failed idea_id=%s version=%s code=UNHANDLED_ERROR",
+            idea_id,
+            payload.version,
+        )
+        raise
 
     async def event_generator() -> AsyncIterator[dict[str, str]]:
         yield _sse_event("progress", {"step": "received_request", "pct": 5})
@@ -152,10 +257,21 @@ async def stream_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> E
         )
         error_payload = _sse_error_payload(result)
         if error_payload is not None:
+            _logger.warning(
+                "agent.opportunity.stream.failed idea_id=%s version=%s code=%s",
+                idea_id,
+                payload.version,
+                error_payload.get("code", "UNKNOWN_ERROR"),
+            )
             yield _sse_event("error", error_payload)
             return
 
         assert result.idea is not None
+        _logger.info(
+            "agent.opportunity.stream.done idea_id=%s idea_version=%s",
+            idea_id,
+            result.idea.version,
+        )
         yield _sse_event(
             "done",
             {
@@ -170,7 +286,16 @@ async def stream_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> E
 
 @router.post("/feasibility/stream")
 async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> EventSourceResponse:
-    output = llm.generate_feasibility(payload)
+    _logger.info("agent.feasibility.stream.start idea_id=%s version=%s", idea_id, payload.version)
+    try:
+        output = llm.generate_feasibility(payload)
+    except Exception:
+        _logger.exception(
+            "agent.feasibility.stream.failed idea_id=%s version=%s code=UNHANDLED_ERROR",
+            idea_id,
+            payload.version,
+        )
+        raise
 
     async def event_generator() -> AsyncIterator[dict[str, str]]:
         yield _sse_event("progress", {"step": "received_request", "pct": 5})
@@ -188,10 +313,21 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
         )
         error_payload = _sse_error_payload(result)
         if error_payload is not None:
+            _logger.warning(
+                "agent.feasibility.stream.failed idea_id=%s version=%s code=%s",
+                idea_id,
+                payload.version,
+                error_payload.get("code", "UNKNOWN_ERROR"),
+            )
             yield _sse_event("error", error_payload)
             return
 
         assert result.idea is not None
+        _logger.info(
+            "agent.feasibility.stream.done idea_id=%s idea_version=%s",
+            idea_id,
+            result.idea.version,
+        )
         yield _sse_event(
             "done",
             {
@@ -511,3 +647,11 @@ def _sse_error_payload(result: UpdateIdeaResult) -> dict[str, object] | None:
         return {"code": "IDEA_ARCHIVED", "message": "Idea is archived"}
 
     return {"code": "IDEA_VERSION_CONFLICT", "message": "Idea version conflict"}
+
+
+def _http_error_code(exc: HTTPException) -> str:
+    if isinstance(exc.detail, dict):
+        code = exc.detail.get("code")
+        if isinstance(code, str) and code:
+            return code
+    return "HTTP_ERROR"
