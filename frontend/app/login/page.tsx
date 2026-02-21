@@ -8,8 +8,8 @@ import { clearAuthSession, getAuthSession, setAuthSession } from '../../lib/auth
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('test')
+  const [password, setPassword] = useState('test')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,6 +52,11 @@ export default function LoginPage() {
         </p>
         <h1 className="mt-2 text-2xl font-semibold text-slate-900">Hackathon Login</h1>
         <p className="mt-2 text-sm text-slate-600">Use seeded account to access the workspace.</p>
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          Test account pre-filled — username{' '}
+          <span className="font-mono font-medium text-slate-700">test</span>, password{' '}
+          <span className="font-mono font-medium text-slate-700">test</span>. Just click Sign in.
+        </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block space-y-1 text-sm">
