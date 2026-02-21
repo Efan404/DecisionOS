@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ReactFlow,
@@ -65,6 +65,10 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     reset,
   } = useDAGStore()
 
+  // Tracks whether the user confirmed a path in *this* session.
+  // Loading a historical path from the backend should not lock the canvas.
+  const [sessionConfirmed, setSessionConfirmed] = useState(false)
+
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState<DAGNodeType>([])
   const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState<DAGEdgeType>([])
 
@@ -117,6 +121,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
   // Init: reset store on ideaId change, then load or create root node
   useEffect(() => {
     reset()
+    setSessionConfirmed(false)
     let cancelled = false
     ;(async () => {
       const [existing, latestPath] = await Promise.all([
@@ -189,6 +194,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     if (!selectedNodeId) return
     const path = await confirmPath(ideaId, selectedPathChain)
     setConfirmedPath(path)
+    setSessionConfirmed(true)
     router.push(`/ideas/${ideaId}/feasibility`)
   }
 
@@ -220,7 +226,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
           onExpandAI={handleExpandAI}
           onExpandUser={handleExpandUser}
           onConfirmPath={handleConfirmPath}
-          isConfirmed={confirmedPath !== null}
+          isConfirmed={sessionConfirmed}
           loading={expandingNodeId !== null}
         />
       </div>
