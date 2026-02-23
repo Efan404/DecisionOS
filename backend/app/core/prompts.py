@@ -209,23 +209,44 @@ def summarize_path_prompt(node_chain_text: str) -> str:
 def build_prd_requirements_prompt(*, context: dict[str, object]) -> str:
     """Prompt for Stage-A parallel call: generate requirements only."""
     return (
-        "You are a senior PM. Given the product context below, generate 6-12 well-defined "
-        "product requirements. Each requirement needs: id (req-001...), title, description, "
-        "rationale, 2-8 acceptance_criteria (list of strings), "
-        "source_refs (list of step2/step3/step4).\n"
+        "You are a senior PM writing a delivery-ready PRD. "
+        "Given the product context below, generate 6-12 well-defined product requirements.\n\n"
+        "Field writing rules:\n"
+        "- id: req-001, req-002, ... in order\n"
+        "- title: concise noun phrase (≤10 words)\n"
+        "- description: 2-3 sentences — what this requirement is AND why it is needed. "
+        "Be specific to this product, not generic.\n"
+        "- rationale: 1-2 sentences on business or user value. Must NOT restate description.\n"
+        "- acceptance_criteria: 3-6 items. Each item must be a verifiable behaviour statement. "
+        'Format: "[Actor] can [specific action] and [observable outcome]". '
+        'Good: "A logged-in user can reset their password via email and receives a confirmation within 30 seconds." '
+        'Bad: "The system should handle errors properly."\n'
+        "- source_refs: list containing one or more of step2, step3, step4\n\n"
         f"context={json.dumps(context, ensure_ascii=False)}\n"
-        "Return JSON: {\"requirements\": [...]}"
+        'Return JSON: {"requirements": [...]}'
     )
 
 
 def build_prd_markdown_prompt(*, context: dict[str, object]) -> str:
     """Prompt for Stage-A parallel call: generate markdown narrative + sections only."""
     return (
-        "You are a senior PM. Given the product context below, write a delivery-ready PRD "
-        "as markdown with 6-12 named sections (executive summary, personas, capabilities, etc). "
-        "Be concrete and implementation-ready.\n"
+        "You are a senior PM writing a delivery-ready PRD. "
+        "Given the product context below, write a structured PRD as markdown with 6-12 named sections.\n\n"
+        "Section writing rules:\n"
+        "- Each section content must be ≥3 sentences and self-contained "
+        "(a reader with no other context should understand it).\n"
+        "- Follow this arc per section: background/context → problem or opportunity → "
+        "approach or decision → expected outcome.\n"
+        "- Required sections and their focus:\n"
+        "  * Executive Summary: what this product is, who it serves, core value proposition (3-5 sentences)\n"
+        "  * Problem Statement: specific user pain points + why current solutions are insufficient\n"
+        "  * User Personas: 1-2 concrete personas each with role, primary goal, and key frustration\n"
+        "  * Key Capabilities: user-facing capabilities described from the user perspective, not implementation\n"
+        "  * Out of Scope: explicit list of what will NOT be built and why, to prevent scope creep\n"
+        "  * Other sections (success metrics, technical considerations, etc.): ≥3 substantive sentences each\n"
+        "- The markdown field should be the full document rendered as clean GitHub-flavoured markdown.\n\n"
         f"context={json.dumps(context, ensure_ascii=False)}\n"
-        "Return JSON: {\"markdown\": \"...\", \"sections\": [{\"id\":\"...\",\"title\":\"...\",\"content\":\"...\"}]}"
+        'Return JSON: {"markdown": "...", "sections": [{"id":"...","title":"...","content":"..."}]}'
     )
 
 
