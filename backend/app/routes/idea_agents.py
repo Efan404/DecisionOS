@@ -19,6 +19,7 @@ from app.db.repo_scope import ScopeBaselineRecord, ScopeRepository
 from app.schemas.feasibility import FeasibilityOutput, Plan
 from app.schemas.idea import OpportunityOutput
 from app.schemas.prd import (
+    PRDGenerationMeta,
     PRDOutput,
     PrdBaselineMeta,
     PrdBundle,
@@ -386,6 +387,145 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
                 "data": output.model_dump(),
             },
         )
+
+    return EventSourceResponse(event_generator())
+
+
+@router.post("/prd/stream")
+async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceResponse:
+    """Two-stage parallel PRD generation over SSE.
+
+    Stage A (parallel): requirements + markdown/sections
+    Stage B (sequential after A): backlog items (needs requirement IDs)
+    SSE events: progress → requirements → progress → backlog → done | error
+    """
+    _logger.info(
+        "agent.prd.stream.start idea_id=%s version=%s baseline_id=%s",
+        idea_id, payload.version, payload.baseline_id,
+    )
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        yield _sse_event("progress", {"step": "validating", "pct": 5})
+
+        idea = _repo.get_idea(idea_id)
+        if idea is None:
+            yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+            return
+        if idea.status == "archived":
+            yield _sse_event("error", {"code": "IDEA_ARCHIVED", "message": "Idea is archived"})
+            return
+        if idea.version != payload.version:
+            yield _sse_event("error", {
+                "code": "IDEA_VERSION_CONFLICT",
+                "message": f"Version conflict: expected {idea.version}, got {payload.version}",
+            })
+            return
+
+        try:
+            pack = _build_prd_context_pack(
+                idea_id=idea_id,
+                baseline_id=payload.baseline_id,
+                context=parse_context_strict(idea.context),
+            )
+        except HTTPException as exc:
+            detail = exc.detail
+            code = detail.get("code", "ERROR") if isinstance(detail, dict) else "ERROR"
+            message = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+            yield _sse_event("error", {"code": code, "message": message})
+            return
+
+        slim_ctx = llm._build_slim_prd_context(pack)
+        fingerprint = _context_pack_fingerprint(pack)
+
+        yield _sse_event("progress", {"step": "generating_requirements", "pct": 15})
+
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fut_req = loop.run_in_executor(pool, llm.generate_prd_requirements, slim_ctx)
+            fut_md = loop.run_in_executor(pool, llm.generate_prd_markdown, slim_ctx)
+            try:
+                req_result, md_result = await asyncio.gather(fut_req, fut_md)
+            except Exception as exc:
+                _raise_if_no_provider(exc)
+                _logger.exception("agent.prd.stream.stage_a_failed idea_id=%s", idea_id)
+                yield _sse_event("error", {
+                    "code": "PRD_GENERATION_FAILED",
+                    "message": "Failed to generate requirements or markdown.",
+                })
+                return
+
+        yield _sse_event("requirements", {
+            "requirements": [r.model_dump() for r in req_result.requirements],
+        })
+        yield _sse_event("progress", {"step": "generating_backlog", "pct": 60})
+
+        requirement_ids = [r.id for r in req_result.requirements]
+        try:
+            bl_result = await loop.run_in_executor(
+                None, llm.generate_prd_backlog, slim_ctx, requirement_ids
+            )
+        except Exception as exc:
+            _raise_if_no_provider(exc)
+            _logger.exception("agent.prd.stream.stage_b_failed idea_id=%s", idea_id)
+            yield _sse_event("error", {
+                "code": "PRD_GENERATION_FAILED",
+                "message": "Failed to generate backlog.",
+            })
+            return
+
+        yield _sse_event("backlog", {
+            "items": [item.model_dump() for item in bl_result.backlog.items],
+        })
+        yield _sse_event("progress", {"step": "saving", "pct": 90})
+
+        try:
+            provider_info = llm._get_active_provider_info()
+        except RuntimeError:
+            provider_info = {"id": None, "model": None}
+        merged_output = PRDOutput(
+            markdown=md_result.markdown,
+            sections=md_result.sections,
+            requirements=req_result.requirements,
+            backlog=bl_result.backlog,
+            generation_meta=PRDGenerationMeta(
+                provider_id=provider_info["id"],
+                model=provider_info["model"],
+                confirmed_path_id=pack.step2_path.path_id,
+                selected_plan_id=pack.step3_feasibility.selected_plan.id,
+                baseline_id=payload.baseline_id,
+            ),
+        )
+        bundle = PrdBundle(
+            baseline_id=payload.baseline_id,
+            context_fingerprint=fingerprint,
+            generated_at=utc_now_iso(),
+            generation_meta=merged_output.generation_meta,
+            output=merged_output,
+        )
+        result = _repo.apply_agent_update(
+            idea_id,
+            version=payload.version,
+            mutate_context=lambda ctx: _apply_prd(ctx, pack, bundle),
+        )
+        error_payload = _sse_error_payload(result)
+        if error_payload is not None:
+            _logger.warning(
+                "agent.prd.stream.failed idea_id=%s version=%s code=%s",
+                idea_id, payload.version, error_payload.get("code"),
+            )
+            yield _sse_event("error", error_payload)
+            return
+
+        assert result.idea is not None
+        _logger.info(
+            "agent.prd.stream.done idea_id=%s idea_version=%s",
+            idea_id, result.idea.version,
+        )
+        yield _sse_event("done", {
+            "idea_id": idea_id,
+            "idea_version": result.idea.version,
+            "generation_meta": merged_output.generation_meta.model_dump(),
+        })
 
     return EventSourceResponse(event_generator())
 
