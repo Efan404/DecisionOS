@@ -16,7 +16,7 @@ class AIProviderConfig(BaseModel):
     api_key: str | None = None
     model: str | None = None
     enabled: bool = True
-    timeout_seconds: float = Field(default=20.0, ge=1.0, le=120.0)
+    timeout_seconds: float = Field(default=60.0, ge=1.0, le=300.0)
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
 
 
