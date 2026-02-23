@@ -445,7 +445,20 @@ export function ScopeFreezePage() {
 
     setSaving(true)
     try {
-      const envelope = await freezeScope(routeIdeaId, { version: currentVersion })
+      let versionToUse = currentVersion
+      let envelope
+      try {
+        envelope = await freezeScope(routeIdeaId, { version: versionToUse })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          // Version drifted (e.g. concurrent scope/agents call) — re-sync and retry once
+          const synced = await syncContextFromServer(versionToUse)
+          versionToUse = synced.version
+          envelope = await freezeScope(routeIdeaId, { version: versionToUse })
+        } else {
+          throw error
+        }
+      }
       setDraft(envelope.data)
       setIdeaVersion(routeIdeaId, envelope.idea_version)
       setLocalIdeaVersion(envelope.idea_version)
@@ -472,7 +485,19 @@ export function ScopeFreezePage() {
 
     setSaving(true)
     try {
-      const envelope = await createScopeNewVersion(routeIdeaId, { version: currentVersion })
+      let versionToUse = currentVersion
+      let envelope
+      try {
+        envelope = await createScopeNewVersion(routeIdeaId, { version: versionToUse })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          const synced = await syncContextFromServer(versionToUse)
+          versionToUse = synced.version
+          envelope = await createScopeNewVersion(routeIdeaId, { version: versionToUse })
+        } else {
+          throw error
+        }
+      }
       setDraft(envelope.data)
       setIdeaVersion(routeIdeaId, envelope.idea_version)
       setLocalIdeaVersion(envelope.idea_version)
