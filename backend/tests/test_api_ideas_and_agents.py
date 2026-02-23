@@ -155,6 +155,56 @@ def _mock_prd(context_pack: object) -> object:
     )
 
 
+def _mock_prd_requirements(context: object) -> object:
+    """Mock for generate_prd_requirements."""
+    from app.schemas.prd import PRDRequirement, PRDRequirementsOutput
+
+    return PRDRequirementsOutput(requirements=[
+        PRDRequirement(
+            id=f"req-{i:03d}",
+            title=f"Requirement {i}",
+            description=f"Description {i}",
+            rationale=f"Rationale {i}",
+            acceptance_criteria=["AC1", "AC2"],
+            source_refs=["step4"],
+        )
+        for i in range(1, 7)
+    ])
+
+
+def _mock_prd_markdown(context: object) -> object:
+    """Mock for generate_prd_markdown."""
+    from app.schemas.prd import PRDMarkdownOutput, PRDSection
+
+    return PRDMarkdownOutput(
+        markdown="# Test PRD\n\nMock markdown content.",
+        sections=[
+            PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
+            for i in range(1, 7)
+        ],
+    )
+
+
+def _mock_prd_backlog(context: object, requirement_ids: list) -> object:
+    """Mock for generate_prd_backlog."""
+    from app.schemas.prd import PRDBacklog, PRDBacklogItem, PRDBacklogOutput
+
+    req_id = requirement_ids[0] if requirement_ids else "req-001"
+    return PRDBacklogOutput(backlog=PRDBacklog(items=[
+        PRDBacklogItem(
+            id=f"bl-{i:03d}",
+            title=f"Backlog Item {i}",
+            requirement_id=req_id,
+            priority="P1",
+            type="story",
+            summary=f"Summary {i}",
+            acceptance_criteria=["AC1", "AC2"],
+            source_refs=["step4"],
+        )
+        for i in range(1, 9)
+    ]))
+
+
 class IdeasAndAgentsApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         ensure_required_seed_env()
@@ -895,6 +945,75 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(prd_status, 502)
         assert prd is not None
         self.assertEqual(prd["detail"]["code"], "PRD_GENERATION_FAILED")
+
+    def test_prd_stream_emits_requirements_then_backlog_then_done(self) -> None:
+        idea_id, version = self._create_idea("PRD Stream Idea")
+        baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+
+        with patch("app.core.llm.generate_prd_requirements", side_effect=_mock_prd_requirements), \
+             patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown), \
+             patch("app.core.llm.generate_prd_backlog", side_effect=_mock_prd_backlog):
+            raw = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/agents/prd/stream",
+                {"version": ready_version, "baseline_id": baseline_id},
+            )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
+        event_names = [name for name, _ in events]
+
+        self.assertIn("requirements", event_names)
+        self.assertIn("backlog", event_names)
+        self.assertIn("done", event_names)
+        self.assertNotIn("error", event_names)
+
+        # requirements event has full list
+        req_event = next((data for name, data in events if name == "requirements"), None)
+        self.assertIsNotNone(req_event)
+        assert req_event is not None
+        self.assertGreaterEqual(len(req_event["requirements"]), 6)
+
+        # backlog event has items
+        bl_event = next((data for name, data in events if name == "backlog"), None)
+        self.assertIsNotNone(bl_event)
+        assert bl_event is not None
+        self.assertGreaterEqual(len(bl_event["items"]), 8)
+
+        # done event bumped idea version
+        done_event = next((data for name, data in events if name == "done"), None)
+        self.assertIsNotNone(done_event)
+        assert done_event is not None
+        self.assertEqual(done_event["idea_id"], idea_id)
+        self.assertEqual(done_event["idea_version"], ready_version + 1)
+
+        # PRD persisted in idea context
+        _, idea_detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        assert idea_detail is not None
+        self.assertIsNotNone(idea_detail["context"]["prd"])
+        self.assertIsNotNone(idea_detail["context"]["prd_bundle"])
+
+    def test_prd_stream_emits_error_for_stale_version(self) -> None:
+        idea_id, version = self._create_idea("PRD Stream Stale")
+        baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+
+        with patch("app.core.llm.generate_prd_requirements", side_effect=_mock_prd_requirements), \
+             patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown), \
+             patch("app.core.llm.generate_prd_backlog", side_effect=_mock_prd_backlog):
+            raw = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/agents/prd/stream",
+                {"version": ready_version - 1, "baseline_id": baseline_id},
+            )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
+        event_names = [name for name, _ in events]
+        self.assertIn("error", event_names)
+        error_event = next((data for name, data in events if name == "error"), None)
+        self.assertIsNotNone(error_event)
+        assert error_event is not None
+        self.assertEqual(error_event["code"], "IDEA_VERSION_CONFLICT")
 
     def test_prd_feedback_latest_only_and_version_guard(self) -> None:
         idea_id, version = self._create_idea("PRD Feedback Latest")
