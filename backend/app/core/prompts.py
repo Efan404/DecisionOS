@@ -119,22 +119,43 @@ def build_prd_prompt(
     *,
     context_pack: dict[str, object],
 ) -> str:
+    # Build a trimmed context that omits fields the LLM does not need:
+    # - step2_path.path_json and path_md (verbose node trees)
+    # - step3_feasibility.alternatives_brief (non-selected plans)
+    # - step4_scope.baseline_meta (internal versioning metadata)
+    # - scope item ids (internal references)
+    step2: dict = context_pack.get("step2_path", {})  # type: ignore[assignment]
+    step3: dict = context_pack.get("step3_feasibility", {})  # type: ignore[assignment]
+    step4: dict = context_pack.get("step4_scope", {})  # type: ignore[assignment]
+    selected_plan: dict = step3.get("selected_plan", {})  # type: ignore[assignment]
+
+    slim_context = {
+        "idea_seed": context_pack.get("idea_seed"),
+        "confirmed_path_summary": step2.get("path_summary"),
+        "leaf_node_content": step2.get("leaf_node_content"),
+        "selected_plan": {
+            "name": selected_plan.get("name"),
+            "summary": selected_plan.get("summary"),
+            "score_overall": selected_plan.get("score_overall"),
+            "recommended_positioning": selected_plan.get("recommended_positioning"),
+        },
+        "in_scope": [
+            {"title": item.get("title"), "desc": item.get("desc"), "priority": item.get("priority")}
+            for item in step4.get("in_scope", [])
+        ],
+        "out_scope": [
+            {"title": item.get("title"), "reason": item.get("reason")}
+            for item in step4.get("out_scope", [])
+        ],
+    }
+
     return (
         f"{PRD_PROMPT}\n"
-        "You are a senior PM and delivery lead.\n"
-        "Output must be strict JSON with no markdown fences or extra prose.\n"
-        "The PRD must be detailed, concrete, and implementation-ready.\n"
-        f"context_pack={json.dumps(context_pack, ensure_ascii=False)}\n"
-        "Hard constraints:\n"
-        "- requirements count must be between 6 and 12.\n"
-        "- backlog.items count must be between 8 and 15.\n"
-        "- each backlog item must include requirement_id mapping to requirements.id.\n"
-        "- backlog.item.priority must be one of P0/P1/P2.\n"
-        "- backlog.item.type must be one of epic/story/task.\n"
-        "- backlog.item.acceptance_criteria must contain at least 2 items.\n"
-        "- backlog.item.source_refs must contain one or more of step2/step3/step4.\n"
-        "- items clearly marked in out_scope must not appear as P0 backlog.\n"
-        "Return JSON with keys: markdown, sections, requirements, backlog, generation_meta."
+        f"context={json.dumps(slim_context, ensure_ascii=False)}\n"
+        "Constraints: 6-12 requirements; 8-15 backlog items; each item maps requirement_id; "
+        "priority P0/P1/P2; type epic/story/task; >=2 acceptance_criteria per item; "
+        "source_refs from step2/step3/step4; out_scope items must not be P0.\n"
+        "Return JSON: markdown, sections, requirements, backlog, generation_meta."
     )
 
 
@@ -182,4 +203,46 @@ def summarize_path_prompt(node_chain_text: str) -> str:
         "The summary MUST be written in English.\n\n"
         f"{node_chain_text}\n\n"
         'Return a JSON object: {"summary": "<your summary paragraph>"}'
+    )
+
+
+def build_prd_requirements_prompt(*, context: dict[str, object]) -> str:
+    """Prompt for Stage-A parallel call: generate requirements only."""
+    return (
+        "You are a senior PM. Given the product context below, generate 6-12 well-defined "
+        "product requirements. Each requirement needs: id (req-001...), title, description, "
+        "rationale, 2-8 acceptance_criteria (list of strings), "
+        "source_refs (list of step2/step3/step4).\n"
+        f"context={json.dumps(context, ensure_ascii=False)}\n"
+        "Return JSON: {\"requirements\": [...]}"
+    )
+
+
+def build_prd_markdown_prompt(*, context: dict[str, object]) -> str:
+    """Prompt for Stage-A parallel call: generate markdown narrative + sections only."""
+    return (
+        "You are a senior PM. Given the product context below, write a delivery-ready PRD "
+        "as markdown with 6-12 named sections (executive summary, personas, capabilities, etc). "
+        "Be concrete and implementation-ready.\n"
+        f"context={json.dumps(context, ensure_ascii=False)}\n"
+        "Return JSON: {\"markdown\": \"...\", \"sections\": [{\"id\":\"...\",\"title\":\"...\",\"content\":\"...\"}]}"
+    )
+
+
+def build_prd_backlog_prompt(
+    *,
+    context: dict[str, object],
+    requirement_ids: list[str],
+) -> str:
+    """Prompt for Stage-B call: generate backlog items referencing requirement IDs."""
+    return (
+        "You are a senior PM. Given the product context and requirement IDs below, "
+        "generate 8-15 executable backlog items. Each item needs: id (bl-001...), title, summary, "
+        "requirement_id (must be one of the provided IDs), priority (P0/P1/P2), "
+        "type (epic/story/task), 2-8 acceptance_criteria, "
+        "source_refs (step2/step3/step4), depends_on (list of bl-ids, may be empty). "
+        "Out-of-scope items must not be P0.\n"
+        f"context={json.dumps(context, ensure_ascii=False)}\n"
+        f"requirement_ids={json.dumps(requirement_ids)}\n"
+        "Return JSON: {\"backlog\": {\"items\": [...]}}"
     )
