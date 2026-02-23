@@ -155,39 +155,39 @@ export function AISettingsPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-sm">
+      <section className="rounded-2xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">AI Settings</h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <h1 className="text-2xl font-semibold text-[#1e1e1e]">AI Settings</h1>
+            <p className="mt-1 text-sm text-[#1e1e1e]/50">
               Configure your AI provider. Exactly one provider can be active at a time.
             </p>
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-[#1e1e1e]/35">
             {updatedAt ? `Updated: ${updatedAt}` : 'Not saved yet'}
           </div>
         </div>
 
         {loading ? (
-          <p className="mt-4 text-sm text-slate-500">Loading AI settings...</p>
+          <p className="mt-4 text-sm text-[#1e1e1e]/40">Loading AI settings...</p>
         ) : (
           <>
             <div className="mt-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold tracking-[0.15em] text-slate-600 uppercase">
+                <h2 className="text-sm font-semibold tracking-[0.15em] text-[#1e1e1e]/50 uppercase">
                   Providers
                 </h2>
                 <button
                   type="button"
                   onClick={addProvider}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+                  className="rounded-xl border border-[#1e1e1e]/15 bg-white px-3 py-2 text-sm font-medium text-[#1e1e1e]/70 hover:bg-[#f5f5f5] transition"
                 >
                   Add Provider
                 </button>
               </div>
 
               {providers.length === 0 ? (
-                <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                <p className="rounded-xl border border-dashed border-[#1e1e1e]/15 p-4 text-sm text-[#1e1e1e]/40">
                   No providers configured. Add one to enable AI generation.
                 </p>
               ) : null}
@@ -200,24 +200,24 @@ export function AISettingsPage() {
                   return (
                     <article
                       key={providerKey}
-                      className={`rounded-xl border-2 p-4 transition-colors ${
-                        isActive
-                          ? 'border-emerald-400 bg-emerald-50/40'
-                          : 'border-slate-200 bg-white'
-                      }`}
+                      className="rounded-xl border-2 p-4 transition-colors"
+                      style={{
+                        borderColor: isActive ? '#b9eb10' : '#1e1e1e1a',
+                        background: isActive ? '#1e1e1e' : '#ffffff',
+                      }}
                     >
                       <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              isActive
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
+                            className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                            style={{
+                              background: isActive ? '#b9eb10' : '#1e1e1e0f',
+                              color: isActive ? '#1e1e1e' : '#1e1e1e66',
+                            }}
                           >
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
-                          <span className="text-sm font-medium text-slate-700">
+                          <span className="text-sm font-medium" style={{ color: isActive ? '#ffffff' : '#1e1e1e' }}>
                             {provider.name || '(unnamed)'}
                           </span>
                         </div>
@@ -226,7 +226,7 @@ export function AISettingsPage() {
                             <button
                               type="button"
                               onClick={() => setEnabledProvider(index)}
-                              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                              className="rounded-lg border border-[#b9eb10] bg-[#b9eb10]/10 px-3 py-1.5 text-xs font-medium text-[#4a7300] hover:bg-[#b9eb10]/20 transition"
                             >
                               Set Active
                             </button>
@@ -235,14 +235,18 @@ export function AISettingsPage() {
                             type="button"
                             onClick={() => void onTestProvider(provider)}
                             disabled={Boolean(testingIds[testKey])}
-                            className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-[#1e1e1e]/15 px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{
+                              background: isActive ? '#ffffff15' : '#f5f5f5',
+                              color: isActive ? '#ffffff' : '#1e1e1e99',
+                            }}
                           >
                             {testingIds[testKey] ? 'Testing...' : 'Test'}
                           </button>
                           <button
                             type="button"
                             onClick={() => removeProvider(index)}
-                            className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 transition"
                           >
                             Remove
                           </button>
@@ -250,109 +254,64 @@ export function AISettingsPage() {
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          { label: 'Provider ID', key: 'id', type: 'text', value: provider.id },
+                          { label: 'Display Name', key: 'name', type: 'text', value: provider.name },
+                          { label: 'Base URL', key: 'base_url', type: 'text', value: provider.base_url, placeholder: 'https://api.openai.com/v1' },
+                          { label: 'API Key (optional)', key: 'api_key', type: 'password', value: provider.api_key ?? '' },
+                          { label: 'Model (optional)', key: 'model', type: 'text', value: provider.model ?? '' },
+                          { label: 'Timeout Seconds', key: 'timeout_seconds', type: 'number', value: provider.timeout_seconds },
+                          { label: 'Temperature', key: 'temperature', type: 'number', value: provider.temperature },
+                        ].map(({ label, key, type, value, placeholder }) =>
+                          key === 'kind' ? null : (
+                            <label key={key} className="text-sm">
+                              <span className="mb-1 block" style={{ color: isActive ? '#ffffff88' : '#1e1e1e66' }}>{label}</span>
+                              <input
+                                type={type}
+                                min={key === 'timeout_seconds' ? 1 : key === 'temperature' ? 0 : undefined}
+                                max={key === 'timeout_seconds' ? 120 : key === 'temperature' ? 2 : undefined}
+                                step={key === 'temperature' ? 0.1 : key === 'timeout_seconds' ? 1 : undefined}
+                                value={value}
+                                placeholder={placeholder}
+                                onChange={(event) =>
+                                  updateProvider(index, {
+                                    [key]: type === 'number' ? Number(event.currentTarget.value) || (key === 'temperature' ? 0.2 : 20) : event.currentTarget.value,
+                                  })
+                                }
+                                className="w-full rounded-xl border px-3 py-2 text-sm outline-none transition focus:ring-2"
+                                style={{
+                                  background: isActive ? '#ffffff0f' : '#f5f5f5',
+                                  borderColor: isActive ? '#ffffff22' : '#1e1e1e18',
+                                  color: isActive ? '#ffffff' : '#1e1e1e',
+                                }}
+                              />
+                            </label>
+                          )
+                        )}
                         <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Provider ID</span>
-                          <input
-                            value={provider.id}
-                            onChange={(event) =>
-                              updateProvider(index, { id: event.currentTarget.value })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Display Name</span>
-                          <input
-                            value={provider.name}
-                            onChange={(event) =>
-                              updateProvider(index, { name: event.currentTarget.value })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Provider Kind</span>
+                          <span className="mb-1 block" style={{ color: isActive ? '#ffffff88' : '#1e1e1e66' }}>Provider Kind</span>
                           <select
                             value={provider.kind}
                             onChange={(event) =>
-                              updateProvider(index, {
-                                kind: event.currentTarget.value as AIProviderKind,
-                              })
+                              updateProvider(index, { kind: event.currentTarget.value as AIProviderKind })
                             }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
+                            className="w-full rounded-xl border px-3 py-2 text-sm outline-none transition"
+                            style={{
+                              background: isActive ? '#ffffff0f' : '#f5f5f5',
+                              borderColor: isActive ? '#ffffff22' : '#1e1e1e18',
+                              color: isActive ? '#ffffff' : '#1e1e1e',
+                            }}
                           >
                             <option value="generic_json">generic_json</option>
                             <option value="openai_compatible">openai_compatible</option>
                           </select>
                         </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Base URL</span>
-                          <input
-                            value={provider.base_url}
-                            onChange={(event) =>
-                              updateProvider(index, { base_url: event.currentTarget.value })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                            placeholder="https://api.openai.com/v1 or http://127.0.0.1:8080/generate"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">API Key (optional)</span>
-                          <input
-                            type="password"
-                            value={provider.api_key ?? ''}
-                            onChange={(event) =>
-                              updateProvider(index, { api_key: event.currentTarget.value })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Model (optional)</span>
-                          <input
-                            value={provider.model ?? ''}
-                            onChange={(event) =>
-                              updateProvider(index, { model: event.currentTarget.value })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Timeout Seconds</span>
-                          <input
-                            type="number"
-                            min={1}
-                            max={120}
-                            step={1}
-                            value={provider.timeout_seconds}
-                            onChange={(event) =>
-                              updateProvider(index, {
-                                timeout_seconds: Number(event.currentTarget.value) || 20,
-                              })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
-                        <label className="text-sm">
-                          <span className="mb-1 block text-slate-600">Temperature</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={provider.temperature}
-                            onChange={(event) =>
-                              updateProvider(index, {
-                                temperature: Number(event.currentTarget.value) || 0.2,
-                              })
-                            }
-                            className="w-full rounded-md border border-slate-300 px-3 py-2"
-                          />
-                        </label>
                       </div>
 
                       {testResults[testKey] ? (
-                        <p className="mt-2 text-xs text-slate-600">{testResults[testKey]}</p>
+                        <p className="mt-3 text-xs" style={{ color: isActive ? '#ffffff88' : '#1e1e1e66' }}>
+                          {testResults[testKey]}
+                        </p>
                       ) : null}
                     </article>
                   )
@@ -365,7 +324,7 @@ export function AISettingsPage() {
                 type="button"
                 onClick={() => void onSave()}
                 disabled={saving}
-                className="rounded-md border border-cyan-600 bg-cyan-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-[#1e1e1e] px-5 py-2.5 text-sm font-bold text-[#b9eb10] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60 transition"
               >
                 {saving ? 'Saving...' : 'Save AI Settings'}
               </button>

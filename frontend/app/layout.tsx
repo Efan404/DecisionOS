@@ -7,7 +7,12 @@ import { ToasterProvider } from '../components/providers/ToasterProvider'
 
 export const metadata: Metadata = {
   title: 'DecisionOS',
-  description: 'DecisionOS frontend skeleton',
+  description: 'A single-user, single-workspace decision management system for product ideas.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 type RootLayoutProps = Readonly<{
@@ -17,7 +22,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen bg-slate-100 text-slate-900 antialiased">
+      <body className="min-h-screen bg-[#f5f5f5] text-[#1e1e1e] antialiased">
         <StoreHydration />
         <ToasterProvider />
         <AppShell>{children}</AppShell>
