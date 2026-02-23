@@ -14,6 +14,11 @@ import type {
 import { PrdBacklogPanel } from './PrdBacklogPanel'
 import { PrdFeedbackCard } from './PrdFeedbackCard'
 
+type PrdStreamPartials = {
+  requirements: PrdOutput['requirements'] | null
+  backlog: PrdOutput['backlog'] | null
+}
+
 type PrdViewProps = {
   prd?: PrdOutput
   bundle?: PrdBundle
@@ -30,6 +35,7 @@ type PrdViewProps = {
   }) => Promise<void>
   feedbackSubmitting?: boolean
   feedbackError?: string | null
+  streamPartials?: PrdStreamPartials | null
 }
 
 // Status banner — one state at a time: loading > error > idle
@@ -185,7 +191,7 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
           {markdown}
         </pre>
       ) : (
-        <div className="max-h-[60vh] max-w-none overflow-auto px-5 py-5 text-sm leading-7 text-slate-700 [&_h1]:mb-4 [&_h1]:mt-6 [&_h1]:text-base [&_h1]:font-bold [&_h1]:leading-8 [&_h1]:text-slate-900 [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:text-slate-900 [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-slate-800 [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_li]:leading-6 [&_a]:font-medium [&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_pre]:rounded-lg [&_pre]:bg-slate-950 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:text-slate-200 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_td]:border [&_td]:border-slate-200 [&_td]:px-3 [&_td]:py-2 [&_td]:text-xs [&_hr]:my-6 [&_hr]:border-slate-200">
+        <div className="max-h-[60vh] max-w-none overflow-auto px-5 py-5 text-sm leading-7 text-slate-700 [&_a]:font-medium [&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-500 [&_blockquote]:italic [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:text-base [&_h1]:leading-8 [&_h1]:font-bold [&_h1]:text-slate-900 [&_h2]:mt-5 [&_h2]:mb-3 [&_h2]:text-sm [&_h2]:leading-7 [&_h2]:font-semibold [&_h2]:text-slate-900 [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-slate-800 [&_hr]:my-6 [&_hr]:border-slate-200 [&_li]:mb-1 [&_li]:leading-6 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_pre]:rounded-lg [&_pre]:bg-slate-950 [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:text-slate-200 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-3 [&_td]:py-2 [&_td]:text-xs [&_th]:border [&_th]:border-slate-200 [&_th]:bg-slate-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </div>
       )}
@@ -207,6 +213,7 @@ export function PrdView({
   onSubmitFeedback,
   feedbackSubmitting = false,
   feedbackError = null,
+  streamPartials = null,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
   const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
@@ -328,14 +335,14 @@ export function PrdView({
                             {item.id}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold leading-5 text-slate-900">
+                            <p className="text-sm leading-5 font-semibold text-slate-900">
                               {item.title}
                             </p>
                             <p className="mt-1 text-xs leading-5 text-slate-500">
                               {item.description}
                             </p>
                             {item.rationale ? (
-                              <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs italic text-slate-400">
+                              <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs text-slate-400 italic">
                                 {item.rationale}
                               </p>
                             ) : null}
@@ -360,7 +367,7 @@ export function PrdView({
                         {String(idx + 1).padStart(2, '0')}
                       </span>
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                        <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
                           {section.title}
                         </p>
                         <p className="mt-1.5 text-sm leading-6 text-slate-700">{section.content}</p>
@@ -409,29 +416,70 @@ export function PrdView({
           </div>
         </div>
       ) : (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
-          {loading ? (
-            <>
-              <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-              <p className="text-sm text-slate-500">Preparing PRD and backlog&hellip;</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-slate-500">
-                {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
+        /* Empty state — show progressive partials while loading, or a placeholder */
+        <div className="space-y-4">
+          {loading && streamPartials?.requirements ? (
+            <div className="rounded-xl border border-slate-200 bg-white px-5 py-5">
+              <p className="mb-3 text-xs font-semibold tracking-widest text-slate-400 uppercase">
+                Requirements loaded — generating backlog&hellip;
               </p>
-              {onRetry && !loading ? (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="mt-4 cursor-pointer rounded-lg border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-                >
-                  Generate
-                </button>
-              ) : null}
-            </>
-          )}
+              <ul className="space-y-2">
+                {streamPartials.requirements.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3"
+                  >
+                    <span className="mr-2 rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                      {item.id}
+                    </span>
+                    <span className="text-sm text-slate-700">{item.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {loading && streamPartials?.backlog ? (
+            <div className="rounded-xl border border-slate-200 bg-white px-5 py-5">
+              <p className="mb-3 text-xs font-semibold tracking-widest text-slate-400 uppercase">
+                Backlog loaded — saving&hellip;
+              </p>
+              <ul className="space-y-1">
+                {streamPartials.backlog.items.map((item) => (
+                  <li key={item.id} className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-400">
+                      {item.priority}
+                    </span>
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {!streamPartials?.requirements ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
+              {loading ? (
+                <>
+                  <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
+                  <p className="text-sm text-slate-500">Preparing PRD and backlog&hellip;</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-500">
+                    {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
+                  </p>
+                  {onRetry && !loading ? (
+                    <button
+                      type="button"
+                      onClick={onRetry}
+                      className="mt-4 cursor-pointer rounded-lg border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+                    >
+                      Generate
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
     </section>

@@ -6,16 +6,17 @@ import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
-import { ApiError, postIdeaScopedAgent, postPrdFeedback } from '../../lib/api'
+import { ApiError, postPrdFeedback } from '../../lib/api'
+import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
-import {
-  prdOutputSchema,
-  type PrdFeedbackDimensions,
-  type PrdInput,
-  type PrdOutput,
-} from '../../lib/schemas'
+import { type PrdFeedbackDimensions, type PrdOutput } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
+
+type PrdStreamPartials = {
+  requirements: PrdOutput['requirements'] | null
+  backlog: PrdOutput['backlog'] | null
+}
 
 const globalPrdGenerationRequests = new Set<string>()
 
@@ -27,7 +28,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const searchParams = useSearchParams()
   const context = useDecisionStore((state) => state.context)
   const replaceContext = useDecisionStore((state) => state.replaceContext)
-  const setPrd = useDecisionStore((state) => state.prd)
   const canOpen = canOpenPrd(context)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
   const activeIdea = useIdeasStore(
@@ -40,15 +40,16 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
+  const [streamPartials, setStreamPartials] = useState<PrdStreamPartials>({
+    requirements: null,
+    backlog: null,
+  })
   const inFlightGenerationKeyRef = useRef<string | null>(null)
   // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
   // This prevents a spurious "Select a frozen baseline" error when navigating via the
   // sidebar (which omits the query param) but a frozen baseline already exists.
   const baselineId =
-    baselineIdProp ??
-    searchParams.get('baseline_id') ??
-    context.current_scope_baseline_id ??
-    null
+    baselineIdProp ?? searchParams.get('baseline_id') ?? context.current_scope_baseline_id ?? null
 
   const generationKey = useMemo(
     () =>
@@ -100,29 +101,39 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     setErrorMessage(null)
 
     const run = async () => {
+      setStreamPartials({ requirements: null, backlog: null })
       try {
-        const envelope = await postIdeaScopedAgent<PrdInput & { version: number }, PrdOutput>(
-          activeIdeaId,
-          'prd',
+        let donePayload: { idea_id: string; idea_version: number } | null = null
+        await streamPost(
+          `/ideas/${activeIdeaId}/agents/prd/stream`,
           {
             baseline_id: baselineId,
             version: activeIdea.version,
+          },
+          {
+            onEvent: (event) => {
+              if (cancelled) return
+              if (event.event === 'requirements') {
+                const data = event.data as { requirements: PrdOutput['requirements'] }
+                setStreamPartials((prev) => ({ ...prev, requirements: data.requirements }))
+              } else if (event.event === 'backlog') {
+                const data = event.data as { items: PrdOutput['backlog']['items'] }
+                setStreamPartials((prev) => ({ ...prev, backlog: { items: data.items } }))
+              } else if (event.event === 'done') {
+                donePayload = event.data as { idea_id: string; idea_version: number }
+              }
+            },
           }
         )
-        const parsed = prdOutputSchema.safeParse(envelope.data)
-        if (!parsed.success) {
-          throw new Error('PRD payload shape mismatch.')
-        }
-
-        if (!cancelled) {
+        if (!cancelled && donePayload) {
+          const envelope = donePayload
           setIdeaVersion(activeIdeaId, envelope.idea_version)
           const detail = await loadIdeaDetail(activeIdeaId)
           if (detail) {
             replaceContext(detail.context)
-          } else {
-            setPrd(parsed.data)
           }
           setRetryNonce(0)
+          setStreamPartials({ requirements: null, backlog: null })
         }
       } catch (error) {
         if (inFlightGenerationKeyRef.current === requestKey) {
@@ -167,7 +178,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     replaceContext,
     retryNonce,
     setIdeaVersion,
-    setPrd,
   ])
 
   const handleRetry = () => {
@@ -240,6 +250,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         onSubmitFeedback={handleSubmitFeedback}
         feedbackSubmitting={feedbackSubmitting}
         feedbackError={feedbackError}
+        streamPartials={loading ? streamPartials : null}
       />
     </main>
   )
