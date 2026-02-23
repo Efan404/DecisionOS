@@ -52,6 +52,22 @@ class PRDGenerationMeta(BaseModel):
     baseline_id: str = Field(min_length=1)
 
 
+class PRDRequirementsOutput(BaseModel):
+    """Output of the parallel requirements LLM call."""
+    requirements: list[PRDRequirement] = Field(min_length=6, max_length=12)
+
+
+class PRDMarkdownOutput(BaseModel):
+    """Output of the parallel markdown+sections LLM call."""
+    markdown: str
+    sections: list[PRDSection] = Field(min_length=6)
+
+
+class PRDBacklogOutput(BaseModel):
+    """Output of the Stage-B backlog LLM call (requires requirement IDs)."""
+    backlog: PRDBacklog
+
+
 class PRDOutput(BaseModel):
     markdown: str
     sections: list[PRDSection] = Field(min_length=6)
