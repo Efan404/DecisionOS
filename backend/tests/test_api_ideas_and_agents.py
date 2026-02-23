@@ -32,6 +32,31 @@ def _mock_opportunity(payload: object) -> object:
     )
 
 
+def _mock_single_plan(payload: object, plan_index: int) -> object:
+    """Return a single Plan for stream_feasibility (generate_single_plan mock)."""
+    from app.schemas.common import ReasoningBreakdown, ScoreBreakdown
+    from app.schemas.feasibility import Plan
+
+    pid = f"plan{plan_index}"
+    return Plan(
+        id=pid,
+        name=f"Plan {plan_index}",
+        summary=f"Summary for plan {plan_index}",
+        score_overall=8.0 - plan_index * 0.5,
+        scores=ScoreBreakdown(
+            technical_feasibility=8.0,
+            market_viability=8.0,
+            execution_risk=7.5,
+        ),
+        reasoning=ReasoningBreakdown(
+            technical_feasibility="tech",
+            market_viability="market",
+            execution_risk="risk",
+        ),
+        recommended_positioning=f"Position {plan_index}",
+    )
+
+
 def _mock_feasibility(payload: object) -> object:
     from app.schemas.common import ReasoningBreakdown, ScoreBreakdown
     from app.schemas.feasibility import FeasibilityOutput, Plan
@@ -151,6 +176,9 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self._patch_feasibility = patch(
             "app.core.llm.generate_feasibility", side_effect=_mock_feasibility
         )
+        self._patch_single_plan = patch(
+            "app.core.llm.generate_single_plan", side_effect=_mock_single_plan
+        )
         self._patch_scope = patch(
             "app.core.llm.generate_scope", side_effect=_mock_scope
         )
@@ -162,6 +190,7 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         )
         self._patch_opportunity.start()
         self._patch_feasibility.start()
+        self._patch_single_plan.start()
         self._patch_scope.start()
         self._patch_prd.start()
         self._patch_path_summary.start()
@@ -171,6 +200,7 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self._patch_opportunity.stop()
         self._patch_feasibility.stop()
+        self._patch_single_plan.stop()
         self._patch_scope.stop()
         self._patch_prd.stop()
         self._patch_path_summary.stop()
