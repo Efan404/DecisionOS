@@ -283,12 +283,10 @@ export function FeasibilityPage() {
           {loading ? 'Generating...' : plans.length ? 'Regenerate Plans' : 'Generate Plans'}
         </button>
       </div>
-      {loading && plans.length > 0 ? (
+      {loading ? (
         <p className="mt-2 text-xs text-black/60">
-          {plans.length}/3 plans ready · Streaming {progressPct}%
+          {plans.length > 0 ? `${plans.length}/3 plans ready · ` : ''}Streaming {progressPct}%
         </p>
-      ) : loading ? (
-        <p className="mt-2 text-xs text-black/60">Streaming {progressPct}%</p>
       ) : null}
       {errorMessage ? <p className="mt-2 text-xs text-red-600">{errorMessage}</p> : null}
       {showEmptyState ? (
