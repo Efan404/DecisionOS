@@ -168,7 +168,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       if (inFlightGenerationKeyRef.current === requestKey) {
         inFlightGenerationKeyRef.current = null
       }
-      globalPrdGenerationRequests.delete(requestKey)
+      // Do NOT delete from globalPrdGenerationRequests here.
+      // The set is cleaned up in the finally block of run().
+      // Deleting here would allow a second effect (e.g. StrictMode) to bypass the guard.
     }
   }, [
     activeIdea,
