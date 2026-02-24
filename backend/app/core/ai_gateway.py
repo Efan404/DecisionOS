@@ -16,6 +16,9 @@ SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
 _settings_repo = AISettingsRepository()
 logger = logging.getLogger(__name__)
+# Tracks (provider_id, model) pairs that don't support json_schema response_format.
+# Populated at runtime on first 400 failure; reset on process restart.
+_json_schema_unsupported: set[tuple[str, str]] = set()
 
 # Keep provider payloads bounded to avoid untrusted large responses consuming memory.
 _POST_JSON_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -260,41 +263,50 @@ def _call_openai_compatible_provider(
         endpoint = f"{endpoint}/chat/completions"
 
     model = provider.model or "gpt-4o-mini"
+    cache_key = (provider.id, model)
 
-    # First attempt: use json_schema structured output (supported by GPT-4o etc.)
-    body: dict[str, object] = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": provider.temperature,
-        "include_reasoning": False,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "decisionos_response",
-                "schema": response_schema,
+    # Only attempt json_schema if this (provider, model) hasn't failed before
+    if cache_key not in _json_schema_unsupported:
+        body: dict[str, object] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": provider.temperature,
+            "include_reasoning": False,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "decisionos_response",
+                    "schema": response_schema,
+                },
             },
-        },
-    }
-    logger.debug("_call_openai_compatible_provider url=%s model=%s (json_schema)", endpoint, model)
-    try:
-        decoded = _post_json(
-            url=endpoint,
-            body=body,
-            timeout_seconds=provider.timeout_seconds,
-            api_key=provider.api_key,
-        )
-        content = _extract_content_from_choices(decoded)
-        return _parse_json_from_content(content)
-    except Exception as exc:
-        logger.warning(
-            "_call_openai_compatible_provider json_schema failed (%s), retrying with plain prompt", exc
+        }
+        logger.debug("_call_openai_compatible_provider url=%s model=%s (json_schema)", endpoint, model)
+        try:
+            decoded = _post_json(
+                url=endpoint,
+                body=body,
+                timeout_seconds=provider.timeout_seconds,
+                api_key=provider.api_key,
+            )
+            content = _extract_content_from_choices(decoded)
+            return _parse_json_from_content(content)
+        except Exception as exc:
+            _json_schema_unsupported.add(cache_key)
+            logger.warning(
+                "_call_openai_compatible_provider json_schema failed (%s), "
+                "caching as unsupported for %s/%s, retrying with plain prompt",
+                exc, provider.id, model,
+            )
+    else:
+        logger.debug(
+            "_call_openai_compatible_provider skipping json_schema (cached unsupported) "
+            "url=%s model=%s", endpoint, model,
         )
 
-    # Fallback: plain prompt asking for JSON (for models that don't support response_format)
-    # Include schema to guide field names, but keep it compact
+    # Fallback: plain prompt asking for JSON
     schema_str = json.dumps(response_schema, ensure_ascii=False, separators=(",", ":"))
     fallback_prompt = (
         f"{user_prompt}\n\n"
