@@ -21,6 +21,7 @@ import {
   createRootNode,
   expandUserNode,
   confirmPath,
+  buildConfirmedPathContext,
   getLatestPath,
   type IdeaNode,
 } from '../../../lib/dag-api'
@@ -195,6 +196,21 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     const path = await confirmPath(ideaId, selectedPathChain)
     setConfirmedPath(path)
     setSessionConfirmed(true)
+
+    // Sync DAG confirmation into the decision context so stage guards
+    // (canRunFeasibility) see confirmed_dag_path_id immediately.
+    const pathCtx = buildConfirmedPathContext(path)
+    const store = useDecisionStore.getState()
+    useDecisionStore.setState({
+      context: {
+        ...store.context,
+        confirmed_dag_path_id: path.id,
+        confirmed_dag_node_id: pathCtx?.confirmed_node_id,
+        confirmed_dag_node_content: pathCtx?.confirmed_node_content,
+        confirmed_dag_path_summary: pathCtx?.confirmed_path_summary ?? undefined,
+      },
+    })
+
     router.push(`/ideas/${ideaId}/feasibility`)
   }
 
