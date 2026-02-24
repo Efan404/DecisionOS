@@ -1,10 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useDroppable } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
-import { SortableScopeItem } from './ScopeItem'
+import { ScopeItem } from './ScopeItem'
 import type { ScopeBaselineItem } from '../../lib/schemas'
 
 type ScopeColumnProps = {
@@ -35,20 +33,9 @@ export function ScopeColumn({
   const isInLane = lane === 'in'
   const labelText = isInLane ? 'Add item to IN scope' : 'Add item to OUT scope'
   const buttonText = isInLane ? 'Add IN Item' : 'Add OUT Item'
-  const { setNodeRef, isOver } = useDroppable({
-    id: lane,
-    disabled: readonly,
-  })
 
   return (
-    <section
-      className={[
-        'rounded-xl border border-black/20 bg-black/[0.02] p-4',
-        isOver && !readonly ? 'ring-2 ring-black/20' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <section className="rounded-xl border border-black/20 bg-black/[0.02] p-4">
       <h3 className="text-sm font-semibold">{title}</h3>
       <div className="mt-3 flex items-center gap-2">
         <label htmlFor={`${lane}-item-input`} className="sr-only">
@@ -78,27 +65,19 @@ export function ScopeColumn({
           {buttonText}
         </button>
       </div>
-      <div
-        ref={setNodeRef}
-        className="mt-3 flex min-h-36 flex-col gap-2 rounded-md border border-dashed border-transparent p-1"
-      >
+      <div className="mt-3 flex min-h-36 flex-col gap-2 rounded-md border border-dashed border-transparent p-1">
         {sortedItems.length ? (
-          <SortableContext
-            items={sortedItems.map((item) => item.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {sortedItems.map((item, index) => (
-              <SortableScopeItem
-                key={item.id}
-                item={item}
-                readonly={readonly}
-                disableMoveUp={index === 0}
-                disableMoveDown={index === sortedItems.length - 1}
-                onDelete={onDelete}
-                onMove={onMove}
-              />
-            ))}
-          </SortableContext>
+          sortedItems.map((item, index) => (
+            <ScopeItem
+              key={item.id}
+              item={item}
+              readonly={readonly}
+              disableMoveUp={index === 0}
+              disableMoveDown={index === sortedItems.length - 1}
+              onDelete={onDelete}
+              onMove={onMove}
+            />
+          ))
         ) : (
           <p className="text-xs text-black/50">No items yet.</p>
         )}
