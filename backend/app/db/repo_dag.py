@@ -136,6 +136,15 @@ def create_path(
     )
 
 
+def update_path_summary(path_id: str, path_md: str, path_json: str) -> None:
+    """Patch path_md and path_json in-place (used by background summary generation)."""
+    with db_session() as conn:
+        conn.execute(
+            "UPDATE idea_paths SET path_md = ?, path_json = ? WHERE id = ?",
+            (path_md, path_json, path_id),
+        )
+
+
 def get_latest_path(idea_id: str) -> IdeaPath | None:
     with db_session() as conn:
         row = conn.execute(

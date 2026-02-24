@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.core import llm
@@ -215,7 +216,7 @@ async def expand_stream(idea_id: str, node_id: str, pattern_id: str) -> Streamin
 
 
 @router.post("/paths", response_model=IdeaPathOut, status_code=201)
-async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
+async def confirm_path(idea_id: str, body: ConfirmPathRequest, background_tasks: BackgroundTasks) -> IdeaPathOut:
     idea = _repo.get_idea(idea_id)
     if idea is None:
         raise HTTPException(
@@ -254,18 +255,9 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
     chain_text = " → ".join(
         nodes[nid].content for nid in body.node_chain if nid in nodes
     )
-    try:
-        summary = llm.generate_path_summary(chain_text)
-    except Exception as exc:
-        _raise_if_no_provider(exc)
-        raise HTTPException(
-            status_code=502,
-            detail={"code": "PATH_SUMMARY_FAILED", "message": "Failed to generate path summary"},
-        ) from exc
-    lines.append(f"## 演进摘要\n{summary}\n")
-    path_md = "\n".join(lines)
 
-    path_json_data = {
+    # Persist path immediately with empty summary so the user is not blocked.
+    path_json_data: dict[str, object] = {
         "idea_id": idea_id,
         "confirmed_at": utc_now_iso(),
         "node_chain": [
@@ -278,8 +270,9 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
             }
             for nid in body.node_chain
         ],
-        "summary": summary,
+        "summary": None,
     }
+    path_md = "\n".join(lines)
 
     path = repo_dag.create_path(
         idea_id=idea_id,
@@ -297,14 +290,62 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest) -> IdeaPathOut:
                 "confirmed_dag_path_id": path.id,
                 "confirmed_dag_node_id": confirmed_node_id,
                 "confirmed_dag_node_content": confirmed_node_content,
-                "confirmed_dag_path_summary": summary,
+                "confirmed_dag_path_summary": None,
             }
         ),
     )
     _unwrap_update(update)
 
+    # Generate path summary in the background — fills in path_json.summary and
+    # context.confirmed_dag_path_summary once the LLM responds, without blocking
+    # the user from navigating to the Feasibility step.
+    background_tasks.add_task(
+        _fill_path_summary_background, idea_id=idea_id, path_id=path.id, chain_text=chain_text
+    )
+
     return IdeaPathOut(**path.__dict__)
 
+
+def _fill_path_summary_background(*, idea_id: str, path_id: str, chain_text: str) -> None:
+    """Background task: generate LLM path summary and patch the path + context."""
+    logger.info("path_summary.start idea_id=%s path_id=%s", idea_id, path_id)
+    try:
+        summary = llm.generate_path_summary(chain_text)
+    except Exception as exc:
+        logger.warning("path_summary.failed idea_id=%s path_id=%s: %s", idea_id, path_id, exc)
+        return
+
+    # Patch the stored path record with the real summary.
+    existing = repo_dag.get_latest_path(idea_id)
+    if existing is None or existing.id != path_id:
+        logger.warning("path_summary.skip idea_id=%s path_id=%s (path no longer latest)", idea_id, path_id)
+        return
+
+    try:
+        path_json_data = json.loads(existing.path_json)
+    except Exception:
+        path_json_data = {}
+    path_json_data["summary"] = summary
+
+    updated_md = existing.path_md.rstrip("\n") + f"\n\n## 演进摘要\n{summary}\n"
+    repo_dag.update_path_summary(
+        path_id=path_id,
+        path_md=updated_md,
+        path_json=json.dumps(path_json_data, ensure_ascii=False),
+    )
+
+    # Patch context so downstream steps (Feasibility, PRD) have the summary.
+    idea = _repo.get_idea(idea_id)
+    if idea is None:
+        return
+    _repo.apply_agent_update(
+        idea_id,
+        version=idea.version,
+        mutate_context=lambda ctx: ctx.model_copy(
+            update={"confirmed_dag_path_summary": summary}
+        ),
+    )
+    logger.info("path_summary.done idea_id=%s path_id=%s", idea_id, path_id)
 
 @router.get("/paths/latest", response_model=IdeaPathOut)
 async def get_latest_path(idea_id: str) -> IdeaPathOut:
