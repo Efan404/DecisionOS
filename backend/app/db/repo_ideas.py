@@ -224,19 +224,21 @@ class IdeaRepository:
             mutate_context=mutate_context,
             require_not_archived=True,
         )
-        if result.kind == "conflict":
-            # Version was advanced by a concurrent operation (e.g. /paths write)
-            # while the LLM was running. Re-read the latest version and retry once.
-            # Safe because all mutate_context functions are idempotent (they only
-            # write new LLM output into context fields, never diff against old state).
+        # Retry up to 2 times when a concurrent write (e.g. /paths background task,
+        # scope freeze) bumped the version while the LLM was running (~90s for PRD).
+        # Safe because all mutate_context functions are idempotent.
+        for _ in range(2):
+            if result.kind != "conflict":
+                break
             latest = self.get_idea(idea_id)
-            if latest is not None:
-                result = self._update_context_internal(
-                    idea_id,
-                    version=latest.version,
-                    mutate_context=mutate_context,
-                    require_not_archived=True,
-                )
+            if latest is None:
+                break
+            result = self._update_context_internal(
+                idea_id,
+                version=latest.version,
+                mutate_context=mutate_context,
+                require_not_archived=True,
+            )
         return result
 
     def _update_context_internal(

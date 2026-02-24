@@ -270,6 +270,37 @@ class ApplyAgentUpdateRetryTestCase(unittest.TestCase):
         assert result.idea is not None
         self.assertEqual(result.idea.version, original_version + 2)
 
+    def test_apply_agent_update_retries_twice_on_double_conflict(self):
+        """apply_agent_update succeeds even with two consecutive concurrent bumps."""
+        idea = self._make_idea()
+        original_version = idea.version
+
+        # First concurrent bump (simulates background task)
+        bump1 = self.repo.update_idea(
+            idea.id, version=original_version, title="Bump 1", status=None
+        )
+        self.assertEqual(bump1.kind, "ok")
+        assert bump1.idea is not None
+        v1 = bump1.idea.version
+
+        # Second concurrent bump (simulates scope operation)
+        bump2 = self.repo.update_idea(
+            idea.id, version=v1, title="Bump 2", status=None
+        )
+        self.assertEqual(bump2.kind, "ok")
+        assert bump2.idea is not None
+        v2 = bump2.idea.version
+
+        # apply_agent_update with original stale version — needs 2 retries to succeed
+        result = self.repo.apply_agent_update(
+            idea.id,
+            version=original_version,
+            mutate_context=self._noop_mutate(),
+        )
+        self.assertEqual(result.kind, "ok", f"Expected ok but got {result.kind}")
+        assert result.idea is not None
+        self.assertEqual(result.idea.version, v2 + 1)
+
     def test_apply_agent_update_returns_not_found_for_missing_idea(self):
         """idea 不存在时，retry 后仍应返回 not_found，不崩溃。"""
         result = self.repo.apply_agent_update(
