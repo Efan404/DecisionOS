@@ -98,8 +98,8 @@ export const buildApiUrl = (path: string): string => {
 export const withAuthHeaders = (headers?: HeadersInit): Headers => {
   const nextHeaders = new Headers(headers ?? {})
   const token = getAccessToken()
-  if (token && !nextHeaders.has('Authorization')) {
-    nextHeaders.set('Authorization', `Bearer ${token}`)
+  if (token && !nextHeaders.has('X-App-Token')) {
+    nextHeaders.set('X-App-Token', token)
   }
   return nextHeaders
 }

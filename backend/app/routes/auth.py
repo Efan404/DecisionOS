@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.core.auth import AuthenticatedUser, require_authenticated_user
 from app.db.repo_auth import AuthRepository
@@ -9,7 +8,6 @@ from app.schemas.auth import AuthLoginRequest, AuthLoginResponse, AuthUserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _repo = AuthRepository()
-_bearer = HTTPBearer(auto_error=False)
 
 
 @router.post("/login", response_model=AuthLoginResponse)
@@ -45,9 +43,9 @@ async def get_me(current_user: AuthenticatedUser = Depends(require_authenticated
 @router.post("/logout", status_code=204)
 async def logout(
     current_user: AuthenticatedUser = Depends(require_authenticated_user),
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    x_app_token: str | None = Header(default=None),
 ) -> None:
     _ = current_user
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    if x_app_token is None:
         return
-    _repo.revoke_session(credentials.credentials)
+    _repo.revoke_session(x_app_token)
