@@ -796,7 +796,6 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertIsNotNone(final_detail["context"]["prd"])
         self.assertEqual(final_detail["context"]["selected_plan_id"], selected_plan_id)
         self.assertEqual(final_detail["context"]["prd_bundle"]["baseline_id"], baseline_id)
-        self.assertEqual(final_detail["context"]["prd_bundle"]["output"]["backlog"]["items"][0]["id"], "BL-1")
         self.assertNotIn("selected_direction_id", final_detail["context"])
         self.assertNotIn("path_id", final_detail["context"])
 
@@ -947,12 +946,13 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(prd["detail"]["code"], "PRD_GENERATION_FAILED")
 
     def test_prd_stream_emits_requirements_then_backlog_then_done(self) -> None:
+        # NOTE: two-stage generation (requirements + backlog events) is intentionally
+        # disabled while using the free model (see CLAUDE.md). Only markdown is generated
+        # in a single LLM call. This test validates the current single-call SSE flow.
         idea_id, version = self._create_idea("PRD Stream Idea")
         baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
 
-        with patch("app.core.llm.generate_prd_requirements", side_effect=_mock_prd_requirements), \
-             patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown), \
-             patch("app.core.llm.generate_prd_backlog", side_effect=_mock_prd_backlog):
+        with patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown):
             raw = self.client.request_raw(
                 "POST",
                 f"/ideas/{idea_id}/agents/prd/stream",
@@ -963,22 +963,11 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         events = _read_sse_events(raw.body)
         event_names = [name for name, _ in events]
 
-        self.assertIn("requirements", event_names)
-        self.assertIn("backlog", event_names)
+        # Single-call mode: only progress + done; no requirements or backlog events
         self.assertIn("done", event_names)
         self.assertNotIn("error", event_names)
-
-        # requirements event has full list
-        req_event = next((data for name, data in events if name == "requirements"), None)
-        self.assertIsNotNone(req_event)
-        assert req_event is not None
-        self.assertGreaterEqual(len(req_event["requirements"]), 6)
-
-        # backlog event has items
-        bl_event = next((data for name, data in events if name == "backlog"), None)
-        self.assertIsNotNone(bl_event)
-        assert bl_event is not None
-        self.assertGreaterEqual(len(bl_event["items"]), 8)
+        self.assertNotIn("requirements", event_names)
+        self.assertNotIn("backlog", event_names)
 
         # done event bumped idea version
         done_event = next((data for name, data in events if name == "done"), None)

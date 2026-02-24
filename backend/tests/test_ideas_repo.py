@@ -265,6 +265,7 @@ class ApplyAgentUpdateRetryTestCase(unittest.TestCase):
             idea.id,
             version=original_version,       # 过期版本
             mutate_context=self._noop_mutate(),
+            allow_conflict_retry=True,
         )
         self.assertEqual(result.kind, "ok", f"Expected ok but got {result.kind}")
         assert result.idea is not None
@@ -296,6 +297,7 @@ class ApplyAgentUpdateRetryTestCase(unittest.TestCase):
             idea.id,
             version=original_version,
             mutate_context=self._noop_mutate(),
+            allow_conflict_retry=True,
         )
         self.assertEqual(result.kind, "ok", f"Expected ok but got {result.kind}")
         assert result.idea is not None

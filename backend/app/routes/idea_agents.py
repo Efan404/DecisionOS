@@ -377,6 +377,7 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
             idea_id,
             version=payload.version,
             mutate_context=lambda context: _apply_feasibility(context, payload, output),
+            allow_conflict_retry=True,
         )
         error_payload = _sse_error_payload(result)
         if error_payload is not None:
@@ -528,6 +529,7 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             idea_id,
             version=payload.version,
             mutate_context=lambda ctx: _apply_prd(ctx, pack, bundle),
+            allow_conflict_retry=True,
         )
         error_payload = _sse_error_payload(result)
         if error_payload is not None:

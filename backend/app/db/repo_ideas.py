@@ -217,6 +217,7 @@ class IdeaRepository:
         *,
         version: int,
         mutate_context: Callable[[DecisionContext], DecisionContext],
+        allow_conflict_retry: bool = False,
     ) -> UpdateIdeaResult:
         result = self._update_context_internal(
             idea_id,
@@ -224,8 +225,13 @@ class IdeaRepository:
             mutate_context=mutate_context,
             require_not_archived=True,
         )
+        if not allow_conflict_retry:
+            return result
         # Retry up to 2 times when a concurrent write (e.g. /paths background task,
         # scope freeze) bumped the version while the LLM was running (~90s for PRD).
+        # Only used by SSE stream routes where the LLM runs async and concurrent
+        # writes are expected. Non-stream routes must NOT retry so that stale-version
+        # requests from clients correctly receive a 409.
         # Safe because all mutate_context functions are idempotent.
         for _ in range(2):
             if result.kind != "conflict":
