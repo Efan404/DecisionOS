@@ -218,12 +218,26 @@ class IdeaRepository:
         version: int,
         mutate_context: Callable[[DecisionContext], DecisionContext],
     ) -> UpdateIdeaResult:
-        return self._update_context_internal(
+        result = self._update_context_internal(
             idea_id,
             version=version,
             mutate_context=mutate_context,
             require_not_archived=True,
         )
+        if result.kind == "conflict":
+            # Version was advanced by a concurrent operation (e.g. /paths write)
+            # while the LLM was running. Re-read the latest version and retry once.
+            # Safe because all mutate_context functions are idempotent (they only
+            # write new LLM output into context fields, never diff against old state).
+            latest = self.get_idea(idea_id)
+            if latest is not None:
+                result = self._update_context_internal(
+                    idea_id,
+                    version=latest.version,
+                    mutate_context=mutate_context,
+                    require_not_archived=True,
+                )
+        return result
 
     def _update_context_internal(
         self,
