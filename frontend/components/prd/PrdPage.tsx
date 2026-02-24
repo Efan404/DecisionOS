@@ -130,13 +130,17 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         if (!cancelled && donePayload) {
           const envelope = donePayload
           setIdeaVersion(activeIdeaId, envelope.idea_version)
-          setLoading(false)
+          // Load and apply context BEFORE turning off loading,
+          // so PrdView sees prd_bundle populated when it re-renders.
           const detail = await loadIdeaDetail(activeIdeaId)
-          if (detail) {
-            replaceContext(detail.context)
+          if (!cancelled) {
+            if (detail) {
+              replaceContext(detail.context)
+            }
+            setRetryNonce(0)
+            setStreamPartials({ requirements: null, backlog: null })
+            setLoading(false)
           }
-          setRetryNonce(0)
-          setStreamPartials({ requirements: null, backlog: null })
         }
       } catch (error) {
         if (inFlightGenerationKeyRef.current === requestKey) {
