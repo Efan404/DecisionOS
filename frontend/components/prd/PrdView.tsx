@@ -1,18 +1,20 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import type {
   DecisionContext,
   PrdBundle,
+  // DISABLED: PrdFeedbackDimensions, PrdFeedbackLatest — used by backlog/feedback panel
   PrdFeedbackDimensions,
   PrdFeedbackLatest,
   PrdOutput,
 } from '../../lib/schemas'
-import { PrdBacklogPanel } from './PrdBacklogPanel'
-import { PrdFeedbackCard } from './PrdFeedbackCard'
+// DISABLED: PrdBacklogPanel and PrdFeedbackCard — re-enable with Requirements/Backlog tabs
+// import { PrdBacklogPanel } from './PrdBacklogPanel'
+// import { PrdFeedbackCard } from './PrdFeedbackCard'
 
 type PrdStreamPartials = {
   requirements: PrdOutput['requirements'] | null
@@ -202,7 +204,9 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
   )
 }
 
-type MainTab = 'markdown' | 'requirements' | 'sections'
+// DISABLED: multi-tab type — only markdown tab is active
+// type MainTab = 'markdown' | 'requirements' | 'sections'
+type MainTab = 'markdown'
 
 export function PrdView({
   prd,
@@ -220,38 +224,43 @@ export function PrdView({
   streamPartials = null,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
-  const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
+  // DISABLED: requirement selection state (used by Requirements tab and Backlog panel)
+  // const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('markdown')
 
-  const selectedRequirementId = output?.requirements.some(
-    (item) => item.id === selectedRequirementIdInput
-  )
-    ? selectedRequirementIdInput
-    : (output?.requirements[0]?.id ?? null)
+  // DISABLED: requirement selection logic
+  // const selectedRequirementId = output?.requirements.some(
+  //   (item) => item.id === selectedRequirementIdInput
+  // )
+  //   ? selectedRequirementIdInput
+  //   : (output?.requirements[0]?.id ?? null)
 
-  const requirementsById = useMemo(
-    () =>
-      Object.fromEntries(
-        (output?.requirements ?? []).map((item) => [item.id, item.title] as const)
-      ),
-    [output]
-  )
+  // DISABLED: requirements lookup map (used by right-column requirement filter)
+  // const requirementsById = useMemo(
+  //   () =>
+  //     Object.fromEntries(
+  //       (output?.requirements ?? []).map((item) => [item.id, item.title] as const)
+  //     ),
+  //   [output]
+  // )
 
   const hasStaleOutput = Boolean(errorMessage && bundle?.output)
 
-  const tabs: { id: MainTab; label: string; count?: number }[] = output
-    ? [
-        { id: 'markdown', label: 'PRD' },
-        { id: 'requirements', label: 'Requirements', count: output.requirements.length },
-        { id: 'sections', label: 'Sections', count: output.sections.length },
-      ]
-    : []
+  // DISABLED: Requirements and Sections tabs
+  // const tabs: { id: MainTab; label: string; count?: number }[] = output
+  //   ? [
+  //       { id: 'markdown', label: 'PRD' },
+  //       { id: 'requirements', label: 'Requirements', count: output.requirements.length },
+  //       { id: 'sections', label: 'Sections', count: output.sections.length },
+  //     ]
+  //   : []
+  const tabs: { id: MainTab; label: string }[] = output ? [{ id: 'markdown', label: 'PRD' }] : []
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-4 px-6 py-5">
       {/* Page header */}
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">PRD + Backlog</h1>
+        <h1 className="text-lg font-bold tracking-tight text-slate-900">PRD</h1>
         {baselineId ? (
           <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] text-slate-400">
             {baselineId.slice(0, 8)}&hellip;
@@ -317,104 +326,100 @@ export function PrdView({
 
       {/* Main content */}
       {output ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          {/* Left column — tabbed PRD content */}
-          <div className="space-y-4">
-            <div className="flex w-fit items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 ${
-                    activeTab === tab.id
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.count !== undefined ? (
-                    <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[10px] font-bold text-slate-500">
-                      {tab.count}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === 'markdown' ? <MarkdownPanel markdown={output.markdown} /> : null}
-
-            {activeTab === 'requirements' ? (
-              <ul className="space-y-2">
-                {output.requirements.map((item) => {
-                  const active = selectedRequirementId === item.id
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRequirementIdInput(item.id)}
-                        className={`w-full cursor-pointer rounded-xl border px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
-                          active
-                            ? 'border-indigo-300 bg-indigo-50 shadow-sm'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span
-                            className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
-                              active
-                                ? 'bg-indigo-100 text-indigo-700'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {item.id}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm leading-5 font-semibold text-slate-900">
-                              {item.title}
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">
-                              {item.description}
-                            </p>
-                            {item.rationale ? (
-                              <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs text-slate-400 italic">
-                                {item.rationale}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            ) : null}
-
-            {activeTab === 'sections' ? (
-              <ul className="space-y-2">
-                {output.sections.map((section, idx) => (
-                  <li
-                    key={section.id}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                        {String(idx + 1).padStart(2, '0')}
-                      </span>
-                      <div>
-                        <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
-                          {section.title}
-                        </p>
-                        <p className="mt-1.5 text-sm leading-6 text-slate-700">{section.content}</p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+        <div className="space-y-4">
+          {/* Tab bar — only PRD tab active; others disabled */}
+          <div className="flex w-fit items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 ${
+                  activeTab === tab.id
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <div className="space-y-4">
+          {activeTab === 'markdown' ? <MarkdownPanel markdown={output.markdown} /> : null}
+
+          {/* DISABLED: Requirements tab content */}
+          {/* {activeTab === 'requirements' ? (
+            <ul className="space-y-2">
+              {output.requirements.map((item) => {
+                const active = selectedRequirementId === item.id
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRequirementIdInput(item.id)}
+                      className={`w-full cursor-pointer rounded-xl border px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+                        active
+                          ? 'border-indigo-300 bg-indigo-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                            active
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {item.id}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm leading-5 font-semibold text-slate-900">
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            {item.description}
+                          </p>
+                          {item.rationale ? (
+                            <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs text-slate-400 italic">
+                              {item.rationale}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null} */}
+
+          {/* DISABLED: Sections tab content */}
+          {/* {activeTab === 'sections' ? (
+            <ul className="space-y-2">
+              {output.sections.map((section, idx) => (
+                <li
+                  key={section.id}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                      {String(idx + 1).padStart(2, '0')}
+                    </span>
+                    <div>
+                      <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
+                        {section.title}
+                      </p>
+                      <p className="mt-1.5 text-sm leading-6 text-slate-700">{section.content}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null} */}
+
+          {/* DISABLED: Right column — requirement filter + backlog panel + feedback */}
+          {/* <div className="space-y-4">
             {selectedRequirementId ? (
               <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
                 <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700">
@@ -429,13 +434,11 @@ export function PrdView({
                 Select a requirement to filter linked backlog items.
               </p>
             )}
-
             <PrdBacklogPanel
               items={output.backlog.items}
               selectedRequirementId={selectedRequirementId}
               onSelectRequirement={setSelectedRequirementIdInput}
             />
-
             {baselineId && onSubmitFeedback ? (
               <PrdFeedbackCard
                 key={`${baselineId}:${feedbackLatest?.submitted_at ?? 'draft'}`}
@@ -447,62 +450,26 @@ export function PrdView({
                 onSubmit={onSubmitFeedback}
               />
             ) : null}
-          </div>
+          </div> */}
         </div>
       ) : (
-        /* Empty state — show progressive partials while loading, or a placeholder */
+        /* Empty state — loading spinner or placeholder */
         <div className="space-y-4">
-          {loading && streamPartials?.requirements ? (
-            <div className="rounded-xl border border-slate-200 bg-white px-5 py-5">
-              <p className="mb-3 text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Requirements loaded — generating backlog&hellip;
+          {/* DISABLED: progressive stream partials (requirements/backlog previews) */}
+          {/* {loading && streamPartials?.requirements ? ( ... ) : null} */}
+          {/* {loading && streamPartials?.backlog ? ( ... ) : null} */}
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
+            {loading ? (
+              <>
+                <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
+                <p className="text-sm text-slate-500">Generating PRD&hellip;</p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
               </p>
-              <ul className="space-y-2">
-                {streamPartials.requirements.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3"
-                  >
-                    <span className="mr-2 rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-                      {item.id}
-                    </span>
-                    <span className="text-sm text-slate-700">{item.title}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {loading && streamPartials?.backlog ? (
-            <div className="rounded-xl border border-slate-200 bg-white px-5 py-5">
-              <p className="mb-3 text-xs font-semibold tracking-widest text-slate-400 uppercase">
-                Backlog loaded — saving&hellip;
-              </p>
-              <ul className="space-y-1">
-                {streamPartials.backlog.items.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-400">
-                      {item.priority}
-                    </span>
-                    {item.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {!streamPartials?.requirements ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
-              {loading ? (
-                <>
-                  <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-                  <p className="text-sm text-slate-500">Preparing PRD and backlog&hellip;</p>
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
-                </p>
-              )}
-            </div>
-          ) : null}
+            )}
+          </div>
         </div>
       )}
     </section>

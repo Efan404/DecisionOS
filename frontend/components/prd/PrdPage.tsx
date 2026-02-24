@@ -62,7 +62,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     [baselineId, context.confirmed_dag_path_id, context.selected_plan_id]
   )
 
-  const isFreshBundle = useMemo(() => {
+  const isFreshBundleRef = useRef(false)
+  isFreshBundleRef.current = useMemo(() => {
     const meta = context.prd_bundle?.generation_meta
     if (!meta || !baselineId) {
       return false
@@ -83,7 +84,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       return
     }
     const hasLocalOutput = Boolean(context.prd || context.prd_bundle?.output)
-    const shouldGenerate = retryNonce > 0 || (context.prd_bundle ? !isFreshBundle : !hasLocalOutput)
+    const shouldGenerate =
+      retryNonce > 0 || (context.prd_bundle ? !isFreshBundleRef.current : !hasLocalOutput)
     if (!shouldGenerate) {
       return
     }
@@ -177,10 +179,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     activeIdeaId,
     baselineId,
     canOpen,
-    context.prd,
-    context.prd_bundle,
     generationKey,
-    isFreshBundle,
     loadIdeaDetail,
     replaceContext,
     retryNonce,
