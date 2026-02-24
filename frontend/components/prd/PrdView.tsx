@@ -26,6 +26,7 @@ type PrdViewProps = {
   feedbackLatest?: PrdFeedbackLatest
   context: DecisionContext
   loading?: boolean
+  isRegenerate?: boolean
   errorMessage?: string | null
   onRetry?: () => void
   onSubmitFeedback?: (payload: {
@@ -41,11 +42,13 @@ type PrdViewProps = {
 // Status banner — one state at a time: loading > error > idle
 function StatusBanner({
   loading,
+  isRegenerate,
   errorMessage,
   hasStaleOutput,
   onRetry,
 }: {
   loading: boolean
+  isRegenerate: boolean
   errorMessage: string | null
   hasStaleOutput: boolean
   onRetry?: () => void
@@ -61,7 +64,7 @@ function StatusBanner({
           aria-hidden="true"
           className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"
         />
-        Generating PRD and backlog&hellip;
+        {isRegenerate ? 'Regenerating PRD and backlog\u2026' : 'Generating PRD and backlog\u2026'}
         {hasStaleOutput ? (
           <span className="text-xs text-blue-500">(previous output shown below)</span>
         ) : null}
@@ -208,6 +211,7 @@ export function PrdView({
   feedbackLatest,
   context,
   loading = false,
+  isRegenerate = false,
   errorMessage = null,
   onRetry,
   onSubmitFeedback,
@@ -270,11 +274,42 @@ export function PrdView({
             Scope frozen
           </span>
         ) : null}
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={loading}
+            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? (
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+              />
+            ) : (
+              <svg
+                aria-hidden="true"
+                className="h-3 w-3"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8" />
+                <path d="M2.5 2.5v3.5H6" />
+              </svg>
+            )}
+            {output ? 'Regenerate' : 'Generate'}
+          </button>
+        ) : null}
       </header>
 
       {/* Status banner */}
       <StatusBanner
         loading={loading}
+        isRegenerate={isRegenerate}
         errorMessage={errorMessage}
         hasStaleOutput={hasStaleOutput}
         onRetry={onRetry}
@@ -379,7 +414,6 @@ export function PrdView({
             ) : null}
           </div>
 
-          {/* Right column — active requirement + backlog + feedback */}
           <div className="space-y-4">
             {selectedRequirementId ? (
               <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
@@ -463,20 +497,9 @@ export function PrdView({
                   <p className="text-sm text-slate-500">Preparing PRD and backlog&hellip;</p>
                 </>
               ) : (
-                <>
-                  <p className="text-sm text-slate-500">
-                    {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
-                  </p>
-                  {onRetry && !loading ? (
-                    <button
-                      type="button"
-                      onClick={onRetry}
-                      className="mt-4 cursor-pointer rounded-lg border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
-                    >
-                      Generate
-                    </button>
-                  ) : null}
-                </>
+                <p className="text-sm text-slate-500">
+                  {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
+                </p>
               )}
             </div>
           ) : null}

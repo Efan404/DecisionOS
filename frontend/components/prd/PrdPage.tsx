@@ -36,6 +36,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const setIdeaVersion = useIdeasStore((state) => state.setIdeaVersion)
   const loadIdeaDetail = useIdeasStore((state) => state.loadIdeaDetail)
   const [loading, setLoading] = useState(false)
+  const [isRegenerate, setIsRegenerate] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
@@ -98,6 +99,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
     let cancelled = false
     setLoading(true)
+    setIsRegenerate(hasLocalOutput)
     setErrorMessage(null)
 
     const run = async () => {
@@ -128,6 +130,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         if (!cancelled && donePayload) {
           const envelope = donePayload
           setIdeaVersion(activeIdeaId, envelope.idea_version)
+          setLoading(false)
           const detail = await loadIdeaDetail(activeIdeaId)
           if (detail) {
             replaceContext(detail.context)
@@ -150,9 +153,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           inFlightGenerationKeyRef.current = null
         }
         globalPrdGenerationRequests.delete(requestKey)
-        if (!cancelled) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
@@ -243,6 +244,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         bundle={context.prd_bundle}
         context={context}
         loading={loading}
+        isRegenerate={isRegenerate}
         errorMessage={errorMessage}
         baselineId={baselineId}
         onRetry={handleRetry}
