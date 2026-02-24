@@ -199,7 +199,8 @@ export const prdBacklogItemSchema = z.object({
 })
 
 export const prdBacklogSchema = z.object({
-  items: z.array(prdBacklogItemSchema).min(8).max(15),
+  // commented out for demo – was: .min(8).max(15)
+  items: z.array(prdBacklogItemSchema),
 })
 
 export const prdGenerationMetaSchema = z.object({
@@ -217,7 +218,8 @@ export const prdInputSchema = z.object({
 export const prdOutputSchema = z.object({
   markdown: z.string().min(1),
   sections: z.array(prdSectionSchema).min(6),
-  requirements: z.array(prdRequirementSchema).min(6).max(12),
+  // commented out for demo – was: .min(6).max(12)
+  requirements: z.array(prdRequirementSchema),
   backlog: prdBacklogSchema,
   generation_meta: prdGenerationMetaSchema,
 })

@@ -41,7 +41,8 @@ class PRDBacklogItem(BaseModel):
 
 
 class PRDBacklog(BaseModel):
-    items: list[PRDBacklogItem] = Field(min_length=8, max_length=15)
+    # commented out for demo – was: Field(min_length=8, max_length=15)
+    items: list[PRDBacklogItem] = Field(default_factory=list)
 
 
 class PRDGenerationMeta(BaseModel):
@@ -71,7 +72,8 @@ class PRDBacklogOutput(BaseModel):
 class PRDOutput(BaseModel):
     markdown: str
     sections: list[PRDSection] = Field(min_length=6)
-    requirements: list[PRDRequirement] = Field(min_length=6, max_length=12)
+    # commented out for demo – was: Field(min_length=6, max_length=12)
+    requirements: list[PRDRequirement] = Field(default_factory=list)
     backlog: PRDBacklog
     generation_meta: PRDGenerationMeta
 
