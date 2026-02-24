@@ -305,13 +305,12 @@ def _select_idea_row(connection: sqlite3.Connection, idea_id: str) -> sqlite3.Ro
 
 
 def _check_idea_guard(connection: sqlite3.Connection, *, idea_id: str, version: int) -> ScopeUpdateKind | None:
+    del version  # Version conflict is handled by _update_idea_context retry.
     row = _select_idea_row(connection, idea_id)
     if row is None:
         return "not_found"
     if str(row["status"]) == "archived":
         return "archived"
-    if int(row["version"]) != version:
-        return "conflict"
     return None
 
 
@@ -502,7 +501,36 @@ def _update_idea_context(
         ),
     )
     if result.rowcount == 0:
-        return None
+        # Version was bumped by a concurrent write. Re-read and retry once.
+        # Safe: mutate_context is idempotent (only stamps new data into context fields).
+        fresh_row = _select_idea_row(connection, idea_id)
+        if fresh_row is None:
+            return None
+        fresh_version = int(fresh_row["version"])
+        fresh_context = parse_context_strict(json.loads(str(fresh_row["context_json"])))
+        fresh_next_model = mutate_context(fresh_context)
+        fresh_next = fresh_next_model.model_dump(mode="python", exclude_none=True)
+        fresh_stage = infer_stage_from_context(fresh_next_model)
+        fresh_seed_val = fresh_next.get("idea_seed")
+        fresh_seed = str(fresh_seed_val) if isinstance(fresh_seed_val, str) else None
+        retry = connection.execute(
+            """
+            UPDATE idea
+            SET context_json = ?, stage = ?, idea_seed = ?, updated_at = ?, version = version + 1
+            WHERE id = ? AND version = ?
+            """,
+            (
+                json.dumps(fresh_next, ensure_ascii=False),
+                fresh_stage,
+                fresh_seed,
+                utc_now_iso(),
+                idea_id,
+                fresh_version,
+            ),
+        )
+        if retry.rowcount == 0:
+            return None
+        return fresh_version + 1
     return expected_version + 1
 
 

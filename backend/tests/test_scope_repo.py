@@ -267,18 +267,103 @@ class ScopeRepoTestCase(unittest.TestCase):
             [("in", "Keep this"), ("out", "Skip this")],
         )
 
-    def test_patch_draft_with_stale_version_returns_conflict(self) -> None:
+    def test_patch_draft_with_stale_version_retries_once(self) -> None:
         bootstrapped = self.scope_repo.bootstrap_draft(self.idea.id, version=self.idea.version)
         self.assertEqual(bootstrapped.kind, "ok")
 
         from app.db.repo_scope import ScopeDraftItemInput
 
-        stale = self.scope_repo.patch_draft(
+        # Version is 1 behind — the retry in _update_idea_context handles it.
+        result = self.scope_repo.patch_draft(
             self.idea.id,
             version=self.idea.version,
             items=[ScopeDraftItemInput(lane="in", content="stale")],
         )
-        self.assertEqual(stale.kind, "conflict")
+        self.assertEqual(result.kind, "ok")
+
+
+class ScopeRepoVersionRetryTestCase(unittest.TestCase):
+    """Verify that scope operations auto-retry once when idea.version was
+    bumped by a concurrent operation between the guard check and the
+    _update_idea_context() write."""
+
+    def setUp(self) -> None:
+        ensure_required_seed_env()
+        self._tmpdir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(self._tmpdir.name, "decisionos-test.db")
+        os.environ["DECISIONOS_DB_PATH"] = db_path
+        from app.core.settings import get_settings
+
+        get_settings.cache_clear()
+
+        from app.db.bootstrap import initialize_database
+        from app.db.repo_ideas import IdeaRepository
+        from app.db.repo_scope import ScopeRepository
+
+        initialize_database()
+        self.repo = IdeaRepository()
+        self.scope = ScopeRepository()
+
+    def tearDown(self) -> None:
+        self._tmpdir.cleanup()
+
+    def _bump_version(self, idea_id: str, current_version: int) -> int:
+        """Simulate a concurrent operation bumping idea.version."""
+        result = self.repo.update_idea(
+            idea_id, version=current_version, title="bumped", status=None
+        )
+        assert result.kind == "ok" and result.idea is not None
+        return result.idea.version
+
+    def test_bootstrap_draft_retries_on_conflict(self):
+        idea = self.repo.create_idea(title="Scope Retry Test")
+        v = idea.version
+        self._bump_version(idea.id, v)
+        result = self.scope.bootstrap_draft(idea.id, version=v)
+        self.assertEqual(result.kind, "ok", f"Expected ok, got {result.kind}")
+        self.assertIsNotNone(result.baseline)
+
+    def test_freeze_draft_retries_on_conflict(self):
+        idea = self.repo.create_idea(title="Scope Retry Freeze")
+        v = idea.version
+        r1 = self.scope.bootstrap_draft(idea.id, version=v)
+        self.assertEqual(r1.kind, "ok")
+        assert r1.idea_version is not None
+        v2 = r1.idea_version
+        self._bump_version(idea.id, v2)
+        result = self.scope.freeze_draft(idea.id, version=v2)
+        self.assertEqual(result.kind, "ok", f"Expected ok, got {result.kind}")
+
+    def test_patch_draft_retries_on_conflict(self):
+        from app.db.repo_scope import ScopeDraftItemInput
+
+        idea = self.repo.create_idea(title="Scope Retry Patch")
+        v = idea.version
+        r1 = self.scope.bootstrap_draft(idea.id, version=v)
+        self.assertEqual(r1.kind, "ok")
+        assert r1.idea_version is not None
+        v2 = r1.idea_version
+        self._bump_version(idea.id, v2)
+        result = self.scope.patch_draft(
+            idea.id,
+            version=v2,
+            items=[ScopeDraftItemInput(lane="in", content="Feature X")],
+        )
+        self.assertEqual(result.kind, "ok", f"Expected ok, got {result.kind}")
+
+    def test_new_version_retries_on_conflict(self):
+        idea = self.repo.create_idea(title="Scope Retry New Version")
+        v = idea.version
+        r1 = self.scope.bootstrap_draft(idea.id, version=v)
+        self.assertEqual(r1.kind, "ok")
+        assert r1.idea_version is not None
+        r2 = self.scope.freeze_draft(idea.id, version=r1.idea_version)
+        self.assertEqual(r2.kind, "ok")
+        assert r2.idea_version is not None
+        v3 = r2.idea_version
+        self._bump_version(idea.id, v3)
+        result = self.scope.new_version(idea.id, version=v3)
+        self.assertEqual(result.kind, "ok", f"Expected ok, got {result.kind}")
 
 
 if __name__ == "__main__":
