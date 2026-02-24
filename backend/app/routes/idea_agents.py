@@ -19,6 +19,7 @@ from app.db.repo_scope import ScopeBaselineRecord, ScopeRepository
 from app.schemas.feasibility import FeasibilityOutput, Plan
 from app.schemas.idea import OpportunityOutput
 from app.schemas.prd import (
+    PRDBacklog,
     PRDGenerationMeta,
     PRDOutput,
     PrdBaselineMeta,
@@ -437,26 +438,30 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
         slim_ctx = llm._build_slim_prd_context(pack)
         fingerprint = _context_pack_fingerprint(pack)
 
+        # ── Stage A: requirements + markdown in parallel ──
         yield _sse_event("progress", {"step": "generating_requirements", "pct": 15})
 
         loop = asyncio.get_running_loop()
         with ThreadPoolExecutor(max_workers=2) as pool:
             fut_req = loop.run_in_executor(pool, llm.generate_prd_requirements, slim_ctx)
-            fut_md = loop.run_in_executor(pool, llm.generate_prd_markdown, slim_ctx)
+            fut_md  = loop.run_in_executor(pool, llm.generate_prd_markdown,     slim_ctx)
             try:
                 req_result, md_result = await asyncio.gather(fut_req, fut_md)
             except Exception as exc:
                 _raise_if_no_provider(exc)
-                _logger.exception("agent.prd.stream.stage_a_failed idea_id=%s", idea_id)
+                _logger.exception("agent.prd.stream.stage_a.failed idea_id=%s", idea_id)
                 yield _sse_event("error", {
                     "code": "PRD_GENERATION_FAILED",
-                    "message": "Failed to generate requirements or markdown.",
+                    "message": "Stage A generation failed",
                 })
                 return
 
+        # Immediately emit requirements so frontend can render them
         yield _sse_event("requirements", {
             "requirements": [r.model_dump() for r in req_result.requirements],
         })
+
+        # ── Stage B: backlog (needs requirement IDs from Stage A) ──
         yield _sse_event("progress", {"step": "generating_backlog", "pct": 60})
 
         requirement_ids = [r.id for r in req_result.requirements]
@@ -466,16 +471,17 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             )
         except Exception as exc:
             _raise_if_no_provider(exc)
-            _logger.exception("agent.prd.stream.stage_b_failed idea_id=%s", idea_id)
+            _logger.exception("agent.prd.stream.stage_b.failed idea_id=%s", idea_id)
             yield _sse_event("error", {
                 "code": "PRD_GENERATION_FAILED",
-                "message": "Failed to generate backlog.",
+                "message": "Stage B backlog generation failed",
             })
             return
 
         yield _sse_event("backlog", {
             "items": [item.model_dump() for item in bl_result.backlog.items],
         })
+
         yield _sse_event("progress", {"step": "saving", "pct": 90})
 
         try:
