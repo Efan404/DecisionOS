@@ -40,7 +40,10 @@ def generate_structured(
     schema_model: type[SchemaT],
 ) -> SchemaT:
     provider = _get_active_provider()
-    logger.info("generate_structured task=%s provider=%s model=%s", task, provider.id, provider.model)
+    logger.info(
+        "generate_structured task=%s provider=%s model=%s prompt_chars=%d",
+        task, provider.id, provider.model, len(user_prompt),
+    )
     response_schema = schema_model.model_json_schema()
     try:
         raw = _invoke_provider(
@@ -83,6 +86,7 @@ def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> st
             {"role": "user", "content": user_prompt},
         ],
         "temperature": provider.temperature,
+        "include_reasoning": False,
     }
     logger.debug("_invoke_provider_text url=%s model=%s", endpoint, body["model"])
     decoded = _post_json(
@@ -265,6 +269,7 @@ def _call_openai_compatible_provider(
             {"role": "user", "content": user_prompt},
         ],
         "temperature": provider.temperature,
+        "include_reasoning": False,
         "response_format": {
             "type": "json_schema",
             "json_schema": {
@@ -304,6 +309,7 @@ def _call_openai_compatible_provider(
             {"role": "user", "content": fallback_prompt},
         ],
         "temperature": provider.temperature,
+        "include_reasoning": False,
     }
     logger.debug("_call_openai_compatible_provider url=%s model=%s (plain prompt fallback)", endpoint, model)
     decoded = _post_json(
