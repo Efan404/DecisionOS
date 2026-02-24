@@ -332,28 +332,43 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
 
             plans: list[object] = [None, None, None]  # preserve slot order for context save
             completed = 0
+            pending = list(futures)
+            # Heartbeat counter: advances progress from 5→18% while LLMs are running
+            heartbeat_tick = 0
 
-            for coro in asyncio.as_completed(futures):
-                try:
-                    plan = await coro
-                    # Find which slot this plan belongs to by matching plan_index hint in id
-                    # Since as_completed returns in arrival order, track by slot via plan object
-                    slot = next(
-                        (i for i, p in enumerate(plans) if p is None),
-                        completed,
-                    )
-                    plans[slot] = plan
-                    completed += 1
-                    pct = 20 + completed * 25
-                    yield _sse_event("progress", {"step": f"plan_{completed}", "pct": min(90, pct)})
-                    yield _sse_event("partial", {"plan": _plan_payload(plan)})
-                except Exception as exc:
-                    _raise_if_no_provider(exc)
-                    _logger.exception(
-                        "agent.feasibility.stream.plan_failed idea_id=%s", idea_id, exc_info=exc
-                    )
-                    yield _sse_event("error", {"code": "PLAN_GENERATION_FAILED", "message": "Failed to generate one of the plans"})
-                    return
+            while pending:
+                # Wait up to 2s for any future to complete, then yield a heartbeat if none did
+                done_set, pending_set = await asyncio.wait(
+                    pending, timeout=2.0, return_when=asyncio.FIRST_COMPLETED
+                )
+                pending = list(pending_set)
+
+                if not done_set:
+                    # No plan finished yet — emit a small heartbeat progress tick (5→18%)
+                    heartbeat_tick += 1
+                    heartbeat_pct = min(18, 5 + heartbeat_tick * 2)
+                    yield _sse_event("progress", {"step": "waiting", "pct": heartbeat_pct})
+                    continue
+
+                for fut in done_set:
+                    try:
+                        plan = fut.result()
+                        slot = next(
+                            (i for i, p in enumerate(plans) if p is None),
+                            completed,
+                        )
+                        plans[slot] = plan
+                        completed += 1
+                        pct = 20 + completed * 25
+                        yield _sse_event("progress", {"step": f"plan_{completed}", "pct": min(90, pct)})
+                        yield _sse_event("partial", {"plan": _plan_payload(plan)})
+                    except Exception as exc:
+                        _raise_if_no_provider(exc)
+                        _logger.exception(
+                            "agent.feasibility.stream.plan_failed idea_id=%s", idea_id, exc_info=exc
+                        )
+                        yield _sse_event("error", {"code": "PLAN_GENERATION_FAILED", "message": "Failed to generate one of the plans"})
+                        return
 
         from app.schemas.feasibility import FeasibilityOutput, Plan
         output = FeasibilityOutput(plans=[p for p in plans if p is not None])  # type: ignore[arg-type]
@@ -394,11 +409,10 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
 
 @router.post("/prd/stream")
 async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceResponse:
-    """Two-stage parallel PRD generation over SSE.
+    """Single-call PRD generation over SSE.
 
-    Stage A (parallel): requirements + markdown/sections
-    Stage B (sequential after A): backlog items (needs requirement IDs)
-    SSE events: progress → requirements → progress → backlog → done | error
+    Generates markdown + sections in one LLM call.
+    SSE events: progress → done | error
     """
     _logger.info(
         "agent.prd.stream.start idea_id=%s version=%s baseline_id=%s",
@@ -438,49 +452,51 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
         slim_ctx = llm._build_slim_prd_context(pack)
         fingerprint = _context_pack_fingerprint(pack)
 
-        # ── Stage A: requirements + markdown in parallel ──
-        yield _sse_event("progress", {"step": "generating_requirements", "pct": 15})
+        # Single LLM call: markdown + sections only
+        yield _sse_event("progress", {"step": "generating_prd", "pct": 15})
 
         loop = asyncio.get_running_loop()
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            fut_req = loop.run_in_executor(pool, llm.generate_prd_requirements, slim_ctx)
-            fut_md  = loop.run_in_executor(pool, llm.generate_prd_markdown,     slim_ctx)
-            try:
-                req_result, md_result = await asyncio.gather(fut_req, fut_md)
-            except Exception as exc:
-                _raise_if_no_provider(exc)
-                _logger.exception("agent.prd.stream.stage_a.failed idea_id=%s", idea_id)
-                yield _sse_event("error", {
-                    "code": "PRD_GENERATION_FAILED",
-                    "message": "Stage A generation failed",
-                })
-                return
-
-        # Immediately emit requirements so frontend can render them
-        yield _sse_event("requirements", {
-            "requirements": [r.model_dump() for r in req_result.requirements],
-        })
-
-        # ── Stage B: backlog (needs requirement IDs from Stage A) ──
-        yield _sse_event("progress", {"step": "generating_backlog", "pct": 60})
-
-        requirement_ids = [r.id for r in req_result.requirements]
         try:
-            bl_result = await loop.run_in_executor(
-                None, llm.generate_prd_backlog, slim_ctx, requirement_ids
-            )
+            md_result = await loop.run_in_executor(None, llm.generate_prd_markdown, slim_ctx)
         except Exception as exc:
             _raise_if_no_provider(exc)
-            _logger.exception("agent.prd.stream.stage_b.failed idea_id=%s", idea_id)
+            _logger.exception("agent.prd.stream.failed idea_id=%s", idea_id)
             yield _sse_event("error", {
                 "code": "PRD_GENERATION_FAILED",
-                "message": "Stage B backlog generation failed",
+                "message": "PRD generation failed",
             })
             return
 
-        yield _sse_event("backlog", {
-            "items": [item.model_dump() for item in bl_result.backlog.items],
-        })
+        # --- DISABLED: two-stage parallel generation (requirements + backlog) ---
+        # Re-enable when requirements/backlog tabs are needed again.
+        #
+        # # ── Stage A: requirements + markdown in parallel ──
+        # yield _sse_event("progress", {"step": "generating_requirements", "pct": 15})
+        # with ThreadPoolExecutor(max_workers=2) as pool:
+        #     fut_req = loop.run_in_executor(pool, llm.generate_prd_requirements, slim_ctx)
+        #     fut_md  = loop.run_in_executor(pool, llm.generate_prd_markdown,     slim_ctx)
+        #     try:
+        #         req_result, md_result = await asyncio.gather(fut_req, fut_md)
+        #     except Exception as exc:
+        #         _raise_if_no_provider(exc)
+        #         _logger.exception("agent.prd.stream.stage_a.failed idea_id=%s", idea_id)
+        #         yield _sse_event("error", {"code": "PRD_GENERATION_FAILED", "message": "Stage A generation failed"})
+        #         return
+        # # Emit requirements for progressive rendering
+        # yield _sse_event("requirements", {"requirements": [r.model_dump() for r in req_result.requirements]})
+        #
+        # # ── Stage B: backlog (needs requirement IDs from Stage A) ──
+        # yield _sse_event("progress", {"step": "generating_backlog", "pct": 60})
+        # requirement_ids = [r.id for r in req_result.requirements]
+        # try:
+        #     bl_result = await loop.run_in_executor(None, llm.generate_prd_backlog, slim_ctx, requirement_ids)
+        # except Exception as exc:
+        #     _raise_if_no_provider(exc)
+        #     _logger.exception("agent.prd.stream.stage_b.failed idea_id=%s", idea_id)
+        #     yield _sse_event("error", {"code": "PRD_GENERATION_FAILED", "message": "Stage B backlog generation failed"})
+        #     return
+        # yield _sse_event("backlog", {"items": [item.model_dump() for item in bl_result.backlog.items]})
+        # --- END DISABLED ---
 
         yield _sse_event("progress", {"step": "saving", "pct": 90})
 
@@ -491,8 +507,8 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
         merged_output = PRDOutput(
             markdown=md_result.markdown,
             sections=md_result.sections,
-            requirements=req_result.requirements,
-            backlog=bl_result.backlog,
+            requirements=[],
+            backlog=PRDBacklog(items=[]),
             generation_meta=PRDGenerationMeta(
                 provider_id=provider_info["id"],
                 model=provider_info["model"],
