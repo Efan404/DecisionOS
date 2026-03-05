@@ -5,7 +5,11 @@ import json
 SYSTEM_PROMPT = (
     "You are the DecisionOS backend planner. Always return strict JSON matching the requested schema. "
     "Never include markdown or extra prose. "
-    "All generated content (node text, labels, summaries) MUST be written in English."
+    "All generated content (node text, labels, summaries) MUST be written in English. "
+    "IMPORTANT: For array fields (like 'in_scope', 'out_scope'), each item MUST be an object with the exact fields "
+    "defined in the schema - never return plain strings. "
+    "Example: for in_scope items, return [{'id': 'uuid', 'title': 'text', 'desc': 'text', 'priority': 'high'}] "
+    "NOT ['text1', 'text2']."
 )
 
 
@@ -23,7 +27,8 @@ FEASIBILITY_PROMPT = (
 )
 
 SCOPE_PROMPT = (
-    "Given confirmed DAG context, selected plan and feasibility output, classify features into in_scope and out_scope."
+    "Given confirmed DAG context, selected plan and feasibility output, classify features into in_scope and out_scope. "
+    "Generate multiple items (at least 3-5 in_scope items and 2-4 out_scope items) to comprehensively cover the project scope."
 )
 
 PRD_PROMPT = (
@@ -111,7 +116,9 @@ def build_scope_prompt(
         f"confirmed_path_summary={confirmed_path_summary!r}\n"
         f"selected_plan_id={selected_plan_id!r}\n"
         f"feasibility={json.dumps(feasibility_payload, ensure_ascii=False)}\n"
-        "Return JSON with keys 'in_scope' and 'out_scope'."
+        "IMPORTANT: Generate multiple items for both in_scope and out_scope arrays. "
+        "At least 3-5 in_scope items and 2-4 out_scope items. "
+        "Return JSON with keys 'in_scope' and 'out_scope', each containing an array of items."
     )
 
 
