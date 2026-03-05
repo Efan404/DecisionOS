@@ -20,7 +20,7 @@ class CreateRootNodeRequest(BaseModel):
 
 
 class UserExpandRequest(BaseModel):
-    description: str
+    description: str = Field(max_length=2000)
 
 
 class ConfirmPathRequest(BaseModel):
