@@ -11,6 +11,7 @@ import {
   bootstrapScopeDraft,
   createScopeNewVersion,
   freezeScope,
+  getScopeBaseline,
   getScopeDraft,
   patchScopeDraft,
   postIdeaScopedAgent,
@@ -264,6 +265,38 @@ export function ScopeFreezePage() {
             return
           }
 
+          // 404: no draft exists.
+          // If scope is already frozen, show frozen baseline read-only instead of auto-bootstrapping.
+          if (context.scope_frozen && context.current_scope_baseline_id && routeIdeaId) {
+            try {
+              const baseline = await getScopeBaseline(
+                routeIdeaId,
+                context.current_scope_baseline_id
+              )
+              if (!cancelled) {
+                setDraft({
+                  baseline: baseline.baseline,
+                  items: baseline.items,
+                  readonly: true,
+                })
+                setLoadedIdeaId(routeIdeaId)
+                setLocalIdeaVersion(workingVersion)
+              }
+            } catch (baselineError) {
+              if (!cancelled) {
+                const message =
+                  baselineError instanceof Error
+                    ? baselineError.message
+                    : 'Failed to load frozen baseline.'
+                setErrorMessage(message)
+                toast.error(message)
+              }
+            } finally {
+              if (!cancelled) setLoading(false)
+            }
+            return
+          }
+
           try {
             const envelope = await bootstrapScopeDraft(routeIdeaId, {
               version: activeIdea.version,
@@ -342,7 +375,16 @@ export function ScopeFreezePage() {
     return () => {
       cancelled = true
     }
-  }, [activeIdea, canOpen, hydrateDraftIfEmpty, loadedIdeaId, routeIdeaId, setIdeaVersion])
+  }, [
+    activeIdea,
+    canOpen,
+    context.scope_frozen,
+    context.current_scope_baseline_id,
+    hydrateDraftIfEmpty,
+    loadedIdeaId,
+    routeIdeaId,
+    setIdeaVersion,
+  ])
 
   const applyDraftItems = async (nextItems: ScopeBaselineItem[]) => {
     if (!routeIdeaId || !draft || draft.readonly) {
