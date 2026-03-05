@@ -60,11 +60,11 @@ class AISettingsApiTestCase(unittest.TestCase):
         self.assertEqual(len(patch_payload["providers"]), 1)
         self.assertTrue(patch_payload["providers"][0]["enabled"])
 
-        # GET must return the same
+        # GET must return masked key (first 4 + **** + last 4)
         get_status, get_payload = self.client.request_json("GET", "/settings/ai")
         self.assertEqual(get_status, 200)
         assert get_payload is not None
-        self.assertEqual(get_payload["providers"][0]["api_key"], "sk-local-test")
+        self.assertEqual(get_payload["providers"][0]["api_key"], "sk-l****test")
 
         # api_key must be encrypted on disk
         with sqlite3.connect(self.db_path) as connection:
