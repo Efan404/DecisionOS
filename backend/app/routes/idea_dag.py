@@ -344,6 +344,7 @@ def _fill_path_summary_background(*, idea_id: str, path_id: str, chain_text: str
         mutate_context=lambda ctx: ctx.model_copy(
             update={"confirmed_dag_path_summary": summary}
         ),
+        allow_conflict_retry=True,
     )
     logger.info("path_summary.done idea_id=%s path_id=%s", idea_id, path_id)
 
