@@ -124,10 +124,25 @@ def _decrypt_payload(payload: AISettingsPayload, *, secret_key: str) -> AISettin
     return AISettingsPayload.model_validate(raw)
 
 
+_MASK_SENTINEL = "****"
+
+
+def _mask_api_key(key: str | None) -> str | None:
+    if not key:
+        return key
+    if len(key) <= 12:
+        return _MASK_SENTINEL
+    return f"{key[:4]}{_MASK_SENTINEL}{key[-4:]}"
+
+
 def to_schema(record: AISettingsRecord) -> AISettingsDetail:
+    masked_providers = [
+        p.model_copy(update={"api_key": _mask_api_key(p.api_key)})
+        for p in record.config.providers
+    ]
     return AISettingsDetail(
         id=record.id,
-        providers=record.config.providers,
+        providers=masked_providers,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.core.ai_gateway import test_provider_connection
-from app.db.repo_ai import AISettingsRepository, to_schema
+from app.db.repo_ai import AISettingsRepository, _MASK_SENTINEL, to_schema
 from app.schemas.ai_settings import (
     AISettingsDetail,
     AISettingsPayload,
@@ -22,6 +22,11 @@ async def get_ai_settings() -> AISettingsDetail:
 
 @router.patch("/ai", response_model=AISettingsDetail)
 async def patch_ai_settings(payload: AISettingsPayload) -> AISettingsDetail:
+    existing = _repo.get_settings()
+    existing_keys = {p.id: p.api_key for p in existing.config.providers}
+    for provider in payload.providers:
+        if provider.api_key and _MASK_SENTINEL in provider.api_key:
+            provider.api_key = existing_keys.get(provider.id)
     return to_schema(_repo.update_settings(payload))
 
 
