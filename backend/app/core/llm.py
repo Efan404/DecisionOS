@@ -51,7 +51,7 @@ def generate_single_plan(payload: FeasibilityInput, plan_index: int) -> Plan:
     """Generate exactly one feasibility Plan concurrently with other plan calls."""
     from app.schemas.feasibility import Plan  # local import to avoid circular at module level
 
-    return ai_gateway.generate_structured(
+    plan = ai_gateway.generate_structured(
         task="feasibility",
         user_prompt=prompts.build_single_plan_prompt(
             idea_seed=payload.idea_seed,
@@ -61,6 +61,8 @@ def generate_single_plan(payload: FeasibilityInput, plan_index: int) -> Plan:
         ),
         schema_model=Plan,
     )
+    plan.id = f"plan{plan_index + 1}"
+    return plan
 
 
 def generate_scope(payload: ScopeInput) -> ScopeOutput:
