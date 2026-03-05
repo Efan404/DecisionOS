@@ -89,7 +89,6 @@ def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> st
             {"role": "user", "content": user_prompt},
         ],
         "temperature": provider.temperature,
-        "enable_thinking": False,
     }
     logger.debug("_invoke_provider_text url=%s model=%s", endpoint, body["model"])
     decoded = _post_json(
@@ -263,70 +262,33 @@ def _call_openai_compatible_provider(
         endpoint = f"{endpoint}/chat/completions"
 
     model = provider.model or "gpt-4o-mini"
-    cache_key = (provider.id, model)
 
-    # Only attempt json_schema if this (provider, model) hasn't failed before
-    if cache_key not in _json_schema_unsupported:
-        body: dict[str, object] = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": provider.temperature,
-            "enable_thinking": False,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "decisionos_response",
-                    "schema": response_schema,
-                },
-            },
-        }
-        logger.debug("_call_openai_compatible_provider url=%s model=%s (json_schema)", endpoint, model)
-        try:
-            decoded = _post_json(
-                url=endpoint,
-                body=body,
-                timeout_seconds=provider.timeout_seconds,
-                api_key=provider.api_key,
-            )
-            content = _extract_content_from_choices(decoded)
-            return _parse_json_from_content(content)
-        except Exception as exc:
-            _json_schema_unsupported.add(cache_key)
-            logger.warning(
-                "_call_openai_compatible_provider json_schema failed (%s), "
-                "caching as unsupported for %s/%s, retrying with plain prompt",
-                exc, provider.id, model,
-            )
-    else:
-        logger.debug(
-            "_call_openai_compatible_provider skipping json_schema (cached unsupported) "
-            "url=%s model=%s", endpoint, model,
-        )
-
-    # Fallback: plain prompt asking for JSON
+    # Use json_object mode with structured prompt - more reliable for ModelScope
     schema_str = json.dumps(response_schema, ensure_ascii=False, separators=(",", ":"))
-    fallback_prompt = (
+    structured_prompt = (
         f"{user_prompt}\n\n"
-        "IMPORTANT: Your response MUST be a single valid JSON object only — "
-        "no markdown, no code fences, no explanations, no text before or after the JSON. "
-        f"Use exactly these field names as defined in this JSON Schema: {schema_str}"
+        "IMPORTANT: Your response MUST be a valid JSON object only — "
+        "no markdown, no code fences, no explanations, no text before or after the JSON.\n\n"
+        f"JSON Schema (follow this exact structure): {schema_str}\n\n"
+        "For array fields (like 'in_scope', 'out_scope'), each item MUST be an object with the exact fields "
+        "defined in the schema. "
+        "For 'in_scope' items: id (string/UUID), title (string), desc (string), priority (MUST be exactly 'P0', 'P1', or 'P2' - NOT 'high'/'medium'/'low'). "
+        "For 'out_scope' items: id (string/UUID), title (string), desc (string), reason (string). "
+        "Example: {\"in_scope\": [{\"id\": \"1\", \"title\": \"feature\", \"desc\": \"description\", \"priority\": \"P0\"}], \"out_scope\": []}"
     )
-    fallback_body: dict[str, object] = {
+    body: dict[str, object] = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": fallback_prompt},
+            {"role": "system", "content": SYSTEM_PROMPT + "\n\nIMPORTANT: Always respond with valid JSON matching the requested schema."},
+            {"role": "user", "content": structured_prompt},
         ],
         "temperature": provider.temperature,
-        "enable_thinking": False,
+        "response_format": {"type": "json_object"},
     }
-    logger.debug("_call_openai_compatible_provider url=%s model=%s (plain prompt fallback)", endpoint, model)
+    logger.debug("_call_openai_compatible_provider url=%s model=%s (json_object)", endpoint, model)
     decoded = _post_json(
         url=endpoint,
-        body=fallback_body,
+        body=body,
         timeout_seconds=provider.timeout_seconds,
         api_key=provider.api_key,
     )
