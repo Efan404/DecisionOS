@@ -1,5 +1,6 @@
 import { ScopeFreezePage } from '../../../../components/scope/ScopeFreezePage'
 import { IdeaScopedHydration } from '../../../../components/ideas/IdeaScopedHydration'
+import { PageErrorBoundary } from '../../../../components/common/PageErrorBoundary'
 
 type ScopeFreezeScopedPageProps = {
   params: Promise<{
@@ -12,7 +13,9 @@ export default async function ScopeFreezeScopedPage({ params }: ScopeFreezeScope
 
   return (
     <IdeaScopedHydration ideaId={ideaId}>
-      <ScopeFreezePage />
+      <PageErrorBoundary>
+        <ScopeFreezePage />
+      </PageErrorBoundary>
     </IdeaScopedHydration>
   )
 }

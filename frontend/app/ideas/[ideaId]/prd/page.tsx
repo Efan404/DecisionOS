@@ -1,5 +1,6 @@
 import { PrdPage } from '../../../../components/prd/PrdPage'
 import { IdeaScopedHydration } from '../../../../components/ideas/IdeaScopedHydration'
+import { PageErrorBoundary } from '../../../../components/common/PageErrorBoundary'
 
 type PrdScopedPageProps = {
   params: Promise<{
@@ -16,7 +17,9 @@ export default async function PrdScopedPage({ params, searchParams }: PrdScopedP
 
   return (
     <IdeaScopedHydration ideaId={ideaId}>
-      <PrdPage baselineId={baselineId ?? null} />
+      <PageErrorBoundary>
+        <PrdPage baselineId={baselineId ?? null} />
+      </PageErrorBoundary>
     </IdeaScopedHydration>
   )
 }
