@@ -27,14 +27,18 @@ type PrdPageProps = {
 export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const searchParams = useSearchParams()
   const context = useDecisionStore((state) => state.context)
-  const replaceContext = useDecisionStore((state) => state.replaceContext)
+  const replaceContextRef = useRef(useDecisionStore.getState().replaceContext)
   const canOpen = canOpenPrd(context)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
   const activeIdea = useIdeasStore(
     (state) => state.ideas.find((idea) => idea.id === state.activeIdeaId) ?? null
   )
-  const setIdeaVersion = useIdeasStore((state) => state.setIdeaVersion)
-  const loadIdeaDetail = useIdeasStore((state) => state.loadIdeaDetail)
+  const setIdeaVersionRef = useRef(useIdeasStore.getState().setIdeaVersion)
+  const loadIdeaDetailRef = useRef(useIdeasStore.getState().loadIdeaDetail)
+  // Keep refs in sync with store state
+  replaceContextRef.current = useDecisionStore((state) => state.replaceContext)
+  setIdeaVersionRef.current = useIdeasStore((state) => state.setIdeaVersion)
+  loadIdeaDetailRef.current = useIdeasStore((state) => state.loadIdeaDetail)
   const [loading, setLoading] = useState(false)
   const [isRegenerate, setIsRegenerate] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -131,13 +135,13 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         )
         if (!cancelled && donePayload) {
           const envelope = donePayload
-          setIdeaVersion(activeIdeaId, envelope.idea_version)
+          setIdeaVersionRef.current(activeIdeaId, envelope.idea_version)
           // Load and apply context BEFORE turning off loading,
           // so PrdView sees prd_bundle populated when it re-renders.
-          const detail = await loadIdeaDetail(activeIdeaId)
+          const detail = await loadIdeaDetailRef.current(activeIdeaId)
           if (!cancelled) {
             if (detail) {
-              replaceContext(detail.context)
+              replaceContextRef.current(detail.context)
             }
             setRetryNonce(0)
             setStreamPartials({ requirements: null, backlog: null })
@@ -174,17 +178,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       // The set is cleaned up in the finally block of run().
       // Deleting here would allow a second effect (e.g. StrictMode) to bypass the guard.
     }
-  }, [
-    activeIdea,
-    activeIdeaId,
-    baselineId,
-    canOpen,
-    generationKey,
-    loadIdeaDetail,
-    replaceContext,
-    retryNonce,
-    setIdeaVersion,
-  ])
+  }, [activeIdea, activeIdeaId, baselineId, canOpen, generationKey, retryNonce])
 
   const handleRetry = () => {
     setRetryNonce((previous) => previous + 1)
@@ -208,10 +202,10 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         rating_dimensions: payload.rating_dimensions,
         comment: payload.comment,
       })
-      setIdeaVersion(activeIdeaId, response.idea_version)
-      const detail = await loadIdeaDetail(activeIdeaId)
+      setIdeaVersionRef.current(activeIdeaId, response.idea_version)
+      const detail = await loadIdeaDetailRef.current(activeIdeaId)
       if (detail) {
-        replaceContext(detail.context)
+        replaceContextRef.current(detail.context)
       }
       toast.success('Feedback saved')
     } catch (error) {
