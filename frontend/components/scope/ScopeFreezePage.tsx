@@ -592,23 +592,56 @@ export function ScopeFreezePage() {
 
   return (
     <main>
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-6 pt-6">
-        <h1 className="text-2xl font-bold">Scope Freeze</h1>
-        <p className="text-sm text-black/70">
-          Edit draft items in each lane, freeze a baseline snapshot, then continue to PRD.
-        </p>
-        {draft ? (
-          <p className="text-xs text-black/60">
-            Baseline v{draft.baseline.version} ({draft.baseline.status})
-          </p>
+      <section className="mx-auto w-full max-w-5xl px-6 pt-6">
+        {/* Page header */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">Scope Freeze</h1>
+            <p className="mt-1 text-sm text-[#1e1e1e]/50">
+              Edit draft items in each lane, freeze a baseline snapshot, then continue to PRD.
+            </p>
+          </div>
+
+          {/* Baseline status badge */}
+          {draft ? (
+            <span
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                draft.baseline.status === 'frozen'
+                  ? 'border border-[#b9eb10]/40 bg-[#b9eb10]/10 text-[#4a7300]'
+                  : 'border border-[#1e1e1e]/15 bg-[#f5f5f5] text-[#1e1e1e]/60'
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${draft.baseline.status === 'frozen' ? 'bg-[#b9eb10]' : 'bg-[#1e1e1e]/30'}`}
+              />
+              v{draft.baseline.version} · {draft.baseline.status}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Loading skeleton */}
+        {loading && !draft ? (
+          <div className="mt-4 space-y-2">
+            <div className="h-4 w-48 animate-pulse rounded-md bg-[#f0f0f0]" />
+            <div className="h-4 w-32 animate-pulse rounded-md bg-[#f0f0f0]" />
+          </div>
         ) : null}
-        <div className="flex gap-2">
+
+        {/* Error message */}
+        {errorMessage ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-700">{errorMessage}</p>
+          </div>
+        ) : null}
+
+        {/* Action buttons */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {readonly ? (
             <button
               type="button"
               onClick={handleCreateNewVersion}
               disabled={saving}
-              className="rounded-md border border-black px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Create New Version
             </button>
@@ -617,22 +650,25 @@ export function ScopeFreezePage() {
               type="button"
               onClick={handleFreeze}
               disabled={saving || loading || !draft}
-              className="rounded-md border border-black px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Freeze Baseline
+              {saving ? 'Freezing…' : 'Freeze Baseline'}
             </button>
           )}
           <button
             type="button"
             onClick={handleContinueToPrd}
             disabled={!canEnterPrd || saving}
-            className="rounded-md border border-[#b9eb10] bg-[#b9eb10] px-3 py-2 text-sm font-medium text-[#1e1e1e] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-[#b9eb10] px-4 py-2 text-sm font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Continue to PRD
+            Continue to PRD →
           </button>
-          {loading ? <span className="text-xs text-black/60">Loading scope draft...</span> : null}
-          {saving ? <span className="text-xs text-black/60">Saving...</span> : null}
-          {errorMessage ? <span className="text-xs text-red-600">{errorMessage}</span> : null}
+          {saving && !readonly ? (
+            <span className="flex items-center gap-1.5 text-xs text-[#1e1e1e]/40">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#1e1e1e]/20 border-t-[#1e1e1e]/60" />
+              Saving…
+            </span>
+          ) : null}
         </div>
       </section>
 
