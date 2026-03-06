@@ -32,41 +32,69 @@ export function ScopeColumn({
   const sortedItems = useMemo(() => sortByDisplayOrder(items), [items])
   const isInLane = lane === 'in'
   const labelText = isInLane ? 'Add item to IN scope' : 'Add item to OUT scope'
-  const buttonText = isInLane ? 'Add IN Item' : 'Add OUT Item'
+  const accentColor = isInLane ? '#b9eb10' : '#1e1e1e'
+  const accentBg = isInLane ? 'bg-[#b9eb10] text-[#1e1e1e]' : 'bg-[#1e1e1e] text-white'
+  const accentHover = isInLane ? 'hover:bg-[#d4f542]' : 'hover:bg-[#333]'
 
   return (
-    <section className="rounded-xl border border-black/20 bg-black/[0.02] p-4">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <div className="mt-3 flex items-center gap-2">
-        <label htmlFor={`${lane}-item-input`} className="sr-only">
-          {labelText}
-        </label>
-        <input
-          id={`${lane}-item-input`}
-          aria-label={labelText}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          disabled={readonly}
-          className="w-full rounded border border-black/20 bg-white px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
+    <section
+      className="flex flex-col rounded-2xl border bg-white p-5 shadow-sm"
+      style={{ borderColor: `${accentColor}30` }}
+    >
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-2">
+        <span
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ background: accentColor }}
+          aria-hidden="true"
         />
-        <button
-          type="button"
-          disabled={readonly || !draft.trim()}
-          onClick={() => {
-            const content = draft.trim()
-            if (!content) {
-              return
-            }
-            onAdd(lane, content)
-            setDraft('')
-          }}
-          className="rounded border border-black px-2 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {buttonText}
-        </button>
+        <h3 className="text-sm font-bold tracking-tight text-[#1e1e1e]">{title}</h3>
+        <span className="ml-auto rounded-full bg-[#f5f5f5] px-2 py-0.5 text-[11px] font-medium text-[#1e1e1e]/50">
+          {sortedItems.length}
+        </span>
       </div>
-      <div className="mt-3 flex min-h-36 flex-col gap-2 rounded-md border border-dashed border-transparent p-1">
-        {sortedItems.length ? (
+
+      {/* Add item input */}
+      {!readonly && (
+        <div className="mb-4 flex items-center gap-2">
+          <label htmlFor={`${lane}-item-input`} className="sr-only">
+            {labelText}
+          </label>
+          <input
+            id={`${lane}-item-input`}
+            aria-label={labelText}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                const content = draft.trim()
+                if (!content) return
+                onAdd(lane, content)
+                setDraft('')
+              }
+            }}
+            placeholder="Add an item…"
+            className="min-w-0 flex-1 rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-sm text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/20"
+          />
+          <button
+            type="button"
+            disabled={!draft.trim()}
+            onClick={() => {
+              const content = draft.trim()
+              if (!content) return
+              onAdd(lane, content)
+              setDraft('')
+            }}
+            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${accentBg} ${accentHover}`}
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {/* Item list */}
+      <div className="flex min-h-28 flex-col gap-2">
+        {sortedItems.length > 0 ? (
           sortedItems.map((item, index) => (
             <ScopeItem
               key={item.id}
@@ -79,7 +107,11 @@ export function ScopeColumn({
             />
           ))
         ) : (
-          <p className="text-xs text-black/50">No items yet.</p>
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/10 py-8">
+            <p className="text-xs text-[#1e1e1e]/30">
+              {readonly ? 'No items.' : 'No items yet. Add one above.'}
+            </p>
+          </div>
         )}
       </div>
     </section>
