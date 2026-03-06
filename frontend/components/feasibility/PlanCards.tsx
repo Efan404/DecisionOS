@@ -125,8 +125,8 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                 ))}
               </div>
             </Link>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {onSelect ? (
+            {onSelect ? (
+              <div className="mt-4">
                 <button
                   type="button"
                   className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -134,14 +134,8 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                 >
                   Select
                 </button>
-              ) : null}
-              <Link
-                href={buildDetailHref(plan.id)}
-                className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
-              >
-                View Detail
-              </Link>
-            </div>
+              </div>
+            ) : null}
           </article>
         )
       })}
