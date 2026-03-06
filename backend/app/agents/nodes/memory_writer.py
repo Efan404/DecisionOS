@@ -6,7 +6,7 @@ from app.agents.memory.vector_store import get_vector_store
 from app.agents.state import AgentThought, DecisionOSState
 
 
-def memory_writer_node(state: DecisionOSState) -> dict:
+def memory_writer_node(state: DecisionOSState) -> dict[str, object]:
     """Write stage-appropriate data back into vector memory."""
     vs = get_vector_store()
     stage = state["current_stage"]

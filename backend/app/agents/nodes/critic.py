@@ -8,7 +8,7 @@ from app.core.time import utc_now_iso
 logger = logging.getLogger(__name__)
 
 
-def prd_reviewer_node(state: DecisionOSState) -> dict:
+def prd_reviewer_node(state: DecisionOSState) -> dict[str, object]:
     """Review the generated PRD against scope and provide quality assessment."""
     prd = state.get("prd_output", {})
     scope = state.get("scope_output", {})

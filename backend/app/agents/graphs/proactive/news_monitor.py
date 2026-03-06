@@ -16,7 +16,7 @@ class NewsMonitorState(TypedDict):
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
-def _fetch_news(state: NewsMonitorState) -> dict:
+def _fetch_news(state: NewsMonitorState) -> dict[str, object]:
     vs = get_vector_store()
     all_news = vs._news.get(include=["documents", "metadatas"])
     thought = {
@@ -28,7 +28,7 @@ def _fetch_news(state: NewsMonitorState) -> dict:
     return {"agent_thoughts": [thought]}
 
 
-def _match_news_to_ideas(state: NewsMonitorState) -> dict:
+def _match_news_to_ideas(state: NewsMonitorState) -> dict[str, object]:
     vs = get_vector_store()
     all_news = vs._news.get(include=["documents", "metadatas"])
     notifications: list[dict] = []
@@ -55,7 +55,7 @@ def _match_news_to_ideas(state: NewsMonitorState) -> dict:
     return {"notifications": notifications, "agent_thoughts": [thought]}
 
 
-def _generate_insights(state: NewsMonitorState) -> dict:
+def _generate_insights(state: NewsMonitorState) -> dict[str, object]:
     notifications = state.get("notifications", [])
     enriched: list[dict] = []
 

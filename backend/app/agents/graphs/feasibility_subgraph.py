@@ -22,7 +22,7 @@ _PLAN_ARCHETYPES = [
 ]
 
 
-def _plan_generator_node(state: DecisionOSState) -> dict:
+def _plan_generator_node(state: DecisionOSState) -> dict[str, object]:
     """Generate 3 feasibility plans (sequential, each with different archetype)."""
     idea_seed = state["idea_seed"]
     dag_path = state.get("dag_path") or {}

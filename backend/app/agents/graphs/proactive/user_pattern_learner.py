@@ -15,7 +15,7 @@ class PatternLearnerState(TypedDict):
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
-def _load_history(state: PatternLearnerState) -> dict:
+def _load_history(state: PatternLearnerState) -> dict[str, object]:
     history = state.get("decision_history", [])
     thought = {
         "agent": "history_loader",
@@ -26,7 +26,7 @@ def _load_history(state: PatternLearnerState) -> dict:
     return {"agent_thoughts": [thought]}
 
 
-def _extract_patterns(state: PatternLearnerState) -> dict:
+def _extract_patterns(state: PatternLearnerState) -> dict[str, object]:
     history = state.get("decision_history", [])
 
     if not history:

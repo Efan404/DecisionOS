@@ -8,7 +8,7 @@ from app.core.time import utc_now_iso
 logger = logging.getLogger(__name__)
 
 
-def plan_synthesizer_node(state: DecisionOSState) -> dict:
+def plan_synthesizer_node(state: DecisionOSState) -> dict[str, object]:
     """Cross-evaluate and rank the generated plans, add synthesis commentary."""
     plans = state.get("feasibility_output", {}).get("plans", []) if state.get("feasibility_output") else []
 

@@ -9,7 +9,7 @@ from app.core.time import utc_now_iso
 logger = logging.getLogger(__name__)
 
 
-def pattern_matcher_node(state: DecisionOSState) -> dict:
+def pattern_matcher_node(state: DecisionOSState) -> dict[str, object]:
     """Match current stage output against historical decision patterns."""
     idea_seed = state["idea_seed"]
     stage = state["current_stage"]

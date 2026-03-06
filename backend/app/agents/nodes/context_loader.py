@@ -6,7 +6,7 @@ from app.agents.memory.vector_store import get_vector_store
 from app.agents.state import AgentThought, DecisionOSState
 
 
-def context_loader_node(state: DecisionOSState) -> dict:
+def context_loader_node(state: DecisionOSState) -> dict[str, object]:
     """Load similar ideas and decision patterns from vector memory."""
     idea_seed = state["idea_seed"]
     idea_id = state["idea_id"]

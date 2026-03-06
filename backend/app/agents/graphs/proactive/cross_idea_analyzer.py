@@ -16,7 +16,7 @@ class CrossIdeaState(TypedDict):
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
-def _collect_ideas(state: CrossIdeaState) -> dict:
+def _collect_ideas(state: CrossIdeaState) -> dict[str, object]:
     summaries = state.get("idea_summaries", [])
     thought = {
         "agent": "idea_collector",
@@ -27,7 +27,7 @@ def _collect_ideas(state: CrossIdeaState) -> dict:
     return {"agent_thoughts": [thought]}
 
 
-def _detect_patterns(state: CrossIdeaState) -> dict:
+def _detect_patterns(state: CrossIdeaState) -> dict[str, object]:
     summaries = state.get("idea_summaries", [])
     vs = get_vector_store()
     insights: list[dict] = []
@@ -58,7 +58,7 @@ def _detect_patterns(state: CrossIdeaState) -> dict:
     return {"insights": insights, "agent_thoughts": [thought]}
 
 
-def _generate_cross_insights(state: CrossIdeaState) -> dict:
+def _generate_cross_insights(state: CrossIdeaState) -> dict[str, object]:
     insights = state.get("insights", [])
     enriched: list[dict] = []
 

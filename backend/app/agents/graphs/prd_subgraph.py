@@ -16,7 +16,7 @@ from app.schemas.prd import PRDMarkdownOutput
 logger = logging.getLogger(__name__)
 
 
-def _prd_writer_node(state: DecisionOSState) -> dict:
+def _prd_writer_node(state: DecisionOSState) -> dict[str, object]:
     """Generate PRD markdown using existing ai_gateway, enriched with memory context."""
     idea_seed = state["idea_seed"]
     dag_path = state.get("dag_path") or {}

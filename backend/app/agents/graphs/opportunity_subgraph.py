@@ -12,7 +12,7 @@ from app.core.prompts import build_opportunity_prompt
 from app.schemas.idea import OpportunityOutput
 
 
-def _researcher_node(state: DecisionOSState) -> dict:
+def _researcher_node(state: DecisionOSState) -> dict[str, list[AgentThought]]:
     """Analyze retrieved context and produce a research summary thought."""
     similar = state.get("retrieved_similar_ideas") or []
     patterns = state.get("retrieved_patterns") or []
@@ -40,7 +40,7 @@ def _researcher_node(state: DecisionOSState) -> dict:
     return {"agent_thoughts": [thought]}
 
 
-def _direction_generator_node(state: DecisionOSState) -> dict:
+def _direction_generator_node(state: DecisionOSState) -> dict[str, object]:
     """Generate opportunity directions using the existing AI gateway."""
     idea_seed = state["idea_seed"]
     similar = state.get("retrieved_similar_ideas") or []

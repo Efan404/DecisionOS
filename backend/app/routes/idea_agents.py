@@ -580,7 +580,7 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             _logger.exception("agent.prd.stream.failed idea_id=%s", idea_id)
             yield _sse_event("error", {
                 "code": "PRD_GENERATION_FAILED",
-                "message": "PRD generation failed",
+                "message": f"PRD generation failed: {exc}",
             })
             return
 
