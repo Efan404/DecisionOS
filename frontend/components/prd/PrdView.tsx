@@ -1,20 +1,18 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import type {
   DecisionContext,
   PrdBundle,
-  // DISABLED: PrdFeedbackDimensions, PrdFeedbackLatest — used by backlog/feedback panel
   PrdFeedbackDimensions,
   PrdFeedbackLatest,
   PrdOutput,
 } from '../../lib/schemas'
-// DISABLED: PrdBacklogPanel and PrdFeedbackCard — re-enable with Requirements/Backlog tabs
-// import { PrdBacklogPanel } from './PrdBacklogPanel'
-// import { PrdFeedbackCard } from './PrdFeedbackCard'
+import { PrdBacklogPanel } from './PrdBacklogPanel'
+import { PrdFeedbackCard } from './PrdFeedbackCard'
 
 type PrdStreamPartials = {
   requirements: PrdOutput['requirements'] | null
@@ -204,9 +202,7 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
   )
 }
 
-// DISABLED: multi-tab type — only markdown tab is active
-// type MainTab = 'markdown' | 'requirements' | 'sections'
-type MainTab = 'markdown'
+type MainTab = 'markdown' | 'requirements' | 'sections'
 
 export function PrdView({
   prd,
@@ -224,37 +220,30 @@ export function PrdView({
   streamPartials = null,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
-  // DISABLED: requirement selection state (used by Requirements tab and Backlog panel)
-  // const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
+  const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('markdown')
 
-  // DISABLED: requirement selection logic
-  // const selectedRequirementId = output?.requirements.some(
-  //   (item) => item.id === selectedRequirementIdInput
-  // )
-  //   ? selectedRequirementIdInput
-  //   : (output?.requirements[0]?.id ?? null)
+  const selectedRequirementId = output?.requirements.some(
+    (item) => item.id === selectedRequirementIdInput
+  )
+    ? selectedRequirementIdInput
+    : (output?.requirements[0]?.id ?? null)
 
-  // DISABLED: requirements lookup map (used by right-column requirement filter)
-  // const requirementsById = useMemo(
-  //   () =>
-  //     Object.fromEntries(
-  //       (output?.requirements ?? []).map((item) => [item.id, item.title] as const)
-  //     ),
-  //   [output]
-  // )
+  const requirementsById = useMemo(
+    () =>
+      Object.fromEntries((output?.requirements ?? []).map((item) => [item.id, item.title] as const)),
+    [output]
+  )
 
   const hasStaleOutput = Boolean(errorMessage && bundle?.output)
 
-  // DISABLED: Requirements and Sections tabs
-  // const tabs: { id: MainTab; label: string; count?: number }[] = output
-  //   ? [
-  //       { id: 'markdown', label: 'PRD' },
-  //       { id: 'requirements', label: 'Requirements', count: output.requirements.length },
-  //       { id: 'sections', label: 'Sections', count: output.sections.length },
-  //     ]
-  //   : []
-  const tabs: { id: MainTab; label: string }[] = output ? [{ id: 'markdown', label: 'PRD' }] : []
+  const tabs: { id: MainTab; label: string; count?: number }[] = output
+    ? [
+        { id: 'markdown', label: 'PRD' },
+        { id: 'requirements', label: 'Requirements', count: output.requirements.length },
+        { id: 'sections', label: 'Sections', count: output.sections.length },
+      ]
+    : []
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-4 px-6 py-5">
@@ -327,7 +316,7 @@ export function PrdView({
       {/* Main content */}
       {output ? (
         <div className="space-y-4">
-          {/* Tab bar — only PRD tab active; others disabled */}
+          {/* Tab bar */}
           <div className="flex w-full max-w-fit items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-1">
             {tabs.map((tab) => (
               <button
@@ -341,14 +330,18 @@ export function PrdView({
                 }`}
               >
                 {tab.label}
+                {tab.count !== undefined ? (
+                  <span className="ml-1.5 rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                    {tab.count}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
 
           {activeTab === 'markdown' ? <MarkdownPanel markdown={output.markdown} /> : null}
 
-          {/* DISABLED: Requirements tab content */}
-          {/* {activeTab === 'requirements' ? (
+          {activeTab === 'requirements' ? (
             <ul className="space-y-2">
               {output.requirements.map((item) => {
                 const active = selectedRequirementId === item.id
@@ -392,10 +385,9 @@ export function PrdView({
                 )
               })}
             </ul>
-          ) : null} */}
+          ) : null}
 
-          {/* DISABLED: Sections tab content */}
-          {/* {activeTab === 'sections' ? (
+          {activeTab === 'sections' ? (
             <ul className="space-y-2">
               {output.sections.map((section, idx) => (
                 <li
@@ -416,10 +408,9 @@ export function PrdView({
                 </li>
               ))}
             </ul>
-          ) : null} */}
+          ) : null}
 
-          {/* DISABLED: Right column — requirement filter + backlog panel + feedback */}
-          {/* <div className="space-y-4">
+          <div className="space-y-4">
             {selectedRequirementId ? (
               <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
                 <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700">
@@ -450,7 +441,7 @@ export function PrdView({
                 onSubmit={onSubmitFeedback}
               />
             ) : null}
-          </div> */}
+          </div>
         </div>
       ) : (
         /* Empty state — loading spinner or placeholder */
