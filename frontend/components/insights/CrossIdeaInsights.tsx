@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { getCrossIdeaInsights, triggerCrossIdeaAnalysis, type CrossIdeaInsight } from '../../lib/api'
+import { getCrossIdeaInsights, type CrossIdeaInsight } from '../../lib/api'
 import { HoverCard } from '../common/HoverCard'
 
 export function CrossIdeaInsights() {
@@ -25,14 +25,14 @@ export function CrossIdeaInsights() {
     void run()
   }, [])
 
-  const handleAnalyze = async () => {
+  const handleRefresh = async () => {
     setAnalyzing(true)
     setError(null)
     try {
-      const result = await triggerCrossIdeaAnalysis()
+      const result = await getCrossIdeaInsights()
       setInsights(result.insights)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed.')
+      setError(err instanceof Error ? err.message : 'Failed to load insights.')
     } finally {
       setAnalyzing(false)
     }
@@ -49,11 +49,11 @@ export function CrossIdeaInsights() {
         </div>
         <button
           type="button"
-          onClick={() => void handleAnalyze()}
+          onClick={() => void handleRefresh()}
           disabled={analyzing}
           className="shrink-0 rounded-lg bg-[#b9eb10] px-3 py-1.5 text-xs font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {analyzing ? 'Analyzing…' : 'Analyze'}
+          {analyzing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
