@@ -314,7 +314,7 @@ export function AppShell({ children }: AppShellProps) {
             </Link>
             <Link
               href="/settings"
-              className="rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5]"
+              className="hidden rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5] sm:block"
             >
               Settings
             </Link>
@@ -324,7 +324,7 @@ export function AppShell({ children }: AppShellProps) {
                 clearAuthSession()
                 router.replace('/login')
               }}
-              className="rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5]"
+              className="hidden rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5] sm:block"
             >
               Logout
             </button>
@@ -348,7 +348,7 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* ── Step nav (desktop: inline; mobile: dropdown) ─────────────────── */}
+        {/* ── Step nav (desktop: card grid; mobile: horizontal strip) ─────── */}
         {/* Desktop */}
         <nav aria-label="Workflow steps" className="hidden border-t border-[#1e1e1e]/6 md:block">
           <ul className="mx-auto grid w-full max-w-[1480px] grid-cols-5 gap-2.5 px-4 py-2.5 sm:px-6 lg:px-8">
@@ -356,7 +356,46 @@ export function AppShell({ children }: AppShellProps) {
           </ul>
         </nav>
 
-        {/* Mobile dropdown */}
+        {/* Mobile horizontal scrollable step strip */}
+        <nav
+          aria-label="Workflow steps"
+          className="flex overflow-x-auto border-t border-[#1e1e1e]/6 bg-white/95 px-3 py-2 md:hidden"
+        >
+          {steps.map((item) => {
+            const isActive = getIsActive(pathname, item.step)
+            const noIdeaSelected =
+              item.step !== 'ideas' && !resolveIdeaIdForRouting(pathname, activeIdeaId)
+            const disabled = item.locked || noIdeaSelected
+            return (
+              <span key={item.step} className="shrink-0 px-0.5">
+                {disabled ? (
+                  <span
+                    className={`block rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
+                      isActive ? 'bg-[#1e1e1e] text-[#b9eb10]' : 'text-[#1e1e1e]/30'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={getStepHref(item.step)}
+                    aria-current={isActive ? 'step' : undefined}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`block rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition ${
+                      isActive
+                        ? 'bg-[#1e1e1e] text-[#b9eb10]'
+                        : 'text-[#1e1e1e]/60 hover:bg-[#f5f5f5]'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )}
+              </span>
+            )
+          })}
+        </nav>
+
+        {/* Mobile drawer (hamburger) — step cards + Settings/Logout */}
         {mobileNavOpen && (
           <nav
             ref={navRef}
@@ -366,13 +405,33 @@ export function AppShell({ children }: AppShellProps) {
             <ul className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
               {steps.map((item, index) => renderStepCard(item, index))}
             </ul>
+            <div className="flex items-center gap-2 border-t border-[#1e1e1e]/8 px-4 py-3">
+              <Link
+                href="/settings"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex-1 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-center text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+              >
+                Settings
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileNavOpen(false)
+                  clearAuthSession()
+                  router.replace('/login')
+                }}
+                className="flex-1 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+              >
+                Logout
+              </button>
+            </div>
           </nav>
         )}
       </header>
 
       {/* ── Main content ───────────────────────────────────────────────────── */}
-      {/* pt accounts for navbar (≈52px) + step bar (≈116px desktop / 52px mobile) */}
-      <div className="mx-auto w-full max-w-[1480px] px-4 pt-[180px] pb-8 sm:px-6 md:pt-[196px] lg:px-8">
+      {/* pt accounts for navbar (≈52px) + step strip (≈40px mobile) or step cards (≈116px desktop) */}
+      <div className="mx-auto w-full max-w-[1480px] px-4 pt-[100px] pb-8 sm:px-6 md:pt-[196px] lg:px-8">
         <section
           id="main-content"
           tabIndex={-1}
