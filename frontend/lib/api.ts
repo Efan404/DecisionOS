@@ -358,3 +358,26 @@ export const postPrdFeedback = async (
     payload
   )
 }
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+export type UserProfile = {
+  username: string
+  email: string | null
+  notify_enabled: boolean
+  notify_types: string[]
+}
+
+export type PatchProfileRequest = {
+  email?: string | null
+  notify_enabled?: boolean
+  notify_types?: string[]
+}
+
+export const getProfile = async (): Promise<UserProfile> => {
+  return await jsonGet<UserProfile>('/profile')
+}
+
+export const patchProfile = async (payload: PatchProfileRequest): Promise<UserProfile> => {
+  return await jsonPatch<PatchProfileRequest, UserProfile>('/profile', payload)
+}
