@@ -120,8 +120,8 @@ export function ProfilePage() {
     <div className="flex min-h-[520px]">
       {/* ── Left sidebar ─────────────────────────────────────────────────── */}
       <aside className="flex w-14 shrink-0 flex-col border-r border-[#1e1e1e]/8 sm:w-52">
-        {/* Identity card */}
-        <div className="border-b border-[#1e1e1e]/8 px-3 py-4 sm:px-4">
+        {/* Identity card — same height as right header bar */}
+        <div className="flex h-[56px] items-center border-b border-[#1e1e1e]/8 px-3 sm:px-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1e1e1e] text-[#b9eb10]">
               <Ghost size={15} />
@@ -172,8 +172,8 @@ export function ProfilePage() {
 
       {/* ── Right content ────────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Section header bar */}
-        <div className="flex items-center gap-3 border-b border-[#1e1e1e]/8 px-6 py-3.5 sm:px-8">
+        {/* Section header bar — same height as sidebar identity card */}
+        <div className="flex h-[56px] items-center gap-3 border-b border-[#1e1e1e]/8 px-6 sm:px-8">
           <span className="text-[#1e1e1e]/35">{activeNav.icon}</span>
           <div>
             <h1 className="text-[13px] leading-tight font-semibold text-[#1e1e1e]">
