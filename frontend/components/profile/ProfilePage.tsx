@@ -311,7 +311,7 @@ export function ProfilePage() {
 
           {/* ── Decision Patterns ── */}
           {activeSection === 'patterns' && (
-            <div className="w-full max-w-2xl">
+            <div className="w-full">
               <UserPatternCard />
             </div>
           )}

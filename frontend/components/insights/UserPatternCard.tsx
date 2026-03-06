@@ -26,33 +26,27 @@ export function UserPatternCard() {
   const entries = preferences ? Object.entries(preferences) : []
 
   return (
-    <div className="rounded-xl border border-[#1e1e1e]/10 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-[#1e1e1e]">Your Decision Patterns</h2>
-          <p className="mt-0.5 text-xs text-[#1e1e1e]/50">
-            Learned from your past choices across ideas.
-          </p>
-        </div>
+    <div>
+      <div className="mb-3 flex items-center gap-2">
         <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
           Demo data
         </span>
       </div>
 
       {loading ? (
-        <div className="mt-4 space-y-2">
+        <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-7 animate-pulse rounded-lg bg-[#f5f5f5]" />
+            <div key={i} className="h-8 animate-pulse rounded-lg bg-[#f5f5f5]" />
           ))}
         </div>
       ) : error ? (
-        <p className="mt-3 text-xs text-red-600">{error}</p>
+        <p className="text-xs text-red-600">{error}</p>
       ) : entries.length === 0 ? (
-        <p className="mt-4 text-xs text-[#1e1e1e]/40">
+        <p className="text-xs text-[#1e1e1e]/40">
           No patterns learned yet. Make decisions across multiple ideas to build your profile.
         </p>
       ) : (
-        <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {entries.map(([key, value]) => (
             <li
               key={key}
