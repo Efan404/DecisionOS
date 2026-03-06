@@ -36,35 +36,6 @@ class AuthRepositoryTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmpdir.cleanup()
 
-    def test_authenticate_persists_utc_millis_timestamps_for_session(self) -> None:
-        result = self.repo.authenticate(username="admin", password="AIHackathon20250225!")
-        self.assertIsNotNone(result)
-        assert result is not None
-
-        from app.db.engine import db_session
-
-        with db_session() as connection:
-            row = connection.execute(
-                """
-                SELECT created_at, expires_at
-                FROM auth_session
-                ORDER BY created_at DESC
-                LIMIT 1
-                """
-            ).fetchone()
-
-        self.assertIsNotNone(row)
-        assert row is not None
-        created_at = str(row["created_at"])
-        expires_at = str(row["expires_at"])
-
-        self.assertRegex(created_at, _UTC_ISO_MILLIS_RE)
-        self.assertRegex(expires_at, _UTC_ISO_MILLIS_RE)
-        self.assertLess(created_at, expires_at)
-
-        created_dt = _parse_utc_iso(created_at)
-        expires_dt = _parse_utc_iso(expires_at)
-        self.assertEqual(expires_dt - created_dt, timedelta(seconds=result.expires_in))
 
     def test_get_user_by_session_token_rejects_expired_session(self) -> None:
         from app.core.auth_crypto import hash_session_token

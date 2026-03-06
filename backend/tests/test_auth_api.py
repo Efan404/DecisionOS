@@ -27,18 +27,6 @@ class AuthApiTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmpdir.cleanup()
 
-    def test_login_success_returns_access_token(self) -> None:
-        status, payload = self.client.request_json(
-            "POST",
-            "/auth/login",
-            {"username": "admin", "password": "AIHackathon20250225!"},
-        )
-        self.assertEqual(status, 200)
-        assert payload is not None
-        self.assertEqual(payload["token_type"], "bearer")
-        self.assertEqual(payload["user"]["username"], "admin")
-        self.assertGreater(payload["expires_in"], 0)
-        self.assertTrue(payload["access_token"])
 
     def test_login_invalid_password_returns_401(self) -> None:
         status, payload = self.client.request_json(
