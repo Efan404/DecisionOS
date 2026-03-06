@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from fastapi import Depends, FastAPI
@@ -10,6 +11,7 @@ from app.core.auth import require_authenticated_user
 from app.core.logging_config import setup_logging
 from app.core.rate_limit import InMemoryRateLimiter, resolve_client_identifier
 from app.core.request_logging import RequestLoggingMiddleware
+from app.core.scheduler import create_scheduler
 from app.core.settings import get_settings
 from app.db.bootstrap import initialize_database
 from app.routes.agents import router as agents_router
@@ -21,7 +23,12 @@ from app.routes.idea_dag import router as idea_dag_router
 from app.routes.idea_prd_feedback import router as idea_prd_feedback_router
 from app.routes.idea_scope import router as idea_scope_router
 from app.routes.ideas import router as ideas_router
+from app.routes.notifications import router as notifications_router
+from app.routes.insights import router as insights_router
+from app.routes.profile import router as profile_router
 from app.routes.workspaces import router as workspaces_router
+
+logger = logging.getLogger(__name__)
 
 _IDEA_AGENTS_MUTATION_RE = re.compile(r"^/ideas/[^/]+/agents/[^/]+(?:/stream)?$")
 
@@ -91,6 +98,22 @@ def create_app() -> FastAPI:
     app.include_router(idea_dag_router, dependencies=protected_dependencies)
     app.include_router(idea_scope_router, dependencies=protected_dependencies)
     app.include_router(agents_router, dependencies=protected_dependencies)
+    app.include_router(notifications_router, dependencies=protected_dependencies)
+    app.include_router(insights_router, dependencies=protected_dependencies)
+    app.include_router(profile_router, dependencies=protected_dependencies)
+
+    scheduler = create_scheduler()
+
+    @app.on_event("startup")
+    async def start_scheduler() -> None:
+        scheduler.start()
+        logger.info("scheduler.started")
+
+    @app.on_event("shutdown")
+    async def stop_scheduler() -> None:
+        scheduler.shutdown(wait=False)
+        logger.info("scheduler.stopped")
+
     return app
 
 

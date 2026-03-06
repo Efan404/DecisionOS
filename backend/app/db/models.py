@@ -124,4 +124,38 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_scope_baseline_items_order
     ON scope_baseline_items(baseline_id, lane, display_order);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS notification (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT 'default',
+        type TEXT NOT NULL CHECK (type IN ('news_match', 'cross_idea_insight', 'pattern_learned')),
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        read_at TEXT,
+        created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS agent_trace (
+        id TEXT PRIMARY KEY,
+        idea_id TEXT,
+        graph_name TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        node_name TEXT NOT NULL,
+        input_json TEXT,
+        output_json TEXT,
+        duration_ms INTEGER,
+        created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS user_preferences (
+        user_id TEXT PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE,
+        email TEXT,
+        notify_enabled INTEGER NOT NULL DEFAULT 0,
+        notify_types TEXT NOT NULL DEFAULT '["news_match","cross_idea_insight","pattern_learned"]',
+        updated_at TEXT NOT NULL
+    );
+    """,
 )
