@@ -70,11 +70,14 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
   // Loading a historical path from the backend should not lock the canvas.
   const [sessionConfirmed, setSessionConfirmed] = useState(false)
 
-  // Mobile detection (SSR-safe)
+  // Mobile detection (SSR-safe, responds to resize/rotation)
   const [isMobile, setIsMobile] = useState(false)
   const [landscapeDismissed, setLandscapeDismissed] = useState(false)
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768)
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState<DAGNodeType>([])
@@ -276,7 +279,17 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
       {/* Mobile bottom sheet */}
       {selectedNode && (
         <div className="fixed right-0 bottom-0 left-0 z-30 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-[#1E293B] shadow-2xl md:hidden">
-          <div className="mx-auto mt-2 mb-4 h-1 w-10 rounded-full bg-white/20" />
+          <div className="relative flex items-center justify-center px-4 pt-2 pb-3">
+            <div className="h-1 w-10 rounded-full bg-white/20" />
+            <button
+              type="button"
+              onClick={() => selectNode(null)}
+              className="absolute top-1 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20"
+              aria-label="Close panel"
+            >
+              ✕
+            </button>
+          </div>
           <NodeDetailPanel
             node={selectedNode}
             pathChain={selectedPathChain}
