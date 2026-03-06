@@ -36,6 +36,8 @@ graph LR
 - **Contextual HoverCards**: Hover tooltips across the app revealing hidden metadata — acceptance criteria, score breakdowns, full IDs, timestamps, and dependencies
 - **Multi-Idea Support**: Manage multiple ideas within a single workspace
 
+> For architecture deep-dive (LangGraph agents, proactive intelligence, memory system), see [docs/architecture.md](docs/architecture.md).
+
 ## Tech Stack
 
 | Layer    | Technology                                               |

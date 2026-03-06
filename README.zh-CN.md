@@ -36,6 +36,8 @@ graph LR
 - **上下文悬浮卡片（HoverCard）**：全站悬浮提示，展示验收标准、评分明细、完整 ID、时间戳和依赖关系等隐藏信息
 - **多创意管理**：在单一工作区内管理多个创意
 
+> 架构深度解析（LangGraph Agent、主动智能、记忆系统）请参阅 [docs/architecture.md](docs/architecture.md)。
+
 ## 技术架构
 
 | 层级   | 技术栈                                                   |
