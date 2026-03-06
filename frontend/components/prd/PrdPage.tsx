@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
+import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
 import { ApiError, postPrdFeedback } from '../../lib/api'
@@ -50,6 +51,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     backlog: null,
   })
   const inFlightGenerationKeyRef = useRef<string | null>(null)
+  const { thoughts, addThought, reset } = useAgentThoughts()
   // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
   // This prevents a spurious "Select a frozen baseline" error when navigating via the
   // sidebar (which omits the query param) but a frozen baseline already exists.
@@ -107,6 +109,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     setLoading(true)
     setIsRegenerate(hasLocalOutput)
     setErrorMessage(null)
+    reset()
 
     const run = async () => {
       console.log(
@@ -140,6 +143,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
                 donePayload = data as { idea_id: string; idea_version: number }
                 console.log('[PrdPage] stream done', donePayload)
               }
+            },
+            onAgentThought: (data) => {
+              if (!cancelled) addThought(data)
             },
           }
         )
@@ -253,6 +259,11 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
   return (
     <main>
+      {(loading || thoughts.length > 0) && (
+        <div className="mx-auto w-full max-w-7xl px-6 pt-4">
+          <AgentThoughtStream thoughts={thoughts} isActive={loading} />
+        </div>
+      )}
       <PrdView
         prd={context.prd_bundle?.output ?? context.prd}
         bundle={context.prd_bundle}

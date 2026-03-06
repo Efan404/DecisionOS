@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { GuardPanel } from '../common/GuardPanel'
 import { PlanCards } from './PlanCards'
 import { getIdea, postIdeaScopedAgent } from '../../lib/api'
@@ -42,6 +43,7 @@ export function FeasibilityPage() {
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(false)
   const canOpen = canRunFeasibility(context)
+  const { thoughts, addThought, reset } = useAgentThoughts()
 
   useEffect(() => {
     mountedRef.current = true
@@ -140,6 +142,7 @@ export function FeasibilityPage() {
     setPlans([])
     setProgressPct(0)
     setLoading(true)
+    reset()
 
     let streamedDonePayload: unknown = null
 
@@ -189,6 +192,7 @@ export function FeasibilityPage() {
             onDone: (data) => {
               streamedDonePayload = data
             },
+            onAgentThought: addThought,
           },
           controller.signal
         )
@@ -298,6 +302,9 @@ export function FeasibilityPage() {
         </p>
       ) : null}
       {errorMessage ? <p className="mt-2 text-xs text-red-600">{errorMessage}</p> : null}
+      <div className="mt-4">
+        <AgentThoughtStream thoughts={thoughts} isActive={loading} />
+      </div>
       {showEmptyState ? (
         <section className="mt-4 rounded-xl border border-dashed border-black/30 p-6 text-sm text-black/60">
           Click &quot;Generate Plans&quot; to start.
