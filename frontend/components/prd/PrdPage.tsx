@@ -109,6 +109,12 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     setErrorMessage(null)
 
     const run = async () => {
+      console.log(
+        '[PrdPage] stream start ideaId=%s baselineId=%s version=%s',
+        activeIdeaId,
+        baselineId,
+        activeIdea.version
+      )
       setStreamPartials({ requirements: null, backlog: null })
       try {
         let donePayload: { idea_id: string; idea_version: number } | null = null
@@ -127,8 +133,12 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
               } else if (event.event === 'backlog') {
                 const data = event.data as { items: PrdOutput['backlog']['items'] }
                 setStreamPartials((prev) => ({ ...prev, backlog: { items: data.items } }))
-              } else if (event.event === 'done') {
-                donePayload = event.data as { idea_id: string; idea_version: number }
+              }
+            },
+            onDone: (data) => {
+              if (!cancelled) {
+                donePayload = data as { idea_id: string; idea_version: number }
+                console.log('[PrdPage] stream done', donePayload)
               }
             },
           }
@@ -139,6 +149,10 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           // Load and apply context BEFORE turning off loading,
           // so PrdView sees prd_bundle populated when it re-renders.
           const detail = await loadIdeaDetailRef.current(activeIdeaId)
+          console.log(
+            '[PrdPage] loadIdeaDetail result hasPrdBundle=%s',
+            Boolean(detail?.context?.prd_bundle)
+          )
           if (!cancelled) {
             if (detail) {
               replaceContextRef.current(detail.context)
@@ -155,6 +169,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         if (!cancelled) {
           const message =
             error instanceof Error ? error.message : 'Request failed. Please try again.'
+          console.error('[PrdPage] stream error', error)
           setErrorMessage(message)
           toast.error(message)
         }
