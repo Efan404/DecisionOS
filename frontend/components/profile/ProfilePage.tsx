@@ -175,12 +175,17 @@ export function ProfilePage() {
         {/* Section header bar — same height as sidebar identity card */}
         <div className="flex h-[56px] items-center gap-3 border-b border-[#1e1e1e]/8 px-6 sm:px-8">
           <span className="text-[#1e1e1e]/35">{activeNav.icon}</span>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-[13px] leading-tight font-semibold text-[#1e1e1e]">
               {activeNav.label}
             </h1>
             <p className="text-[11px] leading-tight text-[#1e1e1e]/35">{activeNav.description}</p>
           </div>
+          {activeSection === 'patterns' && (
+            <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              Demo data
+            </span>
+          )}
         </div>
 
         {/* Section body */}
