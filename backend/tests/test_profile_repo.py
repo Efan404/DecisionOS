@@ -16,3 +16,35 @@ def test_user_preferences_table_exists():
             "SELECT name FROM sqlite_master WHERE type='table' AND name='user_preferences'"
         ).fetchone()
     assert row is not None, "user_preferences table should exist"
+
+
+def test_get_or_create_preferences_default():
+    from app.db.repo_profile import ProfileRepository
+    from app.db.repo_auth import AuthRepository
+    repo = ProfileRepository()
+    auth = AuthRepository()
+    user = auth.get_user_by_username("admin")
+    assert user is not None
+    prefs = repo.get_or_create(user.id)
+    assert prefs.user_id == user.id
+    assert prefs.email is None
+    assert prefs.notify_enabled is False
+    assert "news_match" in prefs.notify_types
+
+
+def test_update_preferences():
+    from app.db.repo_profile import ProfileRepository
+    from app.db.repo_auth import AuthRepository
+    repo = ProfileRepository()
+    auth = AuthRepository()
+    user = auth.get_user_by_username("admin")
+    assert user is not None
+    updated = repo.update(
+        user_id=user.id,
+        email="test@example.com",
+        notify_enabled=True,
+        notify_types=["news_match"],
+    )
+    assert updated.email == "test@example.com"
+    assert updated.notify_enabled is True
+    assert updated.notify_types == ["news_match"]

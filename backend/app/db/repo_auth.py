@@ -78,6 +78,10 @@ class AuthRepository:
                 return None
             return _row_to_user(row)
 
+    def get_user_by_username(self, username: str) -> UserRecord | None:
+        with db_session() as connection:
+            return _select_user_by_username(connection, username)
+
     def revoke_session(self, token: str) -> None:
         token_hash = hash_session_token(token)
         with db_session() as connection:
