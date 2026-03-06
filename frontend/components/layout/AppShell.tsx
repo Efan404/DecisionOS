@@ -14,6 +14,7 @@ import {
   getAuthSessionServerSnapshot,
   subscribeAuthSession,
 } from '../../lib/auth'
+import { NotificationBell } from '../notifications/NotificationBell'
 
 type StepItem = {
   step: 'ideas' | IdeaStep
@@ -304,6 +305,7 @@ export function AppShell({ children }: AppShellProps) {
             <span className="hidden text-xs text-[#1e1e1e]/35 sm:block">
               {hydratedContext ? hydratedContext.session_id.slice(0, 8) : '…'}
             </span>
+            <NotificationBell />
             <Link
               href="/profile"
               className="hidden text-xs text-[#1e1e1e]/40 transition hover:text-[#1e1e1e]/70 sm:block"

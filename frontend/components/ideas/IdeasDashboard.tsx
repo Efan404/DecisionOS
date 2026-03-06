@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 
+import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
 import { useIdeasStore } from '../../lib/ideas-store'
 
 export function IdeasDashboard() {
@@ -198,6 +199,10 @@ export function IdeasDashboard() {
             </div>
           ) : null}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <CrossIdeaInsights />
       </section>
     </main>
   )
