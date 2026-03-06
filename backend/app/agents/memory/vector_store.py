@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import threading
+
 import chromadb
 
 _singleton: VectorStore | None = None
+_singleton_lock = threading.Lock()
 
 
 class VectorStore:
@@ -120,8 +123,10 @@ class VectorStore:
 
 
 def get_vector_store() -> VectorStore:
-    """Module-level singleton factory."""
+    """Module-level singleton factory. Thread-safe via double-checked locking."""
     global _singleton  # noqa: PLW0603
     if _singleton is None:
-        _singleton = VectorStore(persist_directory=None)
+        with _singleton_lock:
+            if _singleton is None:
+                _singleton = VectorStore(persist_directory=None)
     return _singleton

@@ -317,9 +317,9 @@ async def stream_opportunity_v2(idea_id: str, payload: OpportunityIdeaRequest) -
                 idea_id=idea_id,
                 idea_seed=payload.idea_seed,
             ):
-                yield event
-
-                # If this is the done event, persist to DB
+                # For the internal done event from the graph, persist first then
+                # replace it with a richer done event that includes idea_version.
+                # This ensures the client never receives done before data is saved.
                 if event.get("event") == "done":
                     done_data = json.loads(event["data"])
                     opp_output = done_data.get("opportunity_output")
@@ -341,6 +341,8 @@ async def stream_opportunity_v2(idea_id: str, payload: OpportunityIdeaRequest) -
                             "idea_version": result.idea.version,
                             "data": output.model_dump(),
                         })
+                    continue
+                yield event
         except Exception as exc:
             _raise_if_no_provider(exc)
             _logger.exception("agent.opportunity.stream.v2.failed idea_id=%s", idea_id)
