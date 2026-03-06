@@ -277,37 +277,69 @@ export function FeasibilityPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl p-6">
-      <h1 className="text-2xl font-bold">Feasibility</h1>
-      <p className="mt-2 text-sm text-black/70">
-        Confirmed Node:{' '}
-        {confirmedPathContext?.confirmed_node_content ??
-          context.confirmed_dag_node_content ??
-          'Loading...'}
-      </p>
-      <div className="mt-3">
+      {/* Page header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">Feasibility</h1>
+          <p className="mt-0.5 text-sm text-[#1e1e1e]/50">
+            Generate and compare feasibility plans for your idea.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => {
             void handleGenerate()
           }}
           disabled={loading || !confirmedPathContext}
-          className="rounded-md border border-black px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? 'Generating...' : plans.length ? 'Regenerate Plans' : 'Generate Plans'}
+          {loading ? 'Generating…' : plans.length ? 'Regenerate Plans' : 'Generate Plans'}
         </button>
       </div>
-      {loading ? (
-        <p className="mt-2 text-xs text-black/60">
-          {plans.length > 0 ? `${plans.length}/3 plans ready · ` : ''}Streaming {progressPct}%
+
+      {/* Context card */}
+      <div className="mt-4 rounded-xl border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3">
+        <p className="text-xs font-medium tracking-wide text-[#1e1e1e]/40 uppercase">
+          Confirmed Node
         </p>
+        <p className="mt-1 text-sm text-[#1e1e1e]/80">
+          {confirmedPathContext?.confirmed_node_content ??
+            context.confirmed_dag_node_content ??
+            'Loading…'}
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      {loading ? (
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-[#1e1e1e]/40">
+              {plans.length > 0 ? `${plans.length}/3 plans ready` : 'Analyzing…'}
+            </span>
+            <span className="text-xs font-medium text-[#1e1e1e]/60">{progressPct}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e0e0e0]">
+            <div
+              className="h-full rounded-full bg-[#b9eb10] transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
       ) : null}
-      {errorMessage ? <p className="mt-2 text-xs text-red-600">{errorMessage}</p> : null}
+
+      {errorMessage ? (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm text-red-700">{errorMessage}</p>
+        </div>
+      ) : null}
       <div className="mt-4">
         <AgentThoughtStream thoughts={thoughts} isActive={loading} />
       </div>
       {showEmptyState ? (
-        <section className="mt-4 rounded-xl border border-dashed border-black/30 p-6 text-sm text-black/60">
-          Click &quot;Generate Plans&quot; to start.
+        <section className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-10 text-center">
+          <p className="text-sm text-[#1e1e1e]/40">
+            Click &ldquo;Generate Plans&rdquo; to analyze feasibility.
+          </p>
         </section>
       ) : (
         <div className="mt-4">
