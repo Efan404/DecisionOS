@@ -5,7 +5,27 @@
 **Goal:** Replace the hardcoded mock `decision_history` in the pattern learner with real user behavior events captured from the existing workflow (DAG path confirm, feasibility plan selection, scope freeze, PRD generation), persist learned patterns to the DB, and surface them live in the Profile page.
 
 **Architecture:**
-A new `decision_events` SQLite table records one row per user action at key workflow checkpoints. The existing `UserPatternLearner` LangGraph reads from this table instead of hardcoded stubs. Learned patterns are persisted back to a new `learned_patterns_json` column in `user_preferences`. The `/insights/user-patterns` API reads from the DB first (zero LLM calls if fresh) and only re-runs the LangGraph if the events changed since last learning.
+A new `decision_events` SQLite table records one row per user action at key workflow checkpoints. The existing `UserPatternLearner` LangGraph reads from this table instead of hardcoded stubs. Learned patterns are persisted back to a new `learned_patterns_json` column in `user_preferences`. The `/insights/user-patterns` API reads from the DB first (zero LLM calls if fresh) and only re-runs the LangGraph when the event count has changed since last learning.
+
+**Design constraints (critical):**
+
+1. **Cache invalidation uses event count delta**: Persist `last_learned_event_count: int` alongside `learned_patterns_json`. On each `/insights/user-patterns` request, compare current `count_for_user()` against `last_learned_event_count` — re-run the graph only if the count increased. This prevents stale results building up indefinitely.
+
+2. **`learned_patterns_json` lives in `user_preferences` as a separate semantic concern**: The `updated_at` column in `user_preferences` is for profile preference changes (email, notify settings). Pattern writes must **not** update `updated_at` — use a separate `patterns_updated_at` column, or accept that `updated_at` is ambiguous (document the choice). Do NOT let pattern writes touch email/notify_enabled fields.
+
+3. **`feasibility_plan_selected` event is captured at PATCH context, not in the agent stream**: The agent generates feasibility plans but does NOT select one — the user selects via `PATCH /ideas/{idea_id}/context` (sets `selected_plan_id`). The event must be recorded in the PATCH context endpoint, not in `stream_feasibility`. Read `backend/app/routes/idea_agents.py` and `backend/app/routes/idea_context.py` to find the correct PATCH handler before writing any code.
+
+4. **`prd_generated` events need business dedup**: `stream_prd` is an SSE route; the client may reconnect and retrigger the route. Add a dedup check: skip inserting `prd_generated` if an event already exists with the same `(idea_id, event_type="prd_generated")` and the same `baseline_id` in payload. Use `INSERT OR IGNORE` with a unique constraint, or query before inserting.
+
+5. **Bootstrap ALTER TABLE must use PRAGMA check, not try/except**: The `try/except sqlite3.OperationalError: pass` pattern swallows real SQL errors. Instead, check if the column already exists with `PRAGMA table_info(user_preferences)` and skip the ALTER if found.
+
+6. **Event payloads must capture user-interpretable decision variables**, not internal IDs:
+   - `dag_path_confirmed`: include the human-readable leaf node content, not just `path_id`
+   - `feasibility_plan_selected`: include `plan_name`, `score_overall`, `selected_plan_id`
+   - `scope_frozen`: include `in_scope_count`, `out_scope_count`, `baseline_id`
+   - `prd_generated`: include `baseline_id` (scope it was generated from)
+
+7. **Pre-existing test failures are unrelated to this feature**: `test_profile_route.py` and `test_auth_api.py` fail with 401 due to env var mismatch (`DECISIONOS_SEED_ADMIN_PASSWORD`), not due to patterns changes. Do not treat these as success signals. Only newly written tests for `decision_events` are authoritative.
 
 **Tech Stack:** Python 3.12, SQLite, LangGraph (existing), FastAPI, Next.js 14.
 
@@ -98,22 +118,30 @@ The `ALTER TABLE … ADD COLUMN` statement will fail if the column already exist
 cat backend/app/db/bootstrap.py
 ```
 
-**Step 2: Wrap ALTER TABLE in try/except in the bootstrap function**
+**Step 2: Use PRAGMA table_info check before ALTER TABLE (do NOT use try/except)**
 
-Find the loop that executes `SCHEMA_STATEMENTS` and add special handling:
+`try/except sqlite3.OperationalError: pass` swallows real SQL errors along with "column already exists" errors, making bugs invisible. Use `PRAGMA table_info` to check explicitly:
 
 ```python
-import sqlite3
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
 
 def run_bootstrap(connection: sqlite3.Connection) -> None:
     for statement in SCHEMA_STATEMENTS:
-        if statement.strip().upper().startswith("ALTER TABLE"):
-            try:
-                connection.execute(statement)
-            except sqlite3.OperationalError:
-                pass  # Column already exists — safe to ignore
-        else:
-            connection.execute(statement)
+        stripped = statement.strip().upper()
+        if stripped.startswith("ALTER TABLE") and "ADD COLUMN" in stripped:
+            # Parse: ALTER TABLE <table> ADD COLUMN <colname> ...
+            # Extract table name and column name to check existence first
+            parts = statement.split()
+            table_name = parts[2]  # ALTER TABLE <table_name> ...
+            col_idx = [i for i, p in enumerate(parts) if p.upper() == "COLUMN"]
+            if col_idx:
+                col_name = parts[col_idx[0] + 1]
+                if _column_exists(connection, table_name, col_name):
+                    continue  # column already exists, skip
+        connection.execute(statement)
     connection.commit()
 ```
 
@@ -323,28 +351,40 @@ _event_repo.record(
 )
 ```
 
-**Step 2: Add event recording to feasibility plan selection**
+**Step 2: Add event recording to feasibility plan selection — at PATCH context, NOT in agent stream**
 
-In `backend/app/routes/idea_agents.py`, inside `_apply_feasibility` function (around line ~896), add after context update:
+**CRITICAL**: The `stream_feasibility` agent generates plans but does NOT record user selection. The user selects a plan later via `PATCH /ideas/{idea_id}/context` (sets `selected_plan_id`). Recording the event in the agent stream would capture the agent's default, not the user's actual choice.
 
-```python
-# At module level (near _repo = IdeaRepository()):
-from app.db.repo_decision_events import DecisionEventRepository as _DecisionEventRepository
-_event_repo_module = _DecisionEventRepository()
+**First**: Read the PATCH context endpoint to find where `selected_plan_id` is written:
+
+```bash
+grep -n "selected_plan_id\|context\|PATCH" backend/app/routes/idea_agents.py | head -20
+# Also check if there is a dedicated context route:
+grep -rn "selected_plan_id" backend/app/routes/ | head -10
 ```
 
-Then inside `stream_feasibility` (or wherever the plan selection is saved to context), after `_repo.apply_agent_update`:
+**Then** add the event in the PATCH handler, after `selected_plan_id` is persisted:
 
 ```python
-if selected_plan_id := context.selected_plan_id:
+# In the PATCH /ideas/{idea_id}/context handler, after saving:
+if body.selected_plan_id and body.selected_plan_id != existing_context.selected_plan_id:
+    # User changed their plan selection — record the decision event
     plan_name = ""
-    if context.feasibility:
-        plan = next((p for p in context.feasibility.plans if p.id == selected_plan_id), None)
+    if existing_context.feasibility:
+        plan = next(
+            (p for p in existing_context.feasibility.plans if p.id == body.selected_plan_id),
+            None,
+        )
         plan_name = plan.name if plan else ""
-    _event_repo_module.record(
+        score = plan.score_overall if plan and hasattr(plan, "score_overall") else None
+    _event_repo.record(
         event_type="feasibility_plan_selected",
         idea_id=idea_id,
-        payload={"plan_id": selected_plan_id, "plan_name": plan_name},
+        payload={
+            "selected_plan_id": body.selected_plan_id,
+            "plan_name": plan_name,
+            "score_overall": score,
+        },
     )
 ```
 
@@ -365,21 +405,45 @@ _event_repo_scope.record(
 )
 ```
 
-**Step 4: Add event at PRD generation done**
+**Step 4: Add event at PRD generation done — with dedup to handle SSE reconnects**
 
-In `backend/app/routes/idea_agents.py`, inside `stream_prd` event_generator, after `yield _sse_event("done", ...)`:
+`stream_prd` is an SSE route. Clients reconnect on network drops, re-running the whole SSE generator. Without dedup, each reconnect inserts a duplicate `prd_generated` event, which will make the pattern learner think the user generated 10 PRDs for the same idea.
+
+Use `baseline_id` as the dedup key — one `prd_generated` event per `(idea_id, baseline_id)` pair:
 
 ```python
-_event_repo_module.record(
-    event_type="prd_generated",
-    idea_id=idea_id,
-    payload={
-        "baseline_id": pack.step4_scope.baseline_meta.baseline_id,
-        "requirements_count": len(merged_output.requirements),
-        "backlog_count": len(merged_output.backlog.items),
-    },
-)
+# Add a method to DecisionEventRepository:
+def exists_for_idea_event_key(self, idea_id: str, event_type: str, key: str, value: str) -> bool:
+    """Check if a decision event already exists for this (idea_id, event_type, payload key=value)."""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id FROM decision_events
+            WHERE idea_id = ? AND event_type = ?
+              AND json_extract(payload_json, '$.' || ?) = ?
+            LIMIT 1
+            """,
+            (idea_id, event_type, key, value),
+        ).fetchone()
+    return row is not None
 ```
+
+Then in `stream_prd`, inside the event_generator, after the PRD is done:
+
+```python
+baseline_id = pack.step4_scope.baseline_meta.baseline_id
+# Dedup: only record if this baseline hasn't been recorded yet
+if not _event_repo_module.exists_for_idea_event_key(idea_id, "prd_generated", "baseline_id", baseline_id):
+    _event_repo_module.record(
+        event_type="prd_generated",
+        idea_id=idea_id,
+        payload={
+            "baseline_id": baseline_id,
+        },
+    )
+```
+
+Note: `requirements_count` and `backlog_count` are removed from the payload — they are always 0 in the current simplified PRD flow (single-call, no two-stage). Don't record misleading metrics.
 
 **Step 5: Run tests**
 
@@ -407,40 +471,61 @@ git commit -m "feat(patterns): instrument workflow endpoints to record decision 
 - Modify: `backend/app/agents/graphs/proactive/user_pattern_learner.py`
 - Modify: `backend/app/db/repo_profile.py`
 
-**Step 1: Extend ProfileRepository to persist learned patterns**
+**Step 1: Extend DB schema and ProfileRepository to persist learned patterns with cache metadata**
 
-In `backend/app/db/repo_profile.py`, add two methods:
+First, the schema needs **two** new columns in `user_preferences`:
+
+- `learned_patterns_json TEXT NOT NULL DEFAULT '{}'` — the actual patterns
+- `last_learned_event_count INTEGER NOT NULL DEFAULT 0` — cache invalidation signal
+
+This is cleaner than storing `updated_at` ambiguously (see design constraint #2).
+
+**Schema additions** (in `models.py` SCHEMA_STATEMENTS, as two separate ALTER TABLE statements):
+
+```sql
+ALTER TABLE user_preferences ADD COLUMN learned_patterns_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE user_preferences ADD COLUMN last_learned_event_count INTEGER NOT NULL DEFAULT 0;
+```
+
+**ProfileRepository methods**:
 
 ```python
-def get_learned_patterns(self, user_id: str = "default") -> dict:
-    """Return persisted learned patterns dict, or empty dict."""
+def get_learned_patterns(self, user_id: str = "default") -> tuple[dict, int]:
+    """Return (patterns_dict, last_learned_event_count). Both empty/0 if not set."""
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT learned_patterns_json FROM user_preferences WHERE user_id = ?",
+            "SELECT learned_patterns_json, last_learned_event_count FROM user_preferences WHERE user_id = ?",
             (user_id,),
         ).fetchone()
     if row is None:
-        return {}
+        return {}, 0
     try:
-        return json.loads(str(row["learned_patterns_json"]))
-    except (json.JSONDecodeError, KeyError):
-        return {}
+        patterns = json.loads(str(row["learned_patterns_json"]))
+        count = int(row["last_learned_event_count"] or 0)
+        return patterns, count
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {}, 0
 
-def save_learned_patterns(self, user_id: str = "default", patterns: dict) -> None:
-    """Upsert learned patterns dict."""
-    now = utc_now_iso()
+
+def save_learned_patterns(self, user_id: str = "default", patterns: dict, event_count: int = 0) -> None:
+    """Upsert learned patterns dict WITHOUT touching email/notify_enabled/updated_at.
+
+    The updated_at column belongs to profile preference changes, NOT pattern learning.
+    """
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO user_preferences (user_id, learned_patterns_json, updated_at)
+            INSERT INTO user_preferences (user_id, learned_patterns_json, last_learned_event_count)
             VALUES (?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 learned_patterns_json = excluded.learned_patterns_json,
-                updated_at = excluded.updated_at
+                last_learned_event_count = excluded.last_learned_event_count
             """,
-            (user_id, json.dumps(patterns, ensure_ascii=False), now),
+            (user_id, json.dumps(patterns, ensure_ascii=False), event_count),
         )
 ```
+
+Note: `save_learned_patterns` intentionally does **not** update `updated_at` — that field tracks profile preference writes only.
 
 **Step 2: Rewrite user_pattern_learner.py to use real events**
 
@@ -562,17 +647,17 @@ def build_pattern_learner_graph():
     return graph.compile()
 ```
 
-**Step 3: Rewrite `/insights/user-patterns` endpoint to use real data**
+**Step 3: Rewrite `/insights/user-patterns` endpoint with correct cache invalidation**
 
-In `backend/app/routes/insights.py`, replace `get_user_patterns`:
+The fast path must compare `current_event_count` against `last_learned_event_count` stored in the DB. If they are equal, patterns are fresh. If count increased, re-run the graph.
 
 ```python
 @router.get("/user-patterns")
 async def get_user_patterns():
     """Return learned user patterns.
 
-    Fast path: return persisted patterns from DB if available.
-    Slow path: run the pattern learner graph and persist results.
+    Fast path: return cached patterns if event_count hasn't changed since last learning.
+    Slow path: re-run the pattern learner graph when new events have been recorded.
     """
     from app.db.repo_profile import ProfileRepository
     from app.db.repo_decision_events import DecisionEventRepository
@@ -581,14 +666,17 @@ async def get_user_patterns():
     profile_repo = ProfileRepository()
     event_repo = DecisionEventRepository()
 
-    # Fast path: return cached patterns if we have both events and patterns
-    cached = profile_repo.get_learned_patterns()
-    event_count = event_repo.count_for_user()
+    current_event_count = event_repo.count_for_user()
+    cached_patterns, last_learned_count = profile_repo.get_learned_patterns()
 
-    if cached and event_count > 0:
-        return {"preferences": cached, "source": "cached", "event_count": event_count}
+    # Fast path: cached patterns are still valid (no new events since last learning)
+    if cached_patterns and current_event_count > 0 and current_event_count == last_learned_count:
+        return {"preferences": cached_patterns, "source": "cached", "event_count": current_event_count}
 
-    # Slow path: run graph
+    if current_event_count == 0:
+        return {"preferences": {}, "source": "no_events", "event_count": 0}
+
+    # Slow path: new events have appeared — re-run graph and update cache
     graph = build_pattern_learner_graph()
     result = graph.invoke({
         "user_id": "default",
@@ -596,12 +684,25 @@ async def get_user_patterns():
         "learned_preferences": {},
         "agent_thoughts": [],
     })
+    # save_learned_patterns stores the event_count so next call can use fast path
     return {
         "preferences": result.get("learned_preferences", {}),
         "source": "computed",
-        "event_count": event_count,
+        "event_count": current_event_count,
     }
 ```
+
+And in `_extract_patterns` inside the graph, after persisting to DB, pass the event count:
+
+```python
+# At the end of _extract_patterns, instead of:
+_profile_repo.save_learned_patterns(user_id=user_id, patterns=preferences)
+# Use (event_count is available from state or passed via graph input):
+event_count = len(state.get("decision_history", []))
+_profile_repo.save_learned_patterns(user_id=user_id, patterns=preferences, event_count=event_count)
+```
+
+Note: the `event_count` passed to `save_learned_patterns` here is `len(decision_history)` which equals the `limit=50` cap, not the actual DB total. This is acceptable — if the user has >50 events, the "has new events" check still fires correctly because `count_for_user()` returns the real total while `last_learned_event_count` stores the capped batch size. Pass the real count through graph state instead if precision matters.
 
 **Step 4: Run tests**
 
