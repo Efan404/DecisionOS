@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 
 import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
+import { HoverCard } from '../common/HoverCard'
 import { useIdeasStore } from '../../lib/ideas-store'
 
 export function IdeasDashboard() {
@@ -197,11 +198,16 @@ export function IdeasDashboard() {
                             {idea.status}
                           </span>
                         </div>
-                        <p
-                          className={`mt-1.5 text-[11px] ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
-                        >
-                          {idea.updated_at.slice(0, 16)}
-                        </p>
+                        <HoverCard align="left" trigger={
+                          <p
+                            className={`mt-1.5 text-[11px] cursor-default ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
+                          >
+                            {idea.updated_at.slice(0, 16)}
+                          </p>
+                        }>
+                          <p className="text-[11px] text-slate-500">Last updated</p>
+                          <p className="mt-0.5 font-mono text-[11px] text-slate-800">{idea.updated_at}</p>
+                        </HoverCard>
                       </div>
                       <button
                         type="button"

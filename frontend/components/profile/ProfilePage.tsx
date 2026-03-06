@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Bell, Ghost, Loader2, Sparkles, User } from 'lucide-react'
 
 import { ApiError, getProfile, patchProfile, type UserProfile } from '../../lib/api'
+import { HoverCard } from '../common/HoverCard'
 import { UserPatternCard } from '../insights/UserPatternCard'
 
 const NOTIFY_TYPE_LABELS: Record<string, string> = {
@@ -127,12 +128,20 @@ export function ProfilePage() {
               <Ghost size={15} />
             </div>
             <div className="hidden min-w-0 sm:block">
-              <p className="truncate text-[13px] leading-snug font-semibold text-[#1e1e1e]">
-                {profile?.username ?? '…'}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] leading-snug text-[#1e1e1e]/40">
-                {profile?.email ?? 'No email set'}
-              </p>
+              <HoverCard align="left" trigger={
+                <p className="truncate text-[13px] leading-snug font-semibold text-[#1e1e1e] cursor-default">
+                  {profile?.username ?? '…'}
+                </p>
+              }>
+                <span className="break-all text-[12px] font-semibold text-slate-800">{profile?.username ?? '…'}</span>
+              </HoverCard>
+              <HoverCard align="left" trigger={
+                <p className="mt-0.5 truncate text-[11px] leading-snug text-[#1e1e1e]/40 cursor-default">
+                  {profile?.email ?? 'No email set'}
+                </p>
+              }>
+                <span className="break-all text-[11px] text-slate-600">{profile?.email ?? 'No email set'}</span>
+              </HoverCard>
             </div>
           </div>
         </div>
