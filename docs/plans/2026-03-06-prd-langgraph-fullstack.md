@@ -5,9 +5,21 @@
 **Goal:** Replace the current single-LLM-call PRD generation with a proper LangGraph graph that runs requirements + markdown in true parallel fan-out, then generates backlog after fan-in, streams every node transition as SSE events, and re-enables the Requirements/Backlog/Sections tabs on the frontend.
 
 **Architecture:**
-The new `stream_prd` endpoint builds a `PrdLangGraphState`, compiles the `build_prd_graph()` subgraph (already partially written in `prd_subgraph.py`), and calls `.astream(state, stream_mode="updates")`. Each node update is translated to an SSE event (`agent_thought`, `requirements`, `backlog`, `progress`, `done`). The graph uses LangGraph's `Send` API for true parallel fan-out of the requirements and markdown writer nodes, then a reducer fan-in before the backlog node fires. A `SqliteSaver` checkpointer persists intermediate state so the graph can resume after transient LLM failures.
+The new `stream_prd` endpoint builds a `DecisionOSState` (the **same shared state class** used by opportunity, feasibility, and scope subgraphs — do NOT introduce a new `PrdLangGraphState`), compiles `build_prd_graph()`, and calls `.astream(state, stream_mode="updates")`. Each node update is translated to an SSE event (`agent_thought`, `requirements`, `backlog`, `progress`, `done`). The graph uses LangGraph's `Send` API for true parallel fan-out of the requirements and markdown writer nodes, then a reducer fan-in before the backlog node fires.
 
-**Tech Stack:** Python 3.12, LangGraph ≥0.3, `langgraph-checkpoint-sqlite`, FastAPI SSE via `sse_starlette`, asyncio, Next.js 14 App Router, React, TypeScript.
+**State design decision — DecisionOSState, not a separate PrdLangGraphState:**
+All idea-workflow subgraphs (opportunity, feasibility, prd) share `DecisionOSState` so nodes like `context_loader_node` and `memory_writer_node` can be reused without adapter code. Proactive agents (`PatternLearnerState`, `CrossIdeaState`, `NewsMonitorState`) use their own state types because they are cross-user/cross-idea and have no overlap with the per-idea workflow. PRD fits the per-idea pattern — use `DecisionOSState`, extend it with the new typed fields listed in Task 1.
+
+**No SqliteSaver / no checkpoint resume in this plan:**
+`SqliteSaver` requires a defined `thread_id` strategy, a `resume` entry point, and alignment with `idea.version` CAS — none of which are specified here. The graph runs as a one-shot `.astream()` call. Checkpointing can be added in a future plan once the thread_id/resume contract is defined.
+
+**SSE event structure — must align with existing frontend handler:**
+The existing frontend SSE handler in `PrdPage` already processes `progress`, `agent_thought`, and `done` events. The new events `requirements` (payload: `{ requirements: [...] }`) and `backlog` (payload: `{ items: [...] }`) are **additive** — the frontend handler is extended in Task 6 (Step 8) to handle them. Do not rename or restructure existing event types.
+
+**Tab restoration order — backend contract must be verified first:**
+Restore frontend tabs (Task 6) only after backend tests pass (Task 5). Do not restore tabs until `requirements` and `backlog` SSE events are confirmed working in LLM mock mode.
+
+**Tech Stack:** Python 3.12, LangGraph ≥0.3, FastAPI SSE via `sse_starlette`, asyncio, Next.js 14 App Router, React, TypeScript.
 
 **Key files to understand before starting:**
 

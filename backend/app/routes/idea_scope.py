@@ -4,6 +4,9 @@ from typing import NoReturn
 
 from fastapi import APIRouter, HTTPException
 
+import logging as _logging
+
+from app.db.repo_decision_events import DecisionEventRepository
 from app.db.repo_ideas import IdeaRepository
 from app.db.repo_scope import (
     ScopeDraftItemInput,
@@ -25,6 +28,8 @@ from app.schemas.scope import (
 router = APIRouter(prefix="/ideas/{idea_id}/scope", tags=["idea-scope"])
 _repo = ScopeRepository()
 _idea_repo = IdeaRepository()
+_event_repo = DecisionEventRepository()
+_logger = _logging.getLogger(__name__)
 
 
 @router.get("/draft", response_model=ScopeBaselineOut)
@@ -62,6 +67,23 @@ async def patch_scope_draft(idea_id: str, payload: ScopePatchDraftRequest) -> Sc
 @router.post("/freeze", response_model=ScopeMutationResponse)
 async def freeze_scope_draft(idea_id: str, payload: ScopeFreezeRequest) -> ScopeMutationResponse:
     result = _repo.freeze_draft(idea_id, version=payload.version)
+    # Record scope_frozen event only on success, after the DB write
+    if result.kind == "ok" and result.baseline is not None:
+        baseline = result.baseline
+        in_scope_count = sum(1 for item in baseline.items if item.lane == "in")
+        out_scope_count = sum(1 for item in baseline.items if item.lane == "out")
+        try:
+            _event_repo.record(
+                event_type="scope_frozen",
+                idea_id=idea_id,
+                payload={
+                    "baseline_id": baseline.id,
+                    "in_scope_count": in_scope_count,
+                    "out_scope_count": out_scope_count,
+                },
+            )
+        except Exception:
+            _logger.warning("scope_frozen event recording failed idea_id=%s", idea_id)
     return _to_mutation_response(idea_id, result)
 
 

@@ -181,11 +181,6 @@ export function ProfilePage() {
             </h1>
             <p className="text-[11px] leading-tight text-[#1e1e1e]/35">{activeNav.description}</p>
           </div>
-          {activeSection === 'patterns' && (
-            <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-              Demo data
-            </span>
-          )}
         </div>
 
         {/* Section body */}

@@ -14,6 +14,7 @@ from app.core import llm
 from app.core.contexts import parse_context_strict
 from app.core.time import utc_now_iso
 from app.db import repo_dag
+from app.db.repo_decision_events import DecisionEventRepository
 from app.db.repo_ideas import IdeaRepository, UpdateIdeaResult
 from app.db.repo_scope import ScopeBaselineRecord, ScopeRepository
 from app.schemas.feasibility import FeasibilityOutput, Plan
@@ -46,6 +47,7 @@ from app.schemas.scope import InScopeItem, OutScopeItem, ScopeOutput
 router = APIRouter(prefix="/ideas/{idea_id}/agents", tags=["idea-agents"])
 _repo = IdeaRepository()
 _scope_repo = ScopeRepository()
+_event_repo = DecisionEventRepository()
 _logger = logging.getLogger(__name__)
 
 
@@ -673,6 +675,24 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             "agent.prd.stream.done idea_id=%s idea_version=%s",
             idea_id, result.idea.version,
         )
+
+        # Record prd_generated event with dedup: one event per (idea_id, baseline_id)
+        baseline_id = payload.baseline_id
+        try:
+            if not _event_repo.exists_for_idea_event_key(
+                idea_id, "prd_generated", "baseline_id", baseline_id
+            ):
+                _event_repo.record(
+                    event_type="prd_generated",
+                    idea_id=idea_id,
+                    payload={"baseline_id": baseline_id},
+                )
+        except Exception:
+            _logger.warning(
+                "prd_generated event recording failed idea_id=%s baseline_id=%s",
+                idea_id, baseline_id,
+            )
+
         yield _sse_event("done", {
             "idea_id": idea_id,
             "idea_version": result.idea.version,

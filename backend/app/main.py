@@ -116,6 +116,7 @@ def create_app() -> FastAPI:
         scheduler.shutdown(wait=False)
         logger.info("scheduler.stopped")
 
+
     return app
 
 

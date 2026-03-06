@@ -151,11 +151,43 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     """,
     """
     CREATE TABLE IF NOT EXISTS user_preferences (
-        user_id TEXT PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE,
-        email TEXT,
-        notify_enabled INTEGER NOT NULL DEFAULT 0,
-        notify_types TEXT NOT NULL DEFAULT '["news_match","cross_idea_insight","pattern_learned"]',
-        updated_at TEXT NOT NULL
+        user_id                   TEXT PRIMARY KEY,
+        email                     TEXT,
+        notify_enabled            INTEGER NOT NULL DEFAULT 0,
+        notify_types              TEXT NOT NULL DEFAULT '["news_match","cross_idea_insight","pattern_learned"]',
+        learned_patterns_json     TEXT NOT NULL DEFAULT '{}',
+        last_learned_event_count  INTEGER NOT NULL DEFAULT 0,
+        updated_at                TEXT NOT NULL DEFAULT ''
     );
+    """,
+    # NOTE: The following ALTER TABLE statements are the migration path for existing databases.
+    # Fresh databases already have these columns from the CREATE TABLE above.
+    # bootstrap.py's _column_exists() guard makes both paths safe.
+    """
+    ALTER TABLE user_preferences
+    ADD COLUMN learned_patterns_json TEXT NOT NULL DEFAULT '{}';
+    """,
+    """
+    ALTER TABLE user_preferences
+    ADD COLUMN last_learned_event_count INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS decision_events (
+        id          TEXT PRIMARY KEY,
+        user_id     TEXT NOT NULL DEFAULT 'default',
+        idea_id     TEXT,
+        event_type  TEXT NOT NULL CHECK (event_type IN (
+                        'dag_path_confirmed',
+                        'feasibility_plan_selected',
+                        'scope_frozen',
+                        'prd_generated'
+                    )),
+        payload_json TEXT NOT NULL DEFAULT '{}',
+        created_at  TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_decision_events_user_created
+    ON decision_events(user_id, created_at DESC);
     """,
 )

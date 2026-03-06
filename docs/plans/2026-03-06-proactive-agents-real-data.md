@@ -97,8 +97,12 @@ class HNStory:
     created_at: str
 
 
-def fetch_top_stories(query: str, limit: int = 10) -> list[HNStory]:
-    """Fetch HN stories matching a query via Algolia search.
+def search_hn_stories(query: str, limit: int = 10) -> list[HNStory]:
+    """Fetch HN stories matching a keyword query via Algolia search.
+
+    NOTE: This is a KEYWORD SEARCH, not a "top stories" or trending feed.
+    The Algolia API returns stories matching the query text, not HN frontpage rankings.
+    Use specific topic keywords (e.g. "mobile payment wallet") for best results.
 
     Returns empty list on any network/parse error (fail-open).
     """
@@ -135,7 +139,7 @@ def fetch_stories_for_topics(topics: list[str], limit_per_topic: int = 5) -> lis
     """
     seen: dict[str, HNStory] = {}
     for topic in topics:
-        for story in fetch_top_stories(query=topic, limit=limit_per_topic):
+        for story in search_hn_stories(query=topic, limit=limit_per_topic):
             if story.id not in seen:
                 seen[story.id] = story
     return list(seen.values())
@@ -146,10 +150,10 @@ def fetch_stories_for_topics(topics: list[str], limit_per_topic: int = 5) -> lis
 ```python
 # backend/tests/test_hn_client.py
 from unittest.mock import patch, MagicMock
-from app.core.hn_client import fetch_top_stories, HNStory
+from app.core.hn_client import search_hn_stories, HNStory
 
 
-def test_fetch_top_stories_success():
+def test_search_hn_stories_success():
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "hits": [
@@ -160,7 +164,7 @@ def test_fetch_top_stories_success():
     mock_response.raise_for_status.return_value = None
 
     with patch("app.core.hn_client.httpx.get", return_value=mock_response):
-        stories = fetch_top_stories("AI startup")
+        stories = search_hn_stories("AI startup")
 
     assert len(stories) == 1
     assert isinstance(stories[0], HNStory)
@@ -168,9 +172,9 @@ def test_fetch_top_stories_success():
     assert stories[0].title == "AI Startup"
 
 
-def test_fetch_returns_empty_on_network_error():
+def test_search_returns_empty_on_network_error():
     with patch("app.core.hn_client.httpx.get", side_effect=Exception("network down")):
-        stories = fetch_top_stories("anything")
+        stories = search_hn_stories("anything")
     assert stories == []
 ```
 
@@ -217,7 +221,7 @@ from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 
 from app.core import ai_gateway
-from app.core.hn_client import fetch_stories_for_topics
+from app.core.hn_client import fetch_stories_for_topics  # keyword search, not trending feed
 from app.core.time import utc_now_iso
 from app.agents.memory.vector_store import get_vector_store
 
@@ -595,9 +599,9 @@ def build_cross_idea_graph():
     return graph.compile()
 ```
 
-**Step 3: Update insights route trigger to use the new graph signature**
+**Step 3: Update insights route trigger to use the new graph signature — with dedup**
 
-In `backend/app/routes/insights.py`, the `trigger_cross_idea_analysis` endpoint no longer needs to pre-load ideas (the graph does it internally):
+In `backend/app/routes/insights.py`, the `trigger_cross_idea_analysis` endpoint no longer needs to pre-load ideas (the graph does it internally). **It must also apply the same `exists_cross_idea()` dedup as the scheduler** — manual triggers and the scheduler share the same notification table, so without dedup a manual trigger right before the scheduled run would create duplicate notifications.
 
 ```python
 @router.post("/cross-idea-analysis")
@@ -617,9 +621,15 @@ async def trigger_cross_idea_analysis():
 
     created = []
     for insight in result.get("insights", []):
+        idea_a_id = insight.get("idea_a_id", "")
+        idea_b_id = insight.get("idea_b_id", "")
+        # Deduplicate: skip if this pair already has a cross_idea_insight notification
+        # (order-independent: (a,b) == (b,a))
+        if idea_a_id and idea_b_id and notif_repo.exists_cross_idea(idea_a_id, idea_b_id):
+            continue
         record = notif_repo.create(
             type="cross_idea_insight",
-            title=f"Related ideas: {insight.get('idea_a_id', '')[:8]} ↔ {insight.get('idea_b_id', '')[:8]}",
+            title=f"Related ideas: {idea_a_id[:8]} ↔ {idea_b_id[:8]}",
             body=insight.get("analysis", "These ideas share common themes."),
             metadata=insight,
         )
@@ -631,6 +641,8 @@ async def trigger_cross_idea_analysis():
         "agent_thoughts": result.get("agent_thoughts", []),
     }
 ```
+
+> Note: `exists_cross_idea()` is defined in Task 6 (NotificationRepository extension). Implement Task 6 before this step, or stub the method and implement it in Task 6.
 
 **Step 4: Run tests**
 

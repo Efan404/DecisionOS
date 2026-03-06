@@ -83,7 +83,7 @@ Append two new statements to the `SCHEMA_STATEMENTS` tuple, after the `user_pref
     """,
 ```
 
-> Note: SQLite `ALTER TABLE … ADD COLUMN` is idempotent when wrapped in `CREATE TABLE IF NOT EXISTS` style, but here we must guard it. The actual implementation should use a `try/except` in the bootstrap code (see Task 2).
+> Note: SQLite `ALTER TABLE … ADD COLUMN` will fail if the column already exists. The bootstrap code (Task 2) uses a `PRAGMA table_info` check — **not** `try/except` — to guard against re-running on an existing schema. See Task 2 for the exact implementation pattern.
 
 **Step 3: Run existing tests**
 
@@ -159,7 +159,7 @@ Expected: all pass.
 
 ```bash
 git add backend/app/db/bootstrap.py
-git commit -m "fix(db): wrap ALTER TABLE in try/except during bootstrap to handle existing columns"
+git commit -m "fix(db): guard ALTER TABLE with PRAGMA table_info check during bootstrap"
 ```
 
 ---
@@ -692,17 +692,42 @@ async def get_user_patterns():
     }
 ```
 
-And in `_extract_patterns` inside the graph, after persisting to DB, pass the event count:
+**Passing the real event count through graph state (required for correct cache invalidation):**
+
+The `event_count` stored in `last_learned_event_count` must be the **real DB total** (`count_for_user()`), not `len(decision_history)` (which is capped at 50). Using `len(history)` causes the cache to appear stale whenever the user has >50 events, triggering a re-run on every API call.
+
+Pass `current_event_count` through graph state by adding it to the initial state dict in the `/insights/user-patterns` endpoint:
 
 ```python
-# At the end of _extract_patterns, instead of:
-_profile_repo.save_learned_patterns(user_id=user_id, patterns=preferences)
-# Use (event_count is available from state or passed via graph input):
-event_count = len(state.get("decision_history", []))
+# In get_user_patterns, when calling graph.invoke():
+result = graph.invoke({
+    "user_id": "default",
+    "decision_history": [],
+    "learned_preferences": {},
+    "agent_thoughts": [],
+    "current_event_count": current_event_count,  # real DB total
+})
+```
+
+Add `current_event_count: int` to `PatternLearnerState`:
+
+```python
+class PatternLearnerState(TypedDict):
+    user_id: str
+    current_event_count: int   # real DB total, passed in at graph.invoke time
+    decision_history: list[dict]
+    learned_preferences: dict
+    agent_thoughts: Annotated[list[dict], operator.add]
+```
+
+Then in `_extract_patterns`, use `state.get("current_event_count", 0)` instead of `len(history)`:
+
+```python
+event_count = state.get("current_event_count", 0)
 _profile_repo.save_learned_patterns(user_id=user_id, patterns=preferences, event_count=event_count)
 ```
 
-Note: the `event_count` passed to `save_learned_patterns` here is `len(decision_history)` which equals the `limit=50` cap, not the actual DB total. This is acceptable — if the user has >50 events, the "has new events" check still fires correctly because `count_for_user()` returns the real total while `last_learned_event_count` stores the capped batch size. Pass the real count through graph state instead if precision matters.
+This guarantees that on the next `/insights/user-patterns` call, `current_event_count == last_learned_event_count` is exact and the fast path fires correctly.
 
 **Step 4: Run tests**
 
