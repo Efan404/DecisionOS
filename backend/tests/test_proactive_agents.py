@@ -38,14 +38,20 @@ def test_news_monitor_graph_runs(mock_http_get, mock_text):
 
 @patch("app.core.ai_gateway.generate_text", side_effect=_mock_generate_text)
 def test_cross_idea_graph_runs(mock_text):
-    """Cross-idea analyzer graph executes and produces insights."""
+    """Cross-idea analyzer graph executes and produces insights.
+
+    The graph loads ideas from vector store internally; pre-seeding 2 ideas
+    before invoking ensures at least 2 summaries are available for analysis.
+    """
+    from app.agents.memory.vector_store import get_vector_store
+    vs = get_vector_store()
+    vs.add_idea_summary("cross-test-1", "AI code review tool for developers")
+    vs.add_idea_summary("cross-test-2", "Developer code quality dashboard")
+
     graph = build_cross_idea_graph()
     result = graph.invoke({
         "user_id": "default",
-        "idea_summaries": [
-            {"idea_id": "1", "summary": "AI code review"},
-            {"idea_id": "2", "summary": "Developer dashboard"},
-        ],
+        "idea_summaries": [],
         "insights": [],
         "agent_thoughts": [],
     })

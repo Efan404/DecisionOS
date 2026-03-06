@@ -4,9 +4,12 @@ import operator
 from typing import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, START, END
-from app.agents.memory.vector_store import get_vector_store
+
 from app.core import ai_gateway
 from app.core.time import utc_now_iso
+from app.agents.memory.vector_store import get_vector_store
+
+SIMILARITY_THRESHOLD = 0.40  # cosine distance: lower = more similar
 
 
 class CrossIdeaState(TypedDict):
@@ -16,85 +19,108 @@ class CrossIdeaState(TypedDict):
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
-def _collect_ideas(state: CrossIdeaState) -> dict[str, object]:
-    summaries = state.get("idea_summaries", [])
+def _load_ideas(state: CrossIdeaState) -> dict[str, object]:
+    """Load all ideas from the vector store."""
+    vs = get_vector_store()
+    data = vs._ideas.get(include=["documents", "metadatas"])
+    ids = data.get("ids") or []
+    docs = data.get("documents") or []
+
+    summaries = [
+        {"idea_id": id_, "summary": doc}
+        for id_, doc in zip(ids, docs)
+        if doc and doc.strip()
+    ]
     thought = {
-        "agent": "idea_collector",
-        "action": "collected_ideas",
-        "detail": f"Analyzing {len(summaries)} ideas for cross-idea patterns",
+        "agent": "idea_loader",
+        "action": "loaded_ideas",
+        "detail": f"Loaded {len(summaries)} idea summaries from vector store",
         "timestamp": utc_now_iso(),
     }
-    return {"agent_thoughts": [thought]}
+    return {"idea_summaries": summaries, "agent_thoughts": [thought]}
 
 
-def _detect_patterns(state: CrossIdeaState) -> dict[str, object]:
+def _find_similar_pairs(state: CrossIdeaState) -> dict[str, object]:
+    """Find pairs of ideas with high vector similarity."""
     summaries = state.get("idea_summaries", [])
-    vs = get_vector_store()
-    insights: list[dict] = []
+    if len(summaries) < 2:
+        return {
+            "insights": [],
+            "agent_thoughts": [{
+                "agent": "similarity_finder",
+                "action": "insufficient_ideas",
+                "detail": f"Only {len(summaries)} ideas -- need >=2 for cross-analysis",
+                "timestamp": utc_now_iso(),
+            }],
+        }
 
-    for i, idea_a in enumerate(summaries):
-        similar = vs.search_similar_ideas(
-            query=idea_a.get("summary", ""),
-            n_results=3,
-            exclude_id=idea_a.get("idea_id"),
+    vs = get_vector_store()
+    insights = []
+    seen_pairs: set[frozenset[str]] = set()
+
+    for entry in summaries:
+        idea_a_id = entry["idea_id"]
+        summary_a = entry["summary"]
+
+        # Search for similar ideas (exclude self)
+        count = vs._ideas.count()
+        if count < 2:
+            continue
+        results = vs._ideas.query(
+            query_texts=[summary_a],
+            n_results=min(3, count),
         )
-        for match in similar:
-            if match.get("distance", 1.0) < 0.4:
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
+        for idea_b_id, dist in zip(ids, distances):
+            if idea_b_id == idea_a_id:
+                continue
+            pair = frozenset({idea_a_id, idea_b_id})
+            if pair in seen_pairs:
+                continue
+            if dist < SIMILARITY_THRESHOLD:
+                seen_pairs.add(pair)
+                summary_b = next(
+                    (s["summary"] for s in summaries if s["idea_id"] == idea_b_id),
+                    idea_b_id,
+                )
+                # Use LLM to generate a specific insight about the relationship
+                try:
+                    analysis = ai_gateway.generate_text(
+                        task="opportunity",
+                        user_prompt=(
+                            f"Two product ideas appear related:\n"
+                            f"Idea A: {summary_a[:150]}\n"
+                            f"Idea B: {summary_b[:150]}\n\n"
+                            "In 1-2 sentences, explain the strategic overlap or synergy. "
+                            "Be specific -- mention actual product features, not generic statements."
+                        ),
+                    )
+                except Exception:
+                    analysis = f"Ideas share a similarity score of {round(1 - dist, 2):.0%}."
+
                 insights.append({
-                    "type": "similar_ideas",
-                    "idea_a_id": idea_a["idea_id"],
-                    "idea_b_id": match["idea_id"],
-                    "similarity": 1.0 - match.get("distance", 0),
-                    "idea_a_summary": idea_a.get("summary", "")[:100],
-                    "idea_b_summary": match.get("summary", "")[:100],
+                    "idea_a_id": idea_a_id,
+                    "idea_b_id": idea_b_id,
+                    "similarity_distance": round(dist, 3),
+                    "analysis": analysis.strip(),
                 })
 
     thought = {
-        "agent": "pattern_detector",
-        "action": "detected_patterns",
-        "detail": f"Found {len(insights)} cross-idea relationships",
+        "agent": "similarity_finder",
+        "action": "found_pairs",
+        "detail": f"Found {len(insights)} cross-idea relationships above threshold",
         "timestamp": utc_now_iso(),
     }
     return {"insights": insights, "agent_thoughts": [thought]}
 
 
-def _generate_cross_insights(state: CrossIdeaState) -> dict[str, object]:
-    insights = state.get("insights", [])
-    enriched: list[dict] = []
-
-    for insight in insights[:5]:
-        try:
-            raw = ai_gateway.generate_text(
-                task="opportunity",
-                user_prompt=(
-                    f"Two product ideas are similar:\n"
-                    f"Idea A: {insight.get('idea_a_summary', '')}\n"
-                    f"Idea B: {insight.get('idea_b_summary', '')}\n"
-                    "In 1-2 sentences, explain what they have in common and suggest how the user "
-                    "could combine or differentiate them. Return plain text."
-                ),
-            )
-            insight["analysis"] = raw.strip()
-        except Exception:
-            insight["analysis"] = "These ideas share common themes and could be combined."
-        enriched.append(insight)
-
-    thought = {
-        "agent": "insight_generator",
-        "action": "generated_cross_insights",
-        "detail": f"Generated analysis for {len(enriched)} idea relationships",
-        "timestamp": utc_now_iso(),
-    }
-    return {"insights": enriched, "agent_thoughts": [thought]}
-
-
 def build_cross_idea_graph():
     graph = StateGraph(CrossIdeaState)
-    graph.add_node("collect_ideas", _collect_ideas)
-    graph.add_node("detect_patterns", _detect_patterns)
-    graph.add_node("generate_insights", _generate_cross_insights)
-    graph.add_edge(START, "collect_ideas")
-    graph.add_edge("collect_ideas", "detect_patterns")
-    graph.add_edge("detect_patterns", "generate_insights")
-    graph.add_edge("generate_insights", END)
+    graph.add_node("load_ideas", _load_ideas)
+    graph.add_node("find_similar_pairs", _find_similar_pairs)
+    graph.add_edge(START, "load_ideas")
+    graph.add_edge("load_ideas", "find_similar_pairs")
+    graph.add_edge("find_similar_pairs", END)
     return graph.compile()

@@ -7,7 +7,6 @@ from fastapi import APIRouter
 from app.agents.graphs.proactive.news_monitor import build_news_monitor_graph
 from app.agents.graphs.proactive.cross_idea_analyzer import build_cross_idea_graph
 from app.agents.graphs.proactive.user_pattern_learner import build_pattern_learner_graph
-from app.agents.memory.vector_store import get_vector_store
 from app.db.repo_notifications import NotificationRepository
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -17,17 +16,22 @@ _logger = logging.getLogger(__name__)
 
 @router.post("/news-scan")
 async def trigger_news_scan():
-    """Trigger news monitoring agent (for demo)."""
+    """Trigger news monitoring agent (for manual testing/demo)."""
     graph = build_news_monitor_graph()
     result = graph.invoke({
         "user_id": "default",
-        "idea_ids": [],
+        "idea_summaries": [],
         "notifications": [],
         "agent_thoughts": [],
     })
 
     created = []
     for notif in result.get("notifications", []):
+        news_id = notif.get("news_id", "")
+        idea_id = notif.get("idea_id", "")
+        # Deduplicate: skip if we already have a notification for this (news_id, idea_id) pair
+        if news_id and idea_id and _notif_repo.exists_news_match(news_id=news_id, idea_id=idea_id):
+            continue
         record = _notif_repo.create(
             type="news_match",
             title=f"News: {notif.get('news_title', 'Untitled')}",
@@ -44,33 +48,38 @@ async def trigger_news_scan():
 
 @router.post("/cross-idea-analysis")
 async def trigger_cross_idea_analysis():
-    """Trigger cross-idea analysis agent (for demo)."""
-    vs = get_vector_store()
-    all_ideas = vs._ideas.get(include=["documents", "metadatas"])
-    ids = all_ideas.get("ids") or []
-    documents = all_ideas.get("documents") or []
-    summaries = [
-        {"idea_id": id_, "summary": doc}
-        for id_, doc in zip(ids, documents)
-    ]
+    """Trigger cross-idea analysis agent (for manual testing/demo).
 
+    Applies the same dedup as the scheduler — manual triggers and scheduled
+    runs share the same notification table, so without dedup a manual trigger
+    right before the scheduled run would create duplicate notifications.
+    """
     graph = build_cross_idea_graph()
     result = graph.invoke({
         "user_id": "default",
-        "idea_summaries": summaries,
+        "idea_summaries": [],
         "insights": [],
         "agent_thoughts": [],
     })
 
+    created = []
     for insight in result.get("insights", []):
-        _notif_repo.create(
+        idea_a_id = insight.get("idea_a_id", "")
+        idea_b_id = insight.get("idea_b_id", "")
+        # Deduplicate: skip if this pair already has a cross_idea_insight notification
+        # (order-independent: (a,b) == (b,a))
+        if idea_a_id and idea_b_id and _notif_repo.exists_cross_idea(idea_a_id, idea_b_id):
+            continue
+        record = _notif_repo.create(
             type="cross_idea_insight",
-            title=f"Ideas '{insight.get('idea_a_id', '')}' and '{insight.get('idea_b_id', '')}' are related",
+            title=f"Related ideas: {idea_a_id[:8]} <-> {idea_b_id[:8]}",
             body=insight.get("analysis", "These ideas share common themes."),
             metadata=insight,
         )
+        created.append(record.id)
 
     return {
+        "notifications_created": len(created),
         "insights": result.get("insights", []),
         "agent_thoughts": result.get("agent_thoughts", []),
     }
