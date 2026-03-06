@@ -57,6 +57,14 @@ class NotificationRepository:
             ).fetchall()
         return [NotificationRecord(id=r[0], user_id=r[1], type=r[2], title=r[3], body=r[4], metadata_json=r[5], read_at=r[6], created_at=r[7]) for r in rows]
 
+    def list_by_type(self, notification_type: str, limit: int = 20) -> list[NotificationRecord]:
+        with db_session() as conn:
+            rows = conn.execute(
+                "SELECT id, user_id, type, title, body, metadata_json, read_at, created_at FROM notification WHERE type = ? ORDER BY created_at DESC LIMIT ?",
+                (notification_type, limit),
+            ).fetchall()
+        return [NotificationRecord(id=r[0], user_id=r[1], type=r[2], title=r[3], body=r[4], metadata_json=r[5], read_at=r[6], created_at=r[7]) for r in rows]
+
     def dismiss(self, notification_id: str) -> bool:
         now = utc_now_iso()
         with db_session() as conn:

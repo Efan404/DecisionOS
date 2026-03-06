@@ -123,6 +123,25 @@ async def trigger_pattern_learning():
     }
 
 
+@router.get("/cross-idea")
+async def get_cross_idea_insights():
+    """Return existing cross-idea insights from notification table (no LLM call)."""
+    records = _notif_repo.list_by_type("cross_idea_insight")
+    insights = []
+    for r in records:
+        import json as _json
+        try:
+            meta = _json.loads(r.metadata_json) if r.metadata_json else {}
+        except Exception:
+            meta = {}
+        insights.append({
+            "idea_a_id": meta.get("idea_a_id", ""),
+            "idea_b_id": meta.get("idea_b_id", ""),
+            "analysis": meta.get("analysis") or r.body,
+        })
+    return {"insights": insights}
+
+
 @router.get("/user-patterns")
 async def get_user_patterns():
     """Get learned user patterns from DB cache (written by scheduler / POST learn-patterns)."""

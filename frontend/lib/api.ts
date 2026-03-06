@@ -423,6 +423,10 @@ export type CrossIdeaAnalysisResult = {
   agent_thoughts: { agent: string; thought: string }[]
 }
 
+export const getCrossIdeaInsights = async (): Promise<CrossIdeaAnalysisResult> => {
+  return await jsonGet<CrossIdeaAnalysisResult>('/insights/cross-idea')
+}
+
 export const triggerCrossIdeaAnalysis = async (): Promise<CrossIdeaAnalysisResult> => {
   return await jsonPost<Record<string, never>, CrossIdeaAnalysisResult>(
     '/insights/cross-idea-analysis',

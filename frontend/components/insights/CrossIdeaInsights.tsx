@@ -1,27 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { triggerCrossIdeaAnalysis, type CrossIdeaInsight } from '../../lib/api'
+import { getCrossIdeaInsights, triggerCrossIdeaAnalysis, type CrossIdeaInsight } from '../../lib/api'
 import { HoverCard } from '../common/HoverCard'
 
 export function CrossIdeaInsights() {
   const [insights, setInsights] = useState<CrossIdeaInsight[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [ran, setRan] = useState(false)
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const result = await getCrossIdeaInsights()
+        setInsights(result.insights)
+      } catch {
+        // Silently fail on initial load — user can click Analyze
+      } finally {
+        setLoading(false)
+      }
+    }
+    void run()
+  }, [])
 
   const handleAnalyze = async () => {
-    setLoading(true)
+    setAnalyzing(true)
     setError(null)
     try {
       const result = await triggerCrossIdeaAnalysis()
       setInsights(result.insights)
-      setRan(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed.')
     } finally {
-      setLoading(false)
+      setAnalyzing(false)
     }
   }
 
@@ -37,16 +50,16 @@ export function CrossIdeaInsights() {
         <button
           type="button"
           onClick={() => void handleAnalyze()}
-          disabled={loading}
+          disabled={analyzing}
           className="shrink-0 rounded-lg bg-[#b9eb10] px-3 py-1.5 text-xs font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? 'Analyzing…' : 'Analyze'}
+          {analyzing ? 'Analyzing…' : 'Analyze'}
         </button>
       </div>
 
       {error ? <p className="mt-3 text-xs text-red-600">{error}</p> : null}
 
-      {ran && insights.length === 0 && !loading && !error ? (
+      {!loading && insights.length === 0 && !analyzing && !error ? (
         <p className="mt-4 text-xs text-[#1e1e1e]/40">
           No cross-idea connections found yet. Add more ideas to unlock insights.
         </p>
