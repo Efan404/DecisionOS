@@ -11,13 +11,8 @@ import { ApiError, postPrdFeedback } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
-import { type PrdFeedbackDimensions, type PrdOutput } from '../../lib/schemas'
+import { type PrdFeedbackDimensions } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
-
-type PrdStreamPartials = {
-  requirements: PrdOutput['requirements'] | null
-  backlog: PrdOutput['backlog'] | null
-}
 
 const globalPrdGenerationRequests = new Set<string>()
 
@@ -46,10 +41,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
-  const [streamPartials, setStreamPartials] = useState<PrdStreamPartials>({
-    requirements: null,
-    backlog: null,
-  })
   const inFlightGenerationKeyRef = useRef<string | null>(null)
   const { thoughts, addThought, reset } = useAgentThoughts()
   // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
@@ -118,7 +109,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         baselineId,
         activeIdea.version
       )
-      setStreamPartials({ requirements: null, backlog: null })
       try {
         let donePayload: { idea_id: string; idea_version: number } | null = null
         await streamPost(
@@ -128,15 +118,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
             version: activeIdea.version,
           },
           {
-            onEvent: (event) => {
-              if (cancelled) return
-              if (event.event === 'requirements') {
-                const data = event.data as { requirements: PrdOutput['requirements'] }
-                setStreamPartials((prev) => ({ ...prev, requirements: data.requirements }))
-              } else if (event.event === 'backlog') {
-                const data = event.data as { items: PrdOutput['backlog']['items'] }
-                setStreamPartials((prev) => ({ ...prev, backlog: { items: data.items } }))
-              }
+            onEvent: (_event) => {
+              // SSE events (requirements, backlog) are incorporated via loadIdeaDetail on done
             },
             onDone: (data) => {
               if (!cancelled) {
@@ -164,7 +147,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
               replaceContextRef.current(detail.context)
             }
             setRetryNonce(0)
-            setStreamPartials({ requirements: null, backlog: null })
             setLoading(false)
           }
         }
@@ -277,7 +259,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         onSubmitFeedback={handleSubmitFeedback}
         feedbackSubmitting={feedbackSubmitting}
         feedbackError={feedbackError}
-        streamPartials={loading ? streamPartials : null}
       />
     </main>
   )

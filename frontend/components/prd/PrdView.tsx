@@ -14,11 +14,6 @@ import type {
 import { PrdBacklogPanel } from './PrdBacklogPanel'
 import { PrdFeedbackCard } from './PrdFeedbackCard'
 
-type PrdStreamPartials = {
-  requirements: PrdOutput['requirements'] | null
-  backlog: PrdOutput['backlog'] | null
-}
-
 type PrdViewProps = {
   prd?: PrdOutput
   bundle?: PrdBundle
@@ -36,7 +31,6 @@ type PrdViewProps = {
   }) => Promise<void>
   feedbackSubmitting?: boolean
   feedbackError?: string | null
-  streamPartials?: PrdStreamPartials | null
 }
 
 // Status banner — one state at a time: loading > error > idle
@@ -217,7 +211,6 @@ export function PrdView({
   onSubmitFeedback,
   feedbackSubmitting = false,
   feedbackError = null,
-  streamPartials = null,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
   const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
@@ -446,9 +439,6 @@ export function PrdView({
       ) : (
         /* Empty state — loading spinner or placeholder */
         <div className="space-y-4">
-          {/* DISABLED: progressive stream partials (requirements/backlog previews) */}
-          {/* {loading && streamPartials?.requirements ? ( ... ) : null} */}
-          {/* {loading && streamPartials?.backlog ? ( ... ) : null} */}
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
             {loading ? (
               <>

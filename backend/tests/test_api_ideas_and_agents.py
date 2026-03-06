@@ -1040,14 +1040,11 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         idea_id, version = self._create_idea("PRD Stream Stale")
         baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
 
-        with patch("app.core.llm.generate_prd_requirements", side_effect=_mock_prd_requirements), \
-             patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown), \
-             patch("app.core.llm.generate_prd_backlog", side_effect=_mock_prd_backlog):
-            raw = self.client.request_raw(
-                "POST",
-                f"/ideas/{idea_id}/agents/prd/stream",
-                {"version": ready_version - 1, "baseline_id": baseline_id},
-            )
+        raw = self.client.request_raw(
+            "POST",
+            f"/ideas/{idea_id}/agents/prd/stream",
+            {"version": ready_version - 1, "baseline_id": baseline_id},
+        )
 
         self.assertEqual(raw.status_code, 200)
         events = _read_sse_events(raw.body)
