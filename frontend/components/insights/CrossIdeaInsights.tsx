@@ -54,7 +54,10 @@ export function CrossIdeaInsights() {
       {insights.length > 0 && (
         <ul className="mt-4 space-y-3">
           {insights.map((insight, i) => (
-            <li key={i} className="rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3">
+            <li
+              key={`${insight.idea_a_id ?? ''}-${insight.idea_b_id ?? ''}-${i}`}
+              className="rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3"
+            >
               {insight.idea_a_id && insight.idea_b_id ? (
                 <p className="mb-1 text-[11px] font-bold tracking-wide text-[#1e1e1e]/40 uppercase">
                   {insight.idea_a_id} ↔ {insight.idea_b_id}

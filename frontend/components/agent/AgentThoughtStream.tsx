@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const SCROLL_THRESHOLD_PX = 40
+
 export type AgentThought = {
   agent: string
   thought: string
@@ -27,9 +29,16 @@ type Props = {
 
 export function AgentThoughtStream({ thoughts, isActive = false }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
+  // Only auto-scroll when user is already near the bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = scrollContainerRef.current
+    if (!container) return
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    if (distanceFromBottom <= SCROLL_THRESHOLD_PX) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [thoughts.length])
 
   if (thoughts.length === 0 && !isActive) return null
@@ -47,7 +56,7 @@ export function AgentThoughtStream({ thoughts, isActive = false }: Props) {
           Agent Activity
         </span>
       </div>
-      <div className="max-h-36 space-y-1.5 overflow-y-auto">
+      <div ref={scrollContainerRef} className="max-h-36 space-y-1.5 overflow-y-auto">
         {thoughts.map((t, i) => (
           <div key={i} className="flex items-start gap-2 text-xs">
             <span className={`shrink-0 font-medium ${getAgentColor(t.agent)}`}>{t.agent}</span>

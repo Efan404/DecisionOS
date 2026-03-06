@@ -27,10 +27,17 @@ export function UserPatternCard() {
 
   return (
     <div className="rounded-xl border border-[#1e1e1e]/10 bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-semibold text-[#1e1e1e]">Your Decision Patterns</h2>
-      <p className="mt-0.5 text-xs text-[#1e1e1e]/50">
-        Learned from your past choices across ideas.
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-[#1e1e1e]">Your Decision Patterns</h2>
+          <p className="mt-0.5 text-xs text-[#1e1e1e]/50">
+            Learned from your past choices across ideas.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+          Demo data
+        </span>
+      </div>
 
       {loading ? (
         <div className="mt-4 space-y-2">

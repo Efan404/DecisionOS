@@ -9,14 +9,26 @@ const POLL_INTERVAL_MS = 30_000
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  // Per-notification dismissing state instead of shared global loading
+  const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set())
   const panelRef = useRef<HTMLDivElement>(null)
+  const mountedRef = useRef(true)
   const unreadCount = notifications.filter((n) => !n.read_at).length
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const fetchNotifications = useCallback(async () => {
     try {
       const data = await getNotifications(true)
-      setNotifications(data)
+      // Guard against setting state after unmount
+      if (mountedRef.current) {
+        setNotifications(data)
+      }
     } catch {
       // silent — bell stays at previous state
     }
@@ -46,16 +58,35 @@ export function NotificationBell() {
   }
 
   const handleDismiss = async (id: string) => {
-    setLoading(true)
+    if (dismissingIds.has(id)) return
+    setDismissingIds((prev) => new Set(prev).add(id))
     try {
       await dismissNotification(id)
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      if (mountedRef.current) {
+        setNotifications((prev) => prev.filter((n) => n.id !== id))
+      }
     } catch {
-      // silent
+      // silent — item stays visible
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setDismissingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
     }
   }
+
+  // Sequential dismiss-all to avoid N concurrent requests
+  const handleDismissAll = async () => {
+    for (const n of notifications) {
+      if (!mountedRef.current) break
+      await handleDismiss(n.id)
+    }
+  }
+
+  const anyDismissing = dismissingIds.size > 0
 
   return (
     <div className="relative" ref={panelRef}>
@@ -96,10 +127,8 @@ export function NotificationBell() {
             {notifications.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  notifications.forEach((n) => void handleDismiss(n.id))
-                }}
-                disabled={loading}
+                onClick={() => void handleDismissAll()}
+                disabled={anyDismissing}
                 className="text-[11px] text-[#1e1e1e]/40 transition hover:text-[#1e1e1e]/70 disabled:opacity-50"
               >
                 Dismiss all
@@ -113,30 +142,36 @@ export function NotificationBell() {
                 No new notifications
               </li>
             ) : (
-              notifications.map((n) => (
-                <li key={n.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs leading-snug font-medium text-[#1e1e1e]">{n.title}</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-[#1e1e1e]/50">{n.body}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleDismiss(n.id)}
-                    disabled={loading}
-                    aria-label="Dismiss notification"
-                    className="mt-0.5 shrink-0 text-[#1e1e1e]/30 transition hover:text-[#1e1e1e]/60 disabled:opacity-40"
+              notifications.map((n) => {
+                const isDismissing = dismissingIds.has(n.id)
+                return (
+                  <li
+                    key={n.id}
+                    className={`flex items-start gap-3 px-4 py-3 transition-opacity ${isDismissing ? 'opacity-50' : ''}`}
                   >
-                    <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3" aria-hidden="true">
-                      <path
-                        d="M2 2l8 8M10 2L2 10"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </li>
-              ))
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs leading-snug font-medium text-[#1e1e1e]">{n.title}</p>
+                      <p className="mt-0.5 text-[11px] leading-snug text-[#1e1e1e]/50">{n.body}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleDismiss(n.id)}
+                      disabled={isDismissing}
+                      aria-label="Dismiss notification"
+                      className="mt-0.5 shrink-0 text-[#1e1e1e]/30 transition hover:text-[#1e1e1e]/60 disabled:opacity-40"
+                    >
+                      <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3" aria-hidden="true">
+                        <path
+                          d="M2 2l8 8M10 2L2 10"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </li>
+                )
+              })
             )}
           </ul>
         </div>
