@@ -44,48 +44,58 @@ _N3_B = "demo-n3-b"
 _N3_C = "demo-n3-c"
 
 
+def _table_has_demo_rows(conn: sqlite3.Connection, table: str, id_pattern: str = "demo-%") -> bool:
+    try:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS cnt FROM {table} WHERE id LIKE ?", (id_pattern,)
+        ).fetchone()
+        return bool(row and int(row["cnt"]) > 0)
+    except Exception:
+        return False
+
+
 def seed_demo_data(conn: sqlite3.Connection) -> None:
     """Insert demo data if not already present. Must be called inside a transaction."""
-    row = conn.execute(
-        "SELECT COUNT(*) AS cnt FROM idea WHERE id LIKE 'demo-idea-%'"
-    ).fetchone()
-    if row and int(row["cnt"]) > 0:
-        return  # already seeded
-
     now = utc_now_iso()
     frozen_at = now  # reuse for simplicity
 
     # ------------------------------------------------------------------
     # 1. IDEAS
     # ------------------------------------------------------------------
-    _insert_idea_1(conn, now)
-    _insert_idea_2(conn, now)
-    _insert_idea_3(conn, now)
+    if not _table_has_demo_rows(conn, "idea", "demo-idea-%"):
+        _insert_idea_1(conn, now)
+        _insert_idea_2(conn, now)
+        _insert_idea_3(conn, now)
 
     # ------------------------------------------------------------------
     # 2. DAG NODES
     # ------------------------------------------------------------------
-    _insert_dag_nodes(conn, now)
+    if not _table_has_demo_rows(conn, "idea_nodes", "demo-n%"):
+        _insert_dag_nodes(conn, now)
 
     # ------------------------------------------------------------------
     # 3. DAG PATHS
     # ------------------------------------------------------------------
-    _insert_dag_paths(conn, now)
+    if not _table_has_demo_rows(conn, "idea_paths", "demo-path-%"):
+        _insert_dag_paths(conn, now)
 
     # ------------------------------------------------------------------
     # 4. SCOPE BASELINES + ITEMS
     # ------------------------------------------------------------------
-    _insert_scope_baselines(conn, now, frozen_at)
+    if not _table_has_demo_rows(conn, "scope_baselines", "demo-baseline-%"):
+        _insert_scope_baselines(conn, now, frozen_at)
 
     # ------------------------------------------------------------------
     # 5. NOTIFICATIONS (pre-populated for demo bell)
     # ------------------------------------------------------------------
-    _insert_notifications(conn, now)
+    if not _table_has_demo_rows(conn, "notification", "demo-notif-%"):
+        _insert_notifications(conn, now)
 
     # ------------------------------------------------------------------
     # 6. DECISION EVENTS (feed for pattern learner)
     # ------------------------------------------------------------------
-    _insert_decision_events(conn, now)
+    if not _table_has_demo_rows(conn, "decision_events", "demo-evt-%"):
+        _insert_decision_events(conn, now)
 
     # ------------------------------------------------------------------
     # 7. USER PREFERENCES (learned patterns)
@@ -509,12 +519,37 @@ def _insert_user_preferences(conn: sqlite3.Connection, now: str) -> None:
         "focus_area": "Consumer AI applications",
         "decision_style": "Data-driven, favors scored comparisons",
     }
-    conn.execute(
-        """INSERT INTO user_preferences (user_id, learned_patterns_json, last_learned_event_count, updated_at)
-           VALUES (?, ?, ?, ?)
-           ON CONFLICT(user_id) DO UPDATE SET
-             learned_patterns_json = excluded.learned_patterns_json,
-             last_learned_event_count = excluded.last_learned_event_count,
-             updated_at = excluded.updated_at""",
-        ("default", json.dumps(patterns, ensure_ascii=False), 6, now),
-    )
+    patterns_json = json.dumps(patterns, ensure_ascii=False)
+
+    # Try each known user_id — the "default" literal works on fresh DBs without FK,
+    # while the mock user's real UUID works on older DBs that have FK to user_account.
+    for user_id in ("default",):
+        try:
+            conn.execute(
+                """INSERT INTO user_preferences (user_id, learned_patterns_json, last_learned_event_count, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(user_id) DO UPDATE SET
+                     learned_patterns_json = excluded.learned_patterns_json,
+                     last_learned_event_count = excluded.last_learned_event_count,
+                     updated_at = excluded.updated_at""",
+                (user_id, patterns_json, 6, now),
+            )
+            return
+        except Exception:
+            pass
+
+    # Fallback: find mock user's UUID from user_account and seed into that row
+    row = conn.execute(
+        "SELECT id FROM user_account WHERE username = 'mock'"
+    ).fetchone()
+    if row:
+        mock_uid = str(row["id"])
+        conn.execute(
+            """INSERT INTO user_preferences (user_id, learned_patterns_json, last_learned_event_count, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 learned_patterns_json = excluded.learned_patterns_json,
+                 last_learned_event_count = excluded.last_learned_event_count,
+                 updated_at = excluded.updated_at""",
+            (mock_uid, patterns_json, 6, now),
+        )

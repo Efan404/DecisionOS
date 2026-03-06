@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from functools import partial
 
 from fastapi import APIRouter
 
@@ -8,22 +10,25 @@ from app.agents.graphs.proactive.news_monitor import build_news_monitor_graph
 from app.agents.graphs.proactive.cross_idea_analyzer import build_cross_idea_graph
 from app.agents.graphs.proactive.user_pattern_learner import build_pattern_learner_graph
 from app.db.repo_notifications import NotificationRepository
+from app.db.repo_profile import ProfileRepository
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 _notif_repo = NotificationRepository()
+_profile_repo = ProfileRepository()
 _logger = logging.getLogger(__name__)
 
 
 @router.post("/news-scan")
 async def trigger_news_scan():
     """Trigger news monitoring agent (for manual testing/demo)."""
+    loop = asyncio.get_event_loop()
     graph = build_news_monitor_graph()
-    result = graph.invoke({
+    result = await loop.run_in_executor(None, partial(graph.invoke, {
         "user_id": "default",
         "idea_summaries": [],
         "notifications": [],
         "agent_thoughts": [],
-    })
+    }))
 
     created = []
     for notif in result.get("notifications", []):
@@ -54,13 +59,14 @@ async def trigger_cross_idea_analysis():
     runs share the same notification table, so without dedup a manual trigger
     right before the scheduled run would create duplicate notifications.
     """
+    loop = asyncio.get_event_loop()
     graph = build_cross_idea_graph()
-    result = graph.invoke({
+    result = await loop.run_in_executor(None, partial(graph.invoke, {
         "user_id": "default",
         "idea_summaries": [],
         "insights": [],
         "agent_thoughts": [],
-    })
+    }))
 
     created = []
     for insight in result.get("insights", []):
@@ -88,8 +94,9 @@ async def trigger_cross_idea_analysis():
 @router.post("/learn-patterns")
 async def trigger_pattern_learning():
     """Trigger user pattern learning agent (for demo)."""
+    loop = asyncio.get_event_loop()
     graph = build_pattern_learner_graph()
-    result = graph.invoke({
+    result = await loop.run_in_executor(None, partial(graph.invoke, {
         "user_id": "default",
         "decision_history": [
             {"stage": "feasibility", "choice": "bootstrapped", "idea": "AI code review tool"},
@@ -99,7 +106,7 @@ async def trigger_pattern_learning():
         ],
         "learned_preferences": {},
         "agent_thoughts": [],
-    })
+    }))
 
     prefs = result.get("learned_preferences", {})
     if prefs:
@@ -118,16 +125,9 @@ async def trigger_pattern_learning():
 
 @router.get("/user-patterns")
 async def get_user_patterns():
-    """Get learned user patterns (for settings page display)."""
-    graph = build_pattern_learner_graph()
-    result = graph.invoke({
-        "user_id": "default",
-        "decision_history": [
-            {"stage": "feasibility", "choice": "bootstrapped", "idea": "AI code review tool"},
-            {"stage": "feasibility", "choice": "bootstrapped", "idea": "Developer dashboard"},
-            {"stage": "scope", "choice": "minimal_mvp", "idea": "AI code review tool"},
-        ],
-        "learned_preferences": {},
-        "agent_thoughts": [],
-    })
-    return {"preferences": result.get("learned_preferences", {})}
+    """Get learned user patterns from DB cache (written by scheduler / POST learn-patterns)."""
+    patterns, _ = _profile_repo.get_learned_patterns(user_id="default")
+    if not patterns:
+        # Fallback: check all user_preferences rows for any with non-empty patterns
+        patterns, _ = _profile_repo.get_any_learned_patterns()
+    return {"preferences": patterns}
