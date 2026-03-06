@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 from typing import Final, NoReturn, cast
 
 from fastapi import APIRouter, HTTPException, Query
@@ -21,6 +22,7 @@ from app.schemas.ideas import (
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 _repo = IdeaRepository()
+_logger = logging.getLogger(__name__)
 
 _ALLOWED_STATUSES: Final[set[str]] = {"draft", "active", "frozen", "archived"}
 _DEFAULT_STATUSES: Final[list[IdeaStatus]] = ["draft", "active", "frozen"]
@@ -46,6 +48,15 @@ async def list_ideas(
 @router.post("", response_model=IdeaDetail, status_code=201)
 async def create_idea(payload: CreateIdeaRequest) -> IdeaDetail:
     created = _repo.create_idea(title=payload.title, idea_seed=payload.idea_seed)
+    # Populate vector store so cross-idea analyzer can find this idea
+    try:
+        from app.agents.memory.vector_store import get_vector_store as _get_vs
+        _get_vs().add_idea_summary(
+            idea_id=created.id,
+            summary=created.title,  # idea_seed not always set at creation time
+        )
+    except Exception:
+        _logger.warning("ideas.create_idea.vector_store_failed idea_id=%s", created.id, exc_info=True)
     return _to_idea_detail(created)
 
 
@@ -67,6 +78,16 @@ async def patch_idea(idea_id: str, payload: PatchIdeaRequest) -> IdeaDetail:
         status=payload.status,
     )
     updated = _unwrap_update_result(result, idea_id)
+    # Keep vector store in sync when title changes
+    if payload.title is not None:
+        try:
+            from app.agents.memory.vector_store import get_vector_store as _get_vs
+            _get_vs().add_idea_summary(
+                idea_id=updated.id,
+                summary=updated.title,
+            )
+        except Exception:
+            _logger.warning("ideas.patch_idea.vector_store_failed idea_id=%s", updated.id, exc_info=True)
     return _to_idea_detail(updated)
 
 
