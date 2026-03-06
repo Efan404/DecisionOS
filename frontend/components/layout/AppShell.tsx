@@ -140,18 +140,14 @@ export function AppShell({ children }: AppShellProps) {
       label: 'Scope Freeze',
       description: 'Boundaries',
       locked: !scopeOpen,
-      done: Boolean(
-        hydratedContext?.current_scope_baseline_id ||
-        hydratedContext?.scope_frozen ||
-        hydratedContext?.scope
-      ),
+      done: Boolean(hydratedContext?.scope_frozen),
     },
     {
       step: 'prd',
       label: 'PRD',
       description: 'Output document',
       locked: !prdOpen,
-      done: Boolean(hydratedContext?.prd),
+      done: Boolean(hydratedContext?.scope_frozen && hydratedContext?.prd),
     },
   ]
 
