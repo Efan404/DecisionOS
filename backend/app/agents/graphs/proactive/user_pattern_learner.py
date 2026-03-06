@@ -35,7 +35,7 @@ def _load_history(state: PatternLearnerState) -> dict[str, object]:
         history.append({
             "stage": e.event_type,
             "choice": payload.get("plan_name") or payload.get("path_id") or e.event_type,
-            "idea": payload.get("idea_id") or e.idea_id or "",
+            "idea": e.idea_id or "",
             "detail": payload,
         })
 

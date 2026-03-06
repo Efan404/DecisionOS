@@ -134,6 +134,9 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         updated_at                TEXT NOT NULL DEFAULT ''
     );
     """,
+    # NOTE: The following ALTER TABLE statements are the migration path for existing databases.
+    # Fresh databases already have these columns from the CREATE TABLE above.
+    # bootstrap.py's _column_exists() guard makes both paths safe.
     """
     ALTER TABLE user_preferences
     ADD COLUMN learned_patterns_json TEXT NOT NULL DEFAULT '{}';
