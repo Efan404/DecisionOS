@@ -89,7 +89,9 @@ export function ProfilePage() {
     return (
       <main>
         <section className="mx-auto mt-8 max-w-2xl px-6">
-          <p className="text-sm text-red-600">{loadError}</p>
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-700">{loadError}</p>
+          </div>
         </section>
       </main>
     )
@@ -98,23 +100,23 @@ export function ProfilePage() {
   return (
     <main>
       <section className="mx-auto mt-8 w-full max-w-2xl space-y-6 px-6 pb-16">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">Profile</h1>
+        <h1 className="text-lg font-bold tracking-tight text-[#1e1e1e]">Profile</h1>
 
         {/* Account section */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-900">Account</h2>
+        <div className="rounded-xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-[#1e1e1e]">Account</h2>
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600">Username</label>
+              <label className="mb-1 block text-xs font-medium text-[#1e1e1e]/50">Username</label>
               <input
                 type="text"
                 value={profile?.username ?? ''}
                 disabled
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400"
+                className="w-full rounded-xl border border-[#1e1e1e]/10 bg-[#f5f5f5] px-3 py-2 text-sm text-[#1e1e1e]/40"
               />
             </div>
             <div>
-              <label htmlFor="email" className="mb-1 block text-xs font-medium text-slate-600">
+              <label htmlFor="email" className="mb-1 block text-xs font-medium text-[#1e1e1e]/50">
                 Email
               </label>
               <input
@@ -123,7 +125,7 @@ export function ProfilePage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none"
+                className="w-full rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-sm text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/20"
               />
             </div>
             {accountError ? <p className="text-xs text-red-600">{accountError}</p> : null}
@@ -132,8 +134,11 @@ export function ProfilePage() {
                 type="button"
                 onClick={handleSaveAccount}
                 disabled={accountSaving}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-[#1e1e1e] px-4 py-2 text-xs font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
               >
+                {accountSaving ? (
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#b9eb10]/40 border-t-[#b9eb10]" />
+                ) : null}
                 {accountSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -141,19 +146,19 @@ export function ProfilePage() {
         </div>
 
         {/* Notifications section */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-900">Notifications</h2>
+        <div className="rounded-xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-[#1e1e1e]">Notifications</h2>
           <div className="space-y-4">
             {/* Master toggle */}
             <label className="flex cursor-pointer items-center justify-between">
-              <span className="text-sm text-slate-700">Enable email notifications</span>
+              <span className="text-sm text-[#1e1e1e]/70">Enable email notifications</span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={notifyEnabled}
                 onClick={() => setNotifyEnabled((v) => !v)}
-                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 ${
-                  notifyEnabled ? 'bg-slate-900' : 'bg-slate-200'
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b9eb10] ${
+                  notifyEnabled ? 'bg-[#1e1e1e]' : 'bg-[#d0d0d0]'
                 }`}
               >
                 <span
@@ -166,20 +171,20 @@ export function ProfilePage() {
 
             {/* Per-type checkboxes */}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-500">Notify me about:</p>
+              <p className="text-xs font-medium text-[#1e1e1e]/40">Notify me about:</p>
               {ALL_NOTIFY_TYPES.map((type) => (
                 <label
                   key={type}
-                  className={`flex cursor-pointer items-center gap-3 ${!notifyEnabled ? 'opacity-40' : ''}`}
+                  className={`flex cursor-pointer items-center gap-3 transition-opacity ${!notifyEnabled ? 'opacity-40' : ''}`}
                 >
                   <input
                     type="checkbox"
                     checked={notifyTypes.includes(type)}
                     onChange={() => toggleNotifyType(type)}
                     disabled={!notifyEnabled}
-                    className="h-4 w-4 rounded border-slate-300 accent-slate-900"
+                    className="h-4 w-4 rounded border-[#1e1e1e]/20 accent-[#1e1e1e]"
                   />
-                  <span className="text-sm text-slate-700">{NOTIFY_TYPE_LABELS[type]}</span>
+                  <span className="text-sm text-[#1e1e1e]/70">{NOTIFY_TYPE_LABELS[type]}</span>
                 </label>
               ))}
             </div>
@@ -190,8 +195,11 @@ export function ProfilePage() {
                 type="button"
                 onClick={handleSaveNotifications}
                 disabled={notifSaving}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-[#1e1e1e] px-4 py-2 text-xs font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
               >
+                {notifSaving ? (
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#b9eb10]/40 border-t-[#b9eb10]" />
+                ) : null}
                 {notifSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
