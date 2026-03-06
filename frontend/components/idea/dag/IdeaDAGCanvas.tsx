@@ -25,6 +25,7 @@ import {
   getLatestPath,
   type IdeaNode,
 } from '../../../lib/dag-api'
+import { toast } from 'sonner'
 import { streamPost } from '../../../lib/sse'
 import { DAGNode, type DAGNodeData } from './DAGNode'
 import { DAGEdge, type DAGEdgeData } from './DAGEdge'
@@ -183,8 +184,9 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
           },
         }
       )
-    } catch {
-      // error already surfaced via onError if needed
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to expand node. Please try again.'
+      toast.error(message)
     } finally {
       setExpandingNode(null)
     }
@@ -196,6 +198,9 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     try {
       const newNodes = await expandUserNode(ideaId, selectedNodeId, description)
       addNodes(newNodes)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add node. Please try again.'
+      toast.error(message)
     } finally {
       setExpandingNode(null)
     }
