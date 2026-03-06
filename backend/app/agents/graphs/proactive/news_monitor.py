@@ -5,7 +5,6 @@ from typing import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, START, END
 
-from app.core import ai_gateway
 from app.core.hn_client import fetch_stories_for_topics  # keyword search, not trending feed
 from app.core.time import utc_now_iso
 from app.agents.memory.vector_store import get_vector_store
