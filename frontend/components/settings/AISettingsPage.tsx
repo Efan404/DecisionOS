@@ -9,7 +9,7 @@ import type { AIProviderConfig, AIProviderKind } from '../../lib/schemas'
 const DEFAULT_PROVIDER: AIProviderConfig = {
   id: '',
   name: '',
-  kind: 'generic_json',
+  kind: 'openai_compatible',
   base_url: '',
   api_key: '',
   model: '',
@@ -370,8 +370,8 @@ export function AISettingsPage() {
                               color: isActive ? '#ffffff' : '#1e1e1e',
                             }}
                           >
-                            <option value="generic_json">generic_json</option>
-                            <option value="openai_compatible">openai_compatible</option>
+                            <option value="openai_compatible">OpenAI Compatible</option>
+                            <option value="anthropic">Anthropic</option>
                           </select>
                         </label>
                       </div>

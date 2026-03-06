@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-ProviderKind = Literal["generic_json", "openai_compatible"]
+ProviderKind = Literal["openai_compatible", "anthropic"]
 TaskName = Literal["opportunity", "feasibility", "scope", "prd"]
 
 

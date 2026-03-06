@@ -105,11 +105,29 @@ def generate_text(*, task: TaskName, user_prompt: str, max_retries: int = 2) -> 
 
 def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> str:
     """Invoke provider and return plain text response content."""
+    if provider.kind == "anthropic":
+        endpoint = provider.base_url.rstrip("/")
+        if not endpoint.endswith("/v1/messages"):
+            endpoint = f"{endpoint}/v1/messages"
+        body: dict[str, object] = {
+            "model": provider.model or "claude-sonnet-4-20250514",
+            "max_tokens": 1024,
+            "system": SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "temperature": provider.temperature,
+        }
+        logger.debug("_invoke_provider_text url=%s model=%s (anthropic)", endpoint, body["model"])
+        decoded = _post_json(
+            url=endpoint, body=body, timeout_seconds=provider.timeout_seconds,
+            api_key=provider.api_key, auth_header="x-api-key",
+        )
+        return _extract_content_from_anthropic(decoded)
+
+    # openai_compatible (default)
     endpoint = provider.base_url.rstrip("/")
     if not endpoint.endswith("/chat/completions"):
         endpoint = f"{endpoint}/chat/completions"
-
-    body: dict[str, object] = {
+    body = {
         "model": provider.model or "gpt-4o-mini",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -120,9 +138,7 @@ def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> st
     }
     logger.debug("_invoke_provider_text url=%s model=%s", endpoint, body["model"])
     decoded = _post_json(
-        url=endpoint,
-        body=body,
-        timeout_seconds=provider.timeout_seconds,
+        url=endpoint, body=body, timeout_seconds=provider.timeout_seconds,
         api_key=provider.api_key,
     )
     return _extract_content_from_choices(decoded)
@@ -132,10 +148,10 @@ def test_provider_connection(provider: AIProviderConfig) -> tuple[bool, int, str
     started = time.perf_counter()
     logger.info("test_provider_connection provider=%s kind=%s", provider.id, provider.kind)
     try:
-        if provider.kind == "generic_json":
-            _probe_generic_json(provider)
-        elif provider.kind == "openai_compatible":
+        if provider.kind == "openai_compatible":
             _probe_openai_compatible(provider)
+        elif provider.kind == "anthropic":
+            _probe_anthropic(provider)
         else:
             raise RuntimeError(f"Unsupported provider kind: {provider.kind}")
     except Exception as exc:  # noqa: BLE001
@@ -157,14 +173,6 @@ def _invoke_provider(
     user_prompt: str,
     response_schema: dict[str, object],
 ) -> dict[str, object]:
-    if provider.kind == "generic_json":
-        return _call_generic_json_provider(
-            provider=provider,
-            task=task,
-            user_prompt=user_prompt,
-            response_schema=response_schema,
-        )
-
     if provider.kind == "openai_compatible":
         return _call_openai_compatible_provider(
             provider=provider,
@@ -172,22 +180,14 @@ def _invoke_provider(
             response_schema=response_schema,
         )
 
+    if provider.kind == "anthropic":
+        return _call_anthropic_provider(
+            provider=provider,
+            user_prompt=user_prompt,
+            response_schema=response_schema,
+        )
+
     raise RuntimeError(f"Unsupported provider kind: {provider.kind}")
-
-
-def _probe_generic_json(provider: AIProviderConfig) -> None:
-    schema = {
-        "type": "object",
-        "properties": {"ok": {"type": "boolean"}},
-        "required": ["ok"],
-        "additionalProperties": True,
-    }
-    _call_generic_json_provider(
-        provider=provider,
-        task="opportunity",
-        user_prompt="Return JSON with {'ok': true}.",
-        response_schema=schema,
-    )
 
 
 def _probe_openai_compatible(provider: AIProviderConfig) -> None:
@@ -209,35 +209,6 @@ def _probe_openai_compatible(provider: AIProviderConfig) -> None:
     decoded = json.loads(raw)
     if not isinstance(decoded, dict):
         raise RuntimeError("Unexpected /models response shape")
-
-
-def _call_generic_json_provider(
-    *,
-    provider: AIProviderConfig,
-    task: TaskName,
-    user_prompt: str,
-    response_schema: dict[str, object],
-) -> dict[str, object]:
-    body: dict[str, object] = {
-        "system_prompt": SYSTEM_PROMPT,
-        "user_prompt": user_prompt,
-        "response_schema": response_schema,
-        "model": provider.model,
-        "temperature": provider.temperature,
-        "task": task,
-    }
-    logger.debug(
-        "_call_generic_json_provider url=%s task=%s model=%s", provider.base_url, task, provider.model
-    )
-    decoded = _post_json(
-        url=provider.base_url,
-        body=body,
-        timeout_seconds=provider.timeout_seconds,
-        api_key=provider.api_key,
-    )
-    if isinstance(decoded, dict) and "data" in decoded and isinstance(decoded["data"], dict):
-        return cast(dict[str, object], decoded["data"])
-    return cast(dict[str, object], decoded)
 
 
 def _extract_content_from_choices(decoded: object) -> str:
@@ -351,16 +322,94 @@ def _call_openai_compatible_provider(
     return _parse_json_from_content(content)
 
 
+def _probe_anthropic(provider: AIProviderConfig) -> None:
+    """Probe Anthropic Messages API by sending a trivial request."""
+    endpoint = provider.base_url.rstrip("/")
+    if not endpoint.endswith("/v1/messages"):
+        endpoint = f"{endpoint}/v1/messages"
+    body: dict[str, object] = {
+        "model": provider.model or "claude-sonnet-4-20250514",
+        "max_tokens": 32,
+        "messages": [{"role": "user", "content": "Say ok."}],
+    }
+    _post_json(
+        url=endpoint,
+        body=body,
+        timeout_seconds=provider.timeout_seconds,
+        api_key=provider.api_key,
+        auth_header="x-api-key",
+    )
+
+
+def _call_anthropic_provider(
+    *,
+    provider: AIProviderConfig,
+    user_prompt: str,
+    response_schema: dict[str, object],
+) -> dict[str, object]:
+    """Call Anthropic Messages API and return parsed JSON."""
+    endpoint = provider.base_url.rstrip("/")
+    if not endpoint.endswith("/v1/messages"):
+        endpoint = f"{endpoint}/v1/messages"
+
+    model = provider.model or "claude-sonnet-4-20250514"
+    schema_str = json.dumps(response_schema, ensure_ascii=False, separators=(",", ":"))
+    structured_prompt = (
+        f"{user_prompt}\n\n"
+        "IMPORTANT: Your response MUST be a valid JSON object only — "
+        "no markdown, no code fences, no explanations, no text before or after the JSON.\n\n"
+        f"JSON Schema (follow this exact structure): {schema_str}"
+    )
+    body: dict[str, object] = {
+        "model": model,
+        "max_tokens": 4096,
+        "system": SYSTEM_PROMPT + "\n\nIMPORTANT: Always respond with valid JSON matching the requested schema.",
+        "messages": [{"role": "user", "content": structured_prompt}],
+        "temperature": provider.temperature,
+    }
+    logger.debug("_call_anthropic_provider url=%s model=%s", endpoint, model)
+    decoded = _post_json(
+        url=endpoint,
+        body=body,
+        timeout_seconds=provider.timeout_seconds,
+        api_key=provider.api_key,
+        auth_header="x-api-key",
+    )
+    content = _extract_content_from_anthropic(decoded)
+    return _parse_json_from_content(content)
+
+
+def _extract_content_from_anthropic(decoded: object) -> str:
+    """Extract text content from Anthropic Messages API response."""
+    if not isinstance(decoded, dict):
+        raise RuntimeError("Anthropic response is not an object")
+    content_blocks = decoded.get("content")
+    if not isinstance(content_blocks, list) or not content_blocks:
+        raise RuntimeError("Anthropic response missing content blocks")
+    text_parts: list[str] = []
+    for block in content_blocks:
+        if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+            text_parts.append(block["text"])
+    if not text_parts:
+        raise RuntimeError("Anthropic response has no text content")
+    return "\n".join(text_parts)
+
+
 def _post_json(
     *,
     url: str,
     body: dict[str, object],
     timeout_seconds: float,
     api_key: str | None,
+    auth_header: str = "Authorization",
 ) -> object:
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+        if auth_header == "x-api-key":
+            headers["x-api-key"] = api_key
+            headers["anthropic-version"] = "2023-06-01"
+        else:
+            headers["Authorization"] = f"Bearer {api_key}"
 
     req = request.Request(
         url,

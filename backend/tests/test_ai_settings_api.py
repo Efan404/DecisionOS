@@ -95,7 +95,7 @@ class AISettingsApiTestCase(unittest.TestCase):
                     {
                         "id": "provider_b",
                         "name": "Provider B",
-                        "kind": "generic_json",
+                        "kind": "openai_compatible",
                         "base_url": "http://127.0.0.1:8080/generate",
                         "enabled": True,
                         "timeout_seconds": 20,
@@ -124,7 +124,7 @@ class AISettingsApiTestCase(unittest.TestCase):
                     {
                         "id": "provider_b",
                         "name": "Provider B",
-                        "kind": "generic_json",
+                        "kind": "openai_compatible",
                         "base_url": "http://127.0.0.1:8080/generate",
                         "enabled": False,
                         "timeout_seconds": 20,
@@ -145,7 +145,7 @@ class AISettingsApiTestCase(unittest.TestCase):
                 "provider": {
                     "id": "unreachable_local",
                     "name": "Unreachable Local",
-                    "kind": "generic_json",
+                    "kind": "openai_compatible",
                     "base_url": "http://127.0.0.1:65533/generate",
                     "enabled": True,
                     "timeout_seconds": 1,

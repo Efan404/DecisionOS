@@ -286,7 +286,7 @@ def _insert_idea_2(conn: sqlite3.Connection, now: str) -> None:
             DEMO_IDEA_2, "default",
             "Local Event Discovery App",
             context["idea_seed"],
-            "scope_freeze", "active",
+            "scope_freeze", "draft",
             json.dumps(context, ensure_ascii=False),
             5,
             now, now, None,

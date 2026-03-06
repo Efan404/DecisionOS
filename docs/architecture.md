@@ -297,8 +297,8 @@ The AI gateway (`backend/app/core/ai_gateway.py`) supports multiple LLM provider
 
 | Provider Kind | Protocol | Example |
 |--------------|----------|---------|
-| `generic_json` | Custom JSON API | ModelScope |
-| `openai_compatible` | OpenAI-compatible API | OpenRouter, local models |
+| `openai_compatible` | OpenAI-compatible API | OpenRouter, local models, OpenAI |
+| `anthropic` | Anthropic Messages API | Claude models |
 
 ### Key Features
 

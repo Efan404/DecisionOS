@@ -324,7 +324,7 @@ export const agentEnvelopeSchema = z.object({
   data: z.unknown(),
 })
 
-export const aiProviderKindSchema = z.enum(['generic_json', 'openai_compatible'])
+export const aiProviderKindSchema = z.enum(['openai_compatible', 'anthropic'])
 
 export const aiProviderConfigSchema = z.object({
   id: z.string().min(1),
