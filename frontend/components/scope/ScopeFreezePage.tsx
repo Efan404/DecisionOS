@@ -452,6 +452,7 @@ export function ScopeFreezePage() {
     }
     const movingItem = draft.items.find((item) => item.id === itemId)
     if (!movingItem) {
+      console.warn('[ScopeFreeze] handleMoveItem: item not found', itemId, 'draftIds:', draft.items.map(i => i.id))
       return
     }
 
@@ -470,9 +471,12 @@ export function ScopeFreezePage() {
     const reorderedLane = [...laneItems]
     const [current] = reorderedLane.splice(oldIndex, 1)
     reorderedLane.splice(targetIndex, 0, current)
+    // Reassign display_order based on new array position so that
+    // normalizeDisplayOrder (called inside applyDraftItems) won't
+    // re-sort items back to their original order.
+    const reindexed = reorderedLane.map((item, idx) => ({ ...item, display_order: idx }))
     const untouched = draft.items.filter((item) => item.lane !== movingItem.lane)
-    const nextItems = normalizeDisplayOrder([...untouched, ...reorderedLane])
-    await applyDraftItems(nextItems)
+    await applyDraftItems([...untouched, ...reindexed])
   }
 
   const handleFreeze = async () => {

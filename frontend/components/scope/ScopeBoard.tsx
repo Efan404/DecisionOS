@@ -58,7 +58,7 @@ export function ScopeBoard({
       </div>
 
       {readonly ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/60 backdrop-blur-[2px]">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/30 backdrop-blur-[1px]">
           <div className="flex items-center gap-2 rounded-xl border border-[#b9eb10]/50 bg-white px-4 py-2 shadow-md">
             <svg
               viewBox="0 0 16 16"
