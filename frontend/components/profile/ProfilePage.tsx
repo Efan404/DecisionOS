@@ -187,7 +187,7 @@ export function ProfilePage() {
         <div className="flex-1 px-6 py-6 sm:px-8">
           {/* ── Account ── */}
           {activeSection === 'account' && (
-            <div className="max-w-xs space-y-5">
+            <div className="max-w-md space-y-5">
               {/* Username (read-only) */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-semibold tracking-wider text-[#1e1e1e]/35 uppercase">
@@ -241,7 +241,7 @@ export function ProfilePage() {
 
           {/* ── Notifications ── */}
           {activeSection === 'notifications' && (
-            <div className="max-w-xs space-y-5">
+            <div className="max-w-md space-y-5">
               {/* Master toggle */}
               <div className="flex items-center justify-between rounded-lg border border-[#1e1e1e]/8 bg-[#f9f9f9] px-4 py-3">
                 <div>
