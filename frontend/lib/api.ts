@@ -358,3 +358,82 @@ export const postPrdFeedback = async (
     payload
   )
 }
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+export type UserProfile = {
+  username: string
+  email: string | null
+  notify_enabled: boolean
+  notify_types: string[]
+}
+
+export type PatchProfileRequest = {
+  email?: string | null
+  notify_enabled?: boolean
+  notify_types?: string[]
+}
+
+export const getProfile = async (): Promise<UserProfile> => {
+  return await jsonGet<UserProfile>('/profile')
+}
+
+export const patchProfile = async (payload: PatchProfileRequest): Promise<UserProfile> => {
+  return await jsonPatch<PatchProfileRequest, UserProfile>('/profile', payload)
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export type Notification = {
+  id: string
+  type: string
+  title: string
+  body: string
+  metadata: Record<string, unknown>
+  read_at: string | null
+  created_at: string
+}
+
+export const getNotifications = async (unreadOnly = false): Promise<Notification[]> => {
+  const data = await jsonGet<{ notifications: Notification[] }>(
+    `/notifications${unreadOnly ? '?unread_only=true' : ''}`
+  )
+  return data.notifications
+}
+
+export const dismissNotification = async (id: string): Promise<boolean> => {
+  const data = await jsonPost<Record<string, never>, { dismissed: boolean }>(
+    `/notifications/${id}/dismiss`,
+    {}
+  )
+  return data.dismissed
+}
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+
+export type CrossIdeaInsight = {
+  idea_a_id?: string
+  idea_b_id?: string
+  analysis?: string
+  [key: string]: unknown
+}
+
+export type CrossIdeaAnalysisResult = {
+  insights: CrossIdeaInsight[]
+  agent_thoughts: { agent: string; thought: string }[]
+}
+
+export const triggerCrossIdeaAnalysis = async (): Promise<CrossIdeaAnalysisResult> => {
+  return await jsonPost<Record<string, never>, CrossIdeaAnalysisResult>(
+    '/insights/cross-idea-analysis',
+    {}
+  )
+}
+
+export type UserPatternsResult = {
+  preferences: Record<string, string>
+}
+
+export const getUserPatterns = async (): Promise<UserPatternsResult> => {
+  return await jsonGet<UserPatternsResult>('/insights/user-patterns')
+}
