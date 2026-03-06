@@ -9,7 +9,31 @@ from app.core import ai_gateway
 from app.core.time import utc_now_iso
 from app.agents.memory.vector_store import get_vector_store
 
+import json as _json
+
 SIMILARITY_THRESHOLD = 0.40  # cosine distance: lower = more similar
+
+
+def _extract_plain_text(raw: str) -> str:
+    """Extract plain text from LLM response that may be JSON-wrapped.
+
+    Free-tier LLMs often return {"explanation": "..."} instead of plain text.
+    """
+    text = raw.strip()
+    if text.startswith("{"):
+        try:
+            obj = _json.loads(text)
+            # Try common keys the LLM might use
+            for key in ("explanation", "text", "analysis", "insight", "node_text", "response"):
+                if key in obj and isinstance(obj[key], str):
+                    return obj[key].strip()
+            # Fallback: join all string values
+            strings = [v.strip() for v in obj.values() if isinstance(v, str) and v.strip()]
+            if strings:
+                return " ".join(strings)
+        except (_json.JSONDecodeError, AttributeError):
+            pass
+    return text
 
 
 class CrossIdeaState(TypedDict):
@@ -104,7 +128,7 @@ def _find_similar_pairs(state: CrossIdeaState) -> dict[str, object]:
                     "idea_a_id": idea_a_id,
                     "idea_b_id": idea_b_id,
                     "similarity_distance": round(dist, 3),
-                    "analysis": analysis.strip(),
+                    "analysis": _extract_plain_text(analysis),
                 })
 
     thought = {
