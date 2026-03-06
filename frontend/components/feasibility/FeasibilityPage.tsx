@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
 import { PlanCards } from './PlanCards'
-import { postIdeaScopedAgent } from '../../lib/api'
+import { getIdea, postIdeaScopedAgent } from '../../lib/api'
 import { buildConfirmedPathContext, getLatestPath } from '../../lib/dag-api'
 import { canRunFeasibility } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -67,7 +67,16 @@ export function FeasibilityPage() {
 
     const run = async () => {
       try {
-        const latestPath = await getLatestPath(activeIdeaId)
+        // Fetch fresh idea version and DAG path in parallel.
+        // confirm-path and its background summary task each bump the version, so the
+        // store is stale by the time the user arrives here from IdeaCanvas.
+        const [latestPath, freshIdea] = await Promise.all([
+          getLatestPath(activeIdeaId),
+          getIdea(activeIdeaId).catch(() => null),
+        ])
+        if (freshIdea && !cancelled) {
+          setIdeaVersion(activeIdeaId, freshIdea.version)
+        }
         if (!latestPath) {
           throw new Error('No confirmed DAG path found. Please confirm a path in Idea Canvas.')
         }
@@ -94,7 +103,7 @@ export function FeasibilityPage() {
     return () => {
       cancelled = true
     }
-  }, [activeIdeaId, canOpen, context.confirmed_dag_path_id])
+  }, [activeIdeaId, canOpen, context.confirmed_dag_path_id, setIdeaVersion])
 
   const handleGenerate = async () => {
     if (!canOpen || !confirmedPathContext) {
