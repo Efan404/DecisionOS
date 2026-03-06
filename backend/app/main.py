@@ -23,6 +23,7 @@ from app.routes.idea_scope import router as idea_scope_router
 from app.routes.ideas import router as ideas_router
 from app.routes.notifications import router as notifications_router
 from app.routes.insights import router as insights_router
+from app.routes.profile import router as profile_router
 from app.routes.workspaces import router as workspaces_router
 
 _IDEA_AGENTS_MUTATION_RE = re.compile(r"^/ideas/[^/]+/agents/[^/]+(?:/stream)?$")
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(agents_router, dependencies=protected_dependencies)
     app.include_router(notifications_router, dependencies=protected_dependencies)
     app.include_router(insights_router, dependencies=protected_dependencies)
+    app.include_router(profile_router, dependencies=protected_dependencies)
     return app
 
 
