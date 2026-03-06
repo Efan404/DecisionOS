@@ -15,7 +15,7 @@ export function ExpansionPatternPicker({ onSelect, loading }: Props) {
           key={p.id}
           onClick={() => onSelect(p.id)}
           disabled={loading}
-          className="cursor-pointer rounded-lg border border-[#334155] px-3 py-2.5 text-left transition-all duration-150 hover:border-[#22C55E] hover:bg-[#22C55E]/5 disabled:opacity-50"
+          className="cursor-pointer rounded-lg border border-[#334155] px-3 py-2.5 text-left transition-all duration-150 hover:border-[#b9eb10] hover:bg-[#b9eb10]/8 disabled:opacity-50"
         >
           <div className="text-sm font-medium text-[#F8FAFC]">{p.label}</div>
           <div className="mt-0.5 text-xs text-[#64748B]">{p.description}</div>

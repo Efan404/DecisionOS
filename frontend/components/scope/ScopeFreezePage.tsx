@@ -626,7 +626,7 @@ export function ScopeFreezePage() {
             type="button"
             onClick={handleContinueToPrd}
             disabled={!canEnterPrd || saving}
-            className="rounded-md border border-cyan-600 bg-cyan-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-[#b9eb10] bg-[#b9eb10] px-3 py-2 text-sm font-medium text-[#1e1e1e] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue to PRD
           </button>

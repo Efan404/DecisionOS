@@ -34,7 +34,7 @@ export function DAGEdge({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: isHighlighted ? '#22C55E' : '#334155',
+          stroke: isHighlighted ? '#b9eb10' : '#334155',
           strokeWidth: isHighlighted ? 2 : 1,
         }}
       />

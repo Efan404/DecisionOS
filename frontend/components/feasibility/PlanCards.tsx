@@ -59,13 +59,13 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
             className={[
               'rounded-2xl border p-4 shadow-sm transition-all duration-200 motion-reduce:transition-none',
               selected
-                ? 'border-slate-900 bg-slate-900 text-slate-50 shadow-md shadow-slate-900/20'
-                : 'border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:shadow-md',
+                ? 'border-[#b9eb10] bg-[#1e1e1e] text-slate-50 shadow-md shadow-[#b9eb10]/20'
+                : 'border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-[#b9eb10]/60 hover:shadow-md',
             ].join(' ')}
           >
             <Link
               href={buildDetailHref(plan.id)}
-              className="group block w-full text-left focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="group block w-full text-left focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-base font-semibold tracking-tight">{plan.name}</h2>
@@ -74,7 +74,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                     'rounded-md border px-2 py-1 text-[11px] font-medium',
                     selected
                       ? 'border-slate-200/20 bg-white/10 text-slate-100'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-cyan-200 group-hover:bg-cyan-50 group-hover:text-cyan-700',
+                      : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-[#b9eb10]/40 group-hover:bg-[#b9eb10]/10 group-hover:text-[#1e1e1e]',
                   ].join(' ')}
                 >
                   Overall {plan.score_overall.toFixed(1)}
@@ -96,7 +96,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
               {onSelect ? (
                 <button
                   type="button"
-                  className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
                   onClick={() => onSelect(plan.id)}
                 >
                   Select
@@ -104,7 +104,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
               ) : null}
               <Link
                 href={buildDetailHref(plan.id)}
-                className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 View Detail
               </Link>
