@@ -285,6 +285,7 @@ def _call_openai_compatible_provider(
         ],
         "temperature": provider.temperature,
         "response_format": {"type": "json_object"},
+        "enable_thinking": False,
     }
     logger.debug("_call_openai_compatible_provider url=%s model=%s (json_object)", endpoint, model)
     decoded = _post_json(
