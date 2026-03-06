@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import { UserPatternCard } from '../insights/UserPatternCard'
 import { getAiSettings, patchAiSettings, testAiProvider } from '../../lib/api'
 import type { AIProviderConfig, AIProviderKind } from '../../lib/schemas'
 
@@ -403,10 +402,6 @@ export function AISettingsPage() {
             </div>
           </>
         )}
-      </section>
-
-      <section className="mt-6">
-        <UserPatternCard />
       </section>
     </main>
   )

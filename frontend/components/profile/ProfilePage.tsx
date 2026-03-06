@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { ApiError, getProfile, patchProfile, type UserProfile } from '../../lib/api'
+import { UserPatternCard } from '../insights/UserPatternCard'
 
 const NOTIFY_TYPE_LABELS: Record<string, string> = {
   news_match: 'News matches',
@@ -205,6 +206,8 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+        {/* Decision Patterns */}
+        <UserPatternCard />
       </section>
     </main>
   )

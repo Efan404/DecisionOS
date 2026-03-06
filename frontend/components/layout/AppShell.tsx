@@ -300,34 +300,44 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right: meta + actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="hidden text-xs text-[#1e1e1e]/35 sm:block">
-              {hydratedContext ? hydratedContext.session_id.slice(0, 8) : '…'}
-            </span>
+          {/* Right: Notification | Settings | User */}
+          <div className="flex items-center gap-1.5">
             <NotificationBell />
-            <Link
-              href="/profile"
-              className="hidden text-xs text-[#1e1e1e]/40 transition hover:text-[#1e1e1e]/70 sm:block"
-            >
-              {authSession.username}
-            </Link>
+
+            {/* Settings icon button */}
             <Link
               href="/settings"
-              className="hidden rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5] sm:block"
+              aria-label="Settings"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
             >
-              Settings
+              <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
+                <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+                <path
+                  d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M3.4 12.6l.7-.7M11.9 4.1l.7-.7"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                clearAuthSession()
-                router.replace('/login')
-              }}
-              className="hidden rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5] sm:block"
+
+            {/* User avatar → Profile page */}
+            <Link
+              href="/profile"
+              aria-label={`Profile: ${authSession.username}`}
+              title={authSession.username}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#1e1e1e]/12 bg-[#1e1e1e] text-[#b9eb10] transition hover:bg-[#333]"
             >
-              Logout
-            </button>
+              <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
+                <circle cx="8" cy="5.5" r="2.5" fill="currentColor" />
+                <path
+                  d="M2.5 13.5c0-2.76 2.46-5 5.5-5s5.5 2.24 5.5 5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
 
             {/* Mobile hamburger */}
             <button
@@ -407,10 +417,35 @@ export function AppShell({ children }: AppShellProps) {
             </ul>
             <div className="flex items-center gap-2 border-t border-[#1e1e1e]/8 px-4 py-3">
               <Link
+                href="/profile"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+              >
+                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
+                  <circle cx="7" cy="4.5" r="2.2" fill="currentColor" />
+                  <path
+                    d="M2 12c0-2.76 2.24-5 5-5s5 2.24 5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {authSession.username}
+              </Link>
+              <Link
                 href="/settings"
                 onClick={() => setMobileNavOpen(false)}
-                className="flex-1 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-center text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
+                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
+                  <circle cx="7" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.3" />
+                  <path
+                    d="M7 1v.9M7 12.1v.9M1 7h.9M12.1 7H13M2.9 2.9l.65.65M10.45 10.45l.65.65M2.9 11.1l.65-.65M10.45 3.55l.65-.65"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 Settings
               </Link>
               <button
@@ -420,8 +455,17 @@ export function AppShell({ children }: AppShellProps) {
                   clearAuthSession()
                   router.replace('/login')
                 }}
-                className="flex-1 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
+                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
+                  <path
+                    d="M5 7h7M9.5 5l2.5 2-2.5 2M5 2H2.5A1.5 1.5 0 0 0 1 3.5v7A1.5 1.5 0 0 0 2.5 12H5"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
                 Logout
               </button>
             </div>
