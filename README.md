@@ -31,7 +31,9 @@ graph LR
 - **Idea Canvas**: Visual DAG-based ideation with AI-powered node expansion
 - **Feasibility Analysis**: Compare three implementation plans generated concurrently via SSE streaming
 - **Scope Management**: Define IN/OUT scope with versioned baselines
-- **PRD Generation**: Generate structured product requirements with full context
+- **PRD Generation**: LangGraph-powered parallel generation of requirements, backlog, and markdown narrative with real-time agent activity streaming
+- **Requirements & Backlog**: Left-right split view linking requirements to backlog items, with inline export (JSON/CSV)
+- **Contextual HoverCards**: Hover tooltips across the app revealing hidden metadata — acceptance criteria, score breakdowns, full IDs, timestamps, and dependencies
 - **Multi-Idea Support**: Manage multiple ideas within a single workspace
 
 ## Tech Stack
@@ -267,11 +269,11 @@ Two seed users are created on first startup:
 
 3. **Scope Freeze**: Define clear IN/OUT scope. Create versioned baselines. Once frozen, scope becomes immutable for PRD generation.
 
-4. **PRD Generation**: Generate structured PRDs with:
-   - Markdown narrative
-   - Requirements breakdown
-   - Backlog items linked to requirements
-   - Full context from previous stages
+4. **PRD Generation**: Generate structured PRDs via LangGraph with parallel fan-out:
+   - Markdown narrative + requirements generated concurrently (Stage A)
+   - Backlog items linked to requirements (Stage B)
+   - Real-time agent activity stream shows generation progress
+   - Requirements & Backlog displayed in a left-right split view with inline filtering and export
 
 ### Authentication
 
