@@ -304,9 +304,12 @@ export function AppShell({ children }: AppShellProps) {
             <span className="hidden text-xs text-[#1e1e1e]/35 sm:block">
               {hydratedContext ? hydratedContext.session_id.slice(0, 8) : '…'}
             </span>
-            <span className="hidden text-xs text-[#1e1e1e]/40 sm:block">
+            <Link
+              href="/profile"
+              className="hidden text-xs text-[#1e1e1e]/40 transition hover:text-[#1e1e1e]/70 sm:block"
+            >
               {authSession.username}
-            </span>
+            </Link>
             <Link
               href="/settings"
               className="rounded-lg border border-[#1e1e1e]/12 bg-white px-2.5 py-1.5 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5]"
