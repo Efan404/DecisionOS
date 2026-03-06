@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 
 from app.core.contexts import parse_context_strict
+from app.db.repo_decision_events import DecisionEventRepository
 from app.db.repo_ideas import IdeaRecord, IdeaRepository, UpdateIdeaResult
 from app.schemas.ideas import (
     CreateIdeaRequest,
@@ -21,6 +22,7 @@ from app.schemas.ideas import (
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 _repo = IdeaRepository()
+_event_repo = DecisionEventRepository()
 
 _ALLOWED_STATUSES: Final[set[str]] = {"draft", "active", "frozen", "archived"}
 _DEFAULT_STATUSES: Final[list[IdeaStatus]] = ["draft", "active", "frozen"]
@@ -80,12 +82,52 @@ async def patch_idea_context(idea_id: str, payload: PatchIdeaContextRequest) -> 
             detail={"code": "IDEA_CONTEXT_INVALID", "message": str(exc)},
         ) from exc
 
+    # Capture existing selected_plan_id before update for feasibility event dedup
+    existing_idea = _repo.get_idea(idea_id)
+    existing_selected_plan_id: str | None = None
+    if existing_idea is not None:
+        try:
+            existing_ctx = parse_context_strict(existing_idea.context)
+            existing_selected_plan_id = existing_ctx.selected_plan_id
+        except Exception:
+            pass
+
     result = _repo.update_context(
         idea_id,
         version=payload.version,
         context=context.model_dump(mode="python", exclude_none=True),
     )
     updated = _unwrap_update_result(result, idea_id)
+
+    # Record feasibility plan selection event if selected_plan_id changed
+    new_selected_plan_id = context.selected_plan_id
+    if new_selected_plan_id and new_selected_plan_id != existing_selected_plan_id:
+        plan_name = ""
+        score_overall = None
+        if context.feasibility is not None:
+            plan = next(
+                (p for p in context.feasibility.plans if p.id == new_selected_plan_id),
+                None,
+            )
+            if plan is not None:
+                plan_name = plan.name
+                score_overall = getattr(plan, "score_overall", None)
+        try:
+            _event_repo.record(
+                event_type="feasibility_plan_selected",
+                idea_id=idea_id,
+                payload={
+                    "selected_plan_id": new_selected_plan_id,
+                    "plan_name": plan_name,
+                    "score_overall": score_overall,
+                },
+            )
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "feasibility_plan_selected event recording failed idea_id=%s", idea_id
+            )
+
     return _to_idea_detail(updated)
 
 

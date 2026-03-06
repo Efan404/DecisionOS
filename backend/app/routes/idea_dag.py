@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.core import llm
 from app.core.time import utc_now_iso
 from app.db import repo_dag
+from app.db.repo_decision_events import DecisionEventRepository
 from app.db.repo_ideas import IdeaRepository, UpdateIdeaResult
 from app.schemas.dag import (
     ConfirmPathRequest,
@@ -22,6 +23,7 @@ from app.schemas.dag import (
 
 router = APIRouter(prefix="/ideas/{idea_id}", tags=["idea-dag"])
 _repo = IdeaRepository()
+_event_repo = DecisionEventRepository()
 logger = logging.getLogger(__name__)
 
 
@@ -295,6 +297,23 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest, background_tasks:
         ),
     )
     _unwrap_update(update)
+
+    # Record decision event after successful path save
+    node_contents = [
+        nodes[nid].content for nid in body.node_chain if nid in nodes
+    ]
+    try:
+        _event_repo.record(
+            event_type="dag_path_confirmed",
+            idea_id=idea_id,
+            payload={
+                "path_id": path.id,
+                "node_count": len(body.node_chain),
+                "leaf_content": node_contents[-1] if node_contents else "",
+            },
+        )
+    except Exception:
+        logger.warning("dag_path_confirmed event recording failed idea_id=%s", idea_id)
 
     # Generate path summary in the background — fills in path_json.summary and
     # context.confirmed_dag_path_summary once the LLM responds, without blocking
