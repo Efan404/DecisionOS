@@ -358,3 +358,30 @@ export const postPrdFeedback = async (
     payload
   )
 }
+
+// ── PRD Backlog Export ────────────────────────────────────────────────────────
+
+export const downloadPrdBacklogExport = async (
+  ideaId: string,
+  format: 'json' | 'csv'
+): Promise<void> => {
+  const url = buildApiUrl(`/ideas/${ideaId}/prd/export?format=${format}`)
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: withAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    throw await buildApiError(response)
+  }
+
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = `decisionos-backlog-${ideaId}.${format}`
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(objectUrl)
+}
