@@ -435,6 +435,7 @@ export function ScopeFreezePage() {
         created_at: new Date().toISOString(),
       },
     ])
+    setDraft((prev) => (prev ? { ...prev, items: nextItems } : prev))
     await applyDraftItems(nextItems)
   }
 
@@ -443,6 +444,7 @@ export function ScopeFreezePage() {
       return
     }
     const nextItems = normalizeDisplayOrder(draft.items.filter((item) => item.id !== itemId))
+    setDraft((prev) => (prev ? { ...prev, items: nextItems } : prev))
     await applyDraftItems(nextItems)
   }
 
@@ -452,7 +454,6 @@ export function ScopeFreezePage() {
     }
     const movingItem = draft.items.find((item) => item.id === itemId)
     if (!movingItem) {
-      console.warn('[ScopeFreeze] handleMoveItem: item not found', itemId, 'draftIds:', draft.items.map(i => i.id))
       return
     }
 
@@ -476,7 +477,13 @@ export function ScopeFreezePage() {
     // re-sort items back to their original order.
     const reindexed = reorderedLane.map((item, idx) => ({ ...item, display_order: idx }))
     const untouched = draft.items.filter((item) => item.lane !== movingItem.lane)
-    await applyDraftItems([...untouched, ...reindexed])
+    const nextItems = [...untouched, ...reindexed]
+
+    // Optimistic update: apply reorder to UI immediately before API call
+    setDraft((prev) =>
+      prev ? { ...prev, items: normalizeDisplayOrder(nextItems) } : prev
+    )
+    await applyDraftItems(nextItems)
   }
 
   const handleFreeze = async () => {
@@ -679,7 +686,7 @@ export function ScopeFreezePage() {
       {draft ? (
         <ScopeBoard
           items={draft.items}
-          readonly={readonly || saving}
+          readonly={readonly}
           onAddItem={handleAddItem}
           onDeleteItem={handleDeleteItem}
           onMoveItem={handleMoveItem}
