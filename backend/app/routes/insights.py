@@ -47,9 +47,11 @@ async def trigger_cross_idea_analysis():
     """Trigger cross-idea analysis agent (for demo)."""
     vs = get_vector_store()
     all_ideas = vs._ideas.get(include=["documents", "metadatas"])
+    ids = all_ideas.get("ids") or []
+    documents = all_ideas.get("documents") or []
     summaries = [
         {"idea_id": id_, "summary": doc}
-        for id_, doc in zip(all_ideas["ids"], all_ideas["documents"])
+        for id_, doc in zip(ids, documents)
     ]
 
     graph = build_cross_idea_graph()

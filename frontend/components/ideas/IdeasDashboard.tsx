@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 
+import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
 import { useIdeasStore } from '../../lib/ideas-store'
 
 export function IdeasDashboard() {
@@ -35,7 +36,7 @@ export function IdeasDashboard() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <section className="rounded-2xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -68,8 +69,30 @@ export function IdeasDashboard() {
           </button>
         </form>
 
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-        {loading ? <p className="mt-3 text-sm text-[#1e1e1e]/40">Loading ideas...</p> : null}
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        ) : null}
+
+        {/* Skeleton loader */}
+        {loading && ideas.length === 0 ? (
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-xl border border-[#1e1e1e]/10 bg-white p-4"
+              >
+                <div className="h-4 w-2/3 rounded-md bg-[#f0f0f0]" />
+                <div className="mt-2 h-3 w-1/2 rounded-md bg-[#f0f0f0]" />
+                <div className="mt-3 flex gap-2">
+                  <div className="h-6 w-16 rounded-lg bg-[#f0f0f0]" />
+                  <div className="h-6 w-20 rounded-lg bg-[#f0f0f0]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {ideas.map((idea) => {
@@ -150,15 +173,34 @@ export function IdeasDashboard() {
                         >
                           {idea.title}
                         </h2>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              isActive
+                                ? 'bg-white/15 text-white/70'
+                                : 'bg-[#f5f5f5] text-[#1e1e1e]/50'
+                            }`}
+                          >
+                            {idea.stage}
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              idea.status === 'active'
+                                ? isActive
+                                  ? 'bg-[#b9eb10]/20 text-[#b9eb10]'
+                                  : 'bg-[#b9eb10]/15 text-[#4a7300]'
+                                : isActive
+                                  ? 'bg-white/10 text-white/50'
+                                  : 'bg-[#f5f5f5] text-[#1e1e1e]/40'
+                            }`}
+                          >
+                            {idea.status}
+                          </span>
+                        </div>
                         <p
-                          className={`mt-1 text-xs ${isActive ? 'text-white/50' : 'text-[#1e1e1e]/40'}`}
+                          className={`mt-1.5 text-[11px] ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
                         >
-                          Stage: {idea.stage} · Status: {idea.status}
-                        </p>
-                        <p
-                          className={`mt-1 text-xs ${isActive ? 'text-white/40' : 'text-[#1e1e1e]/30'}`}
-                        >
-                          Updated: {idea.updated_at.slice(0, 16)}
+                          {idea.updated_at.slice(0, 16)}
                         </p>
                       </div>
                       <button
@@ -193,11 +235,18 @@ export function IdeasDashboard() {
           })}
 
           {!loading && ideas.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[#1e1e1e]/15 p-6 text-sm text-[#1e1e1e]/40">
-              No ideas yet. Create your first idea above.
+            <div className="col-span-2 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-12 text-center">
+              <p className="text-sm font-medium text-[#1e1e1e]/50">No ideas yet</p>
+              <p className="mt-1 text-xs text-[#1e1e1e]/30">
+                Enter an idea title above and click &ldquo;New Idea&rdquo; to get started.
+              </p>
             </div>
           ) : null}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <CrossIdeaInsights />
       </section>
     </main>
   )

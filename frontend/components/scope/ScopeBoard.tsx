@@ -58,9 +58,33 @@ export function ScopeBoard({
       </div>
 
       {readonly ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/45 backdrop-blur-[1px]">
-          <div className="rounded-md border border-black/20 bg-white px-3 py-1 text-xs font-medium tracking-wide text-black/70 uppercase">
-            Scope Locked
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/60 backdrop-blur-[2px]">
+          <div className="flex items-center gap-2 rounded-xl border border-[#b9eb10]/50 bg-white px-4 py-2 shadow-md">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              className="h-3.5 w-3.5 text-[#1e1e1e]/60"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="7"
+                width="10"
+                height="8"
+                rx="1.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M5 7V5a3 3 0 0 1 6 0v2"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-xs font-semibold tracking-wide text-[#1e1e1e]/70 uppercase">
+              Scope Locked
+            </span>
           </div>
         </div>
       ) : null}

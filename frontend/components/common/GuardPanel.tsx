@@ -14,12 +14,12 @@ export function GuardPanel({ title, description }: GuardPanelProps) {
   const startHref = activeIdeaId ? buildIdeaStepHref(activeIdeaId, 'idea-canvas') : '/ideas'
 
   return (
-    <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-6 shadow-sm">
+    <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/70 p-4 shadow-sm sm:p-6">
       <h1 className="text-xl font-semibold tracking-tight text-slate-900">{title}</h1>
       <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
       <Link
         href={startHref}
-        className="mt-5 inline-flex items-center rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm transition-all duration-200 hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-800 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px motion-reduce:transition-none"
+        className="mt-5 inline-flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 shadow-sm transition-all duration-200 hover:border-[#b9eb10] hover:bg-[#b9eb10]/10 hover:text-[#1e1e1e] focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px motion-reduce:transition-none sm:w-auto sm:justify-start"
       >
         Start from Idea Canvas
       </Link>

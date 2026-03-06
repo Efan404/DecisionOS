@@ -66,6 +66,10 @@ def _sse_event(event: str, payload: dict[str, object]) -> dict[str, str]:
     return {"event": event, "data": json.dumps(payload, ensure_ascii=False)}
 
 
+def _sse_agent_thought(agent: str, thought: str) -> dict[str, str]:
+    return _sse_event("agent_thought", {"agent": agent, "thought": thought})
+
+
 @router.post("/opportunity", response_model=OpportunityAgentResponse)
 async def post_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> OpportunityAgentResponse:
     _logger.info("agent.opportunity.start idea_id=%s version=%s", idea_id, payload.version)
@@ -437,6 +441,9 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
             yield _sse_event("error", {"code": "IDEA_VERSION_CONFLICT", "message": f"Version conflict: expected {current.version}, got {payload.version}"})
             return
 
+        yield _sse_agent_thought("Researcher", "Analyzing confirmed idea path and node context...")
+        yield _sse_agent_thought("Generator", "Generating 3 feasibility plans in parallel...")
+
         loop = asyncio.get_running_loop()
 
         # Launch all 3 plan requests concurrently in a thread pool (LLM calls are blocking I/O)
@@ -485,6 +492,8 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
                         )
                         yield _sse_event("error", {"code": "PLAN_GENERATION_FAILED", "message": "Failed to generate one of the plans"})
                         return
+
+        yield _sse_agent_thought("Critic", "Scoring plans on technical feasibility, market viability, execution risk...")
 
         from app.schemas.feasibility import FeasibilityOutput, Plan
         output = FeasibilityOutput(plans=[p for p in plans if p is not None])  # type: ignore[arg-type]
@@ -571,6 +580,8 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
 
         # Single LLM call: markdown + sections only
         yield _sse_event("progress", {"step": "generating_prd", "pct": 15})
+        yield _sse_agent_thought("Architect", "Reading confirmed scope baseline and path context...")
+        yield _sse_agent_thought("Generator", "Drafting product requirements document structure...")
 
         loop = asyncio.get_running_loop()
         try:
@@ -615,6 +626,7 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
         # yield _sse_event("backlog", {"items": [item.model_dump() for item in bl_result.backlog.items]})
         # --- END DISABLED ---
 
+        yield _sse_agent_thought("Reviewer", "PRD generation complete. Validating output...")
         yield _sse_event("progress", {"step": "saving", "pct": 90})
 
         try:

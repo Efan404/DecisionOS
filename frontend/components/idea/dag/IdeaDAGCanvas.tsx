@@ -70,6 +70,13 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
   // Loading a historical path from the backend should not lock the canvas.
   const [sessionConfirmed, setSessionConfirmed] = useState(false)
 
+  // Mobile detection (SSR-safe)
+  const [isMobile, setIsMobile] = useState(false)
+  const [landscapeDismissed, setLandscapeDismissed] = useState(false)
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768)
+  }, [])
+
   const [rfNodes, setRFNodes, onNodesChange] = useNodesState<DAGNodeType>([])
   const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState<DAGEdgeType>([])
 
@@ -228,14 +235,33 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
+          panOnDrag
+          zoomOnScroll
+          zoomOnPinch
           className="bg-[#0F172A]"
         >
           <Background color="#1E293B" gap={24} />
           <Controls className="!border-[#334155] !bg-[#1E293B]" />
         </ReactFlow>
+
+        {/* Mobile landscape hint banner */}
+        {isMobile && !landscapeDismissed && (
+          <div className="absolute top-2 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg bg-[#1e1e1e]/80 px-4 py-2 text-xs text-white backdrop-blur-sm">
+            <span>Rotate for best experience</span>
+            <button
+              type="button"
+              onClick={() => setLandscapeDismissed(true)}
+              className="text-white/60 hover:text-white"
+              aria-label="Dismiss hint"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="w-72 flex-shrink-0 border-l border-[#1E293B] bg-[#0A0F1A]">
+      {/* Desktop side panel */}
+      <div className="hidden w-72 flex-shrink-0 border-l border-[#1E293B] bg-[#0A0F1A] md:block">
         <NodeDetailPanel
           node={selectedNode}
           pathChain={selectedPathChain}
@@ -246,6 +272,22 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
           loading={expandingNodeId !== null}
         />
       </div>
+
+      {/* Mobile bottom sheet */}
+      {selectedNode && (
+        <div className="fixed right-0 bottom-0 left-0 z-30 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-[#1E293B] shadow-2xl md:hidden">
+          <div className="mx-auto mt-2 mb-4 h-1 w-10 rounded-full bg-white/20" />
+          <NodeDetailPanel
+            node={selectedNode}
+            pathChain={selectedPathChain}
+            onExpandAI={handleExpandAI}
+            onExpandUser={handleExpandUser}
+            onConfirmPath={handleConfirmPath}
+            isConfirmed={sessionConfirmed}
+            loading={expandingNodeId !== null}
+          />
+        </div>
+      )}
     </div>
   )
 }

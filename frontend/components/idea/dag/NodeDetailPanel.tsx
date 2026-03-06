@@ -61,7 +61,7 @@ export function NodeDetailPanel({
             <button
               onClick={() => setMode('ai-expand')}
               disabled={loading || isConfirmed}
-              className="w-full cursor-pointer rounded-lg border border-[#334155] bg-[#1E293B] px-3 py-2 text-sm text-[#F8FAFC] transition-all hover:border-[#22C55E] disabled:opacity-50"
+              className="w-full cursor-pointer rounded-lg border border-[#334155] bg-[#1E293B] px-3 py-2 text-sm text-[#F8FAFC] transition-all hover:border-[#b9eb10] disabled:opacity-50"
             >
               AI Expand
             </button>
@@ -118,7 +118,7 @@ export function NodeDetailPanel({
                   }
                 }}
                 disabled={loading || !userInput.trim()}
-                className="flex-1 cursor-pointer rounded-lg border border-[#22C55E]/40 bg-[#22C55E]/10 py-2 text-sm text-[#22C55E] transition-all hover:bg-[#22C55E]/20 disabled:opacity-50"
+                className="flex-1 cursor-pointer rounded-lg border border-[#b9eb10]/40 bg-[#b9eb10]/10 py-2 text-sm text-[#1e1e1e] transition-all hover:bg-[#b9eb10]/20 disabled:opacity-50"
               >
                 Generate
               </button>
@@ -137,7 +137,7 @@ export function NodeDetailPanel({
         <button
           onClick={onConfirmPath}
           disabled={loading || isConfirmed}
-          className="w-full cursor-pointer rounded-lg bg-[#22C55E] px-3 py-2.5 text-sm font-semibold text-[#0F172A] transition-all hover:bg-[#16A34A] disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full cursor-pointer rounded-lg bg-[#b9eb10] px-3 py-2.5 text-sm font-semibold text-[#1e1e1e] transition-all hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isConfirmed ? 'Path Confirmed ✓' : 'Confirm This Path'}
         </button>

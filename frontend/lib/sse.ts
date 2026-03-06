@@ -15,6 +15,7 @@ type StreamPostHandlers<TProgress = unknown, TPartial = unknown, TDone = unknown
   onPartial?: (data: TPartial) => void
   onDone?: (data: TDone) => void
   onError?: (error: unknown) => void
+  onAgentThought?: (data: { agent: string; thought: string }) => void
 }
 
 type SseErrorData = {
@@ -107,6 +108,11 @@ export const streamPost = async <
 
       if (parsed.event === 'partial') {
         handlers.onPartial?.(parsed.data as TPartial)
+        continue
+      }
+
+      if (parsed.event === 'agent_thought') {
+        handlers.onAgentThought?.(parsed.data as { agent: string; thought: string })
         continue
       }
 

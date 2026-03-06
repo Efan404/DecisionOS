@@ -38,6 +38,20 @@ function PlanCardSkeleton() {
   )
 }
 
+// Score color: green ≥7, yellow ≥4, red <4
+const scoreColor = (score: number, selected: boolean) => {
+  if (selected) return 'text-white/90'
+  if (score >= 7) return 'text-emerald-600'
+  if (score >= 4) return 'text-amber-600'
+  return 'text-red-500'
+}
+
+const scoreBarColor = (score: number) => {
+  if (score >= 7) return 'bg-[#b9eb10]'
+  if (score >= 4) return 'bg-amber-400'
+  return 'bg-red-400'
+}
+
 export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }: PlanCardsProps) {
   const pathname = usePathname()
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
@@ -49,7 +63,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
   const skeletonCount = Math.max(0, loadingSlots - plans.length)
 
   return (
-    <section className="grid gap-4 md:grid-cols-3">
+    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {plans.map((plan) => {
         const selected = selectedPlanId === plan.id
 
@@ -59,13 +73,13 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
             className={[
               'rounded-2xl border p-4 shadow-sm transition-all duration-200 motion-reduce:transition-none',
               selected
-                ? 'border-slate-900 bg-slate-900 text-slate-50 shadow-md shadow-slate-900/20'
-                : 'border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:shadow-md',
+                ? 'border-[#b9eb10] bg-[#1e1e1e] text-slate-50 shadow-md shadow-[#b9eb10]/20'
+                : 'border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-[#b9eb10]/60 hover:shadow-md',
             ].join(' ')}
           >
             <Link
               href={buildDetailHref(plan.id)}
-              className="group block w-full text-left focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="group block w-full text-left focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-base font-semibold tracking-tight">{plan.name}</h2>
@@ -74,7 +88,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                     'rounded-md border px-2 py-1 text-[11px] font-medium',
                     selected
                       ? 'border-slate-200/20 bg-white/10 text-slate-100'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-cyan-200 group-hover:bg-cyan-50 group-hover:text-cyan-700',
+                      : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-[#b9eb10]/40 group-hover:bg-[#b9eb10]/10 group-hover:text-[#1e1e1e]',
                   ].join(' ')}
                 >
                   Overall {plan.score_overall.toFixed(1)}
@@ -83,20 +97,39 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
               <p className="mt-2 text-sm leading-6 text-current/80">{plan.summary}</p>
               <div
                 className={[
-                  'mt-4 grid grid-cols-3 gap-2 rounded-lg border p-3 text-xs',
+                  'mt-4 rounded-lg border p-3 text-xs',
                   selected ? 'border-slate-200/20 bg-white/5' : 'border-slate-200 bg-slate-50/80',
                 ].join(' ')}
               >
-                <div>Tech: {plan.scores.technical_feasibility.toFixed(1)}</div>
-                <div>Market: {plan.scores.market_viability.toFixed(1)}</div>
-                <div>Risk: {plan.scores.execution_risk.toFixed(1)}</div>
+                {[
+                  { label: 'Tech', score: plan.scores.technical_feasibility },
+                  { label: 'Market', score: plan.scores.market_viability },
+                  { label: 'Risk', score: plan.scores.execution_risk },
+                ].map(({ label, score }) => (
+                  <div key={label} className="mb-2 last:mb-0">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className={selected ? 'text-white/60' : 'text-slate-500'}>{label}</span>
+                      <span className={`font-bold ${scoreColor(score, selected)}`}>
+                        {score.toFixed(1)}
+                      </span>
+                    </div>
+                    <div
+                      className={`h-1 w-full overflow-hidden rounded-full ${selected ? 'bg-white/10' : 'bg-slate-200'}`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${scoreBarColor(score)}`}
+                        style={{ width: `${(score / 10) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </Link>
             <div className="mt-4 flex flex-wrap gap-2">
               {onSelect ? (
                 <button
                   type="button"
-                  className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
                   onClick={() => onSelect(plan.id)}
                 >
                   Select
@@ -104,7 +137,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
               ) : null}
               <Link
                 href={buildDetailHref(plan.id)}
-                className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 View Detail
               </Link>

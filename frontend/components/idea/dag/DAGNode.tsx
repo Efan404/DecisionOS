@@ -19,11 +19,11 @@ export function DAGNode({ data }: NodeProps<DAGNodeType>) {
         'relative max-w-[200px] cursor-pointer rounded-xl border px-4 py-3 text-sm transition-all duration-200',
         'bg-[#0F172A] text-[#F8FAFC]',
         data.isSelected
-          ? 'border-[#22C55E] shadow-[0_0_16px_rgba(34,197,94,0.4)]'
+          ? 'border-[#b9eb10] shadow-[0_0_16px_rgba(185,235,16,0.4)]'
           : data.isOnSelectedPath
-            ? 'border-[#22C55E]/50'
+            ? 'border-[#b9eb10]/50'
             : 'border-[#334155] hover:border-[#64748B] hover:shadow-md',
-        data.status === 'confirmed' && 'border-[#22C55E] bg-[#22C55E]/10',
+        data.status === 'confirmed' && 'border-[#b9eb10] bg-[#b9eb10]/10',
         data.status === 'generating' && 'animate-pulse border-dashed border-[#334155]'
       )}
     >

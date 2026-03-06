@@ -328,7 +328,7 @@ export function PrdView({
       {output ? (
         <div className="space-y-4">
           {/* Tab bar — only PRD tab active; others disabled */}
-          <div className="flex w-fit items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+          <div className="flex w-full max-w-fit items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
