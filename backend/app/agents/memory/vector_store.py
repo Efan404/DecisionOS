@@ -123,10 +123,16 @@ class VectorStore:
 
 
 def get_vector_store() -> VectorStore:
-    """Module-level singleton factory. Thread-safe via double-checked locking."""
+    """Module-level singleton factory. Thread-safe via double-checked locking.
+
+    Uses DECISIONOS_CHROMA_PATH for persistence (default: ./chroma_data).
+    Set DECISIONOS_CHROMA_PATH="" to force in-memory mode (useful in tests).
+    """
     global _singleton  # noqa: PLW0603
     if _singleton is None:
         with _singleton_lock:
             if _singleton is None:
-                _singleton = VectorStore(persist_directory=None)
+                from app.core.settings import get_settings
+                chroma_path = get_settings().chroma_path  # None or "" → in-memory
+                _singleton = VectorStore(persist_directory=chroma_path or None)
     return _singleton

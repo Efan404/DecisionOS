@@ -6,11 +6,13 @@
 
 **Architecture:**
 
-- **News Monitor**: On each scheduler run, fetch top HN stories, embed them into ChromaDB `news_items` collection, then match against `idea_summaries` by cosine similarity. Only create notifications for ideas where similarity > threshold (0.35). Deduplicate by storing `news_id` in notification metadata.
-- **Cross-Idea Analyzer**: The vector store's `idea_summaries` collection is populated whenever an idea completes the Opportunity stage (already done via `memory_writer_node`). The analyzer uses the existing `match_news_to_ideas`-style search. The gap is that idea seeds aren't being written to the vector store when ideas are created — fix by hooking into idea creation and stage transitions.
-- **Scheduler**: Change from 6-hour fixed interval to smarter triggering: run on startup (with 60s delay) and then every 6 hours.
+- **Source of truth is SQLite, not ChromaDB.** Notifications, ideas, and all structured data live in SQLite. ChromaDB is purely a semantic matching cache — it holds embeddings to find which ideas are relevant to news items, not to store authoritative data. If ChromaDB is wiped, only the matching accuracy is temporarily lost; no user data is lost.
+- **News Monitor**: On each scheduler run, fetch HN stories **matching keywords from idea titles** (not a generic "top stories" feed — the Algolia API is a keyword search, not a trending feed). Embed each story into ChromaDB `news_items` collection, then match against `idea_summaries` by cosine similarity. Only create notifications where distance < threshold (0.35). Deduplicate using a composite key `(type, idea_id, news_id)` — check for an existing notification with matching `type="news_match"`, `metadata.idea_id`, and `metadata.news_id` before inserting.
+- **Cross-Idea Analyzer**: Vector store is populated when ideas are created/updated (see Task 4). Dedup uses a sorted pair key: `sorted([idea_a_id, idea_b_id])` stored in notification metadata; skip inserting if both IDs already appear together in a prior `type="cross_idea_insight"` notification.
+- **Scheduler**: The startup job must use `trigger="date", run_date=datetime.now(tz) + timedelta(seconds=60)` — **do not set `run_date=None`** (that fires immediately, before app is ready). The 6-hour recurring job uses `trigger="interval"`.
+- **ChromaDB persistence**: ChromaDB is configured via `DECISIONOS_CHROMA_PATH` env var (default: `./chroma_data`). Tests set `DECISIONOS_CHROMA_PATH=""` to force in-memory mode — **this fix is already implemented**.
 
-**Tech Stack:** Python 3.12, `httpx` (already in requirements for async HTTP), ChromaDB (already installed), APScheduler (already installed), FastAPI.
+**Tech Stack:** Python 3.12, `httpx` (**not yet in requirements.txt — must be added**), ChromaDB (already installed), APScheduler (already installed), FastAPI.
 
 **Key files:**
 
@@ -23,39 +25,39 @@
 
 ---
 
-## Task 1: Verify httpx is available
+## Task 1: Add httpx to requirements (it is NOT currently there)
 
 **Files:**
 
-- Read: `backend/requirements.txt`
+- Modify: `backend/requirements.txt`
 
-**Step 1: Check httpx**
+**Step 1: Check httpx (expect it to be missing)**
 
 ```bash
-grep httpx backend/requirements.txt
+grep httpx backend/requirements.txt || echo "NOT FOUND — must add"
 ```
 
-If not present, add it:
+**Step 2: Add it**
 
 ```bash
 echo "httpx>=0.27.0" >> backend/requirements.txt
 cd backend && UV_CACHE_DIR=../.uv-cache uv pip install httpx
 ```
 
-**Step 2: Verify import**
+**Step 3: Verify import**
 
 ```bash
 cd backend
 PYTHONPATH=. .venv/bin/python -c "import httpx; print('httpx', httpx.__version__)"
 ```
 
-Expected: prints version string.
+Expected: prints version string like `httpx 0.27.2`.
 
-**Step 3: Commit if requirements changed**
+**Step 4: Commit**
 
 ```bash
 git add backend/requirements.txt
-git commit -m "chore: ensure httpx in requirements for HN API calls"
+git commit -m "chore: add httpx to requirements for HN Algolia API calls"
 ```
 
 ---
@@ -123,9 +125,20 @@ def fetch_top_stories(query: str, limit: int = 10) -> list[HNStory]:
         return []
 
 
-def fetch_top_tech_stories(limit: int = 20) -> list[HNStory]:
-    """Fetch recent HN tech stories (broad query for news monitor baseline)."""
-    return fetch_top_stories(query="product startup AI developer", limit=limit)
+def fetch_stories_for_topics(topics: list[str], limit_per_topic: int = 5) -> list[HNStory]:
+    """Fetch HN stories for each topic keyword and deduplicate by story ID.
+
+    NOTE: The Algolia API is a keyword search, NOT a "top stories" or trending feed.
+    Use specific topic keywords derived from your idea titles/seeds for best results.
+    A generic query like 'product startup AI' returns different (and often irrelevant) results
+    compared to topic-specific queries like 'mobile payment wallet India'.
+    """
+    seen: dict[str, HNStory] = {}
+    for topic in topics:
+        for story in fetch_top_stories(query=topic, limit=limit_per_topic):
+            if story.id not in seen:
+                seen[story.id] = story
+    return list(seen.values())
 ```
 
 **Step 2: Write a test**
@@ -204,7 +217,7 @@ from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 
 from app.core import ai_gateway
-from app.core.hn_client import fetch_top_tech_stories, fetch_top_stories
+from app.core.hn_client import fetch_stories_for_topics
 from app.core.time import utc_now_iso
 from app.agents.memory.vector_store import get_vector_store
 
@@ -214,14 +227,45 @@ SIMILARITY_THRESHOLD = 0.35  # cosine distance below this = relevant match
 
 class NewsMonitorState(TypedDict):
     user_id: str
-    idea_ids: list[str]
+    idea_summaries: list[dict]   # [{idea_id, summary}] — loaded from vector store
     notifications: list[dict]
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
+def _load_ideas_for_topics(state: NewsMonitorState) -> dict[str, object]:
+    """Load idea summaries from vector store to derive search topics."""
+    vs = get_vector_store()
+    data = vs._ideas.get(include=["documents", "metadatas"])
+    ids = data.get("ids") or []
+    docs = data.get("documents") or []
+    summaries = [{"idea_id": id_, "summary": doc} for id_, doc in zip(ids, docs) if doc]
+    thought = {
+        "agent": "news_monitor",
+        "action": "loaded_ideas",
+        "detail": f"Loaded {len(summaries)} ideas from vector store for topic extraction",
+        "timestamp": utc_now_iso(),
+    }
+    return {"idea_summaries": summaries, "agent_thoughts": [thought]}
+
+
 def _fetch_news(state: NewsMonitorState) -> dict[str, object]:
-    """Fetch recent HN stories and store them in the vector store."""
-    stories = fetch_top_tech_stories(limit=20)
+    """Fetch recent HN stories for topics derived from idea summaries.
+
+    IMPORTANT: The Algolia API is keyword search, not a trending feed.
+    We extract topic keywords from idea titles for targeted results.
+    """
+    summaries = state.get("idea_summaries", [])
+    # Extract first 3-4 words from each idea title as search topics
+    topics = []
+    for s in summaries[:10]:  # cap at 10 ideas to avoid rate limits
+        words = s["summary"].split()[:4]
+        if words:
+            topics.append(" ".join(words))
+
+    if not topics:
+        topics = ["AI startup product"]  # fallback if no ideas exist yet
+
+    stories = fetch_stories_for_topics(topics, limit_per_topic=5)
 
     vs = get_vector_store()
     stored = 0
@@ -309,9 +353,11 @@ def _match_news_to_ideas(state: NewsMonitorState) -> dict[str, object]:
 
 def build_news_monitor_graph():
     graph = StateGraph(NewsMonitorState)
+    graph.add_node("load_ideas_for_topics", _load_ideas_for_topics)
     graph.add_node("fetch_news", _fetch_news)
     graph.add_node("match_news_to_ideas", _match_news_to_ideas)
-    graph.add_edge(START, "fetch_news")
+    graph.add_edge(START, "load_ideas_for_topics")
+    graph.add_edge("load_ideas_for_topics", "fetch_news")
     graph.add_edge("fetch_news", "match_news_to_ideas")
     graph.add_edge("match_news_to_ideas", END)
     return graph.compile()
@@ -344,13 +390,16 @@ git commit -m "feat(proactive): news_monitor fetches real HN stories and matches
 
 The cross-idea analyzer only works if ideas are in the vector store. Currently `memory_writer_node` writes ideas when an Opportunity agent runs — but newly created ideas have no vector entry until the Opportunity stage completes.
 
-**Step 1: Read ideas.py route**
+**Step 1: Read ideas.py route to understand what fields are supported**
 
 ```bash
-grep -n "create_idea\|POST\|def " backend/app/routes/ideas.py | head -20
+grep -n "create_idea\|PATCH\|IdeaUpdate\|idea_seed\|def " backend/app/routes/ideas.py | head -30
+cat backend/app/db/repo_ideas.py | grep -A20 "class IdeaUpdate\|def update_idea"
 ```
 
-**Step 2: Add vector store writes on idea creation and title update**
+**IMPORTANT**: Check whether PATCH /ideas accepts `idea_seed` before assuming it does. If `IdeaUpdate` schema does not include `idea_seed`, do NOT add vector store writes for it in the PATCH handler — only write the `title` (which is always available).
+
+**Step 2: Add vector store writes on idea creation**
 
 In the `POST /ideas` (create) handler, after `_repo.create_idea(...)`:
 
@@ -361,19 +410,23 @@ from app.agents.memory.vector_store import get_vector_store as _get_vs
 try:
     _get_vs().add_idea_summary(
         idea_id=idea.id,
-        summary=f"{idea.title}. {idea.idea_seed or ''}".strip(". "),
+        summary=idea.title,  # idea_seed not available at creation time
     )
 except Exception:
     pass  # Vector store failure must never break idea creation
 ```
 
-In the `PATCH /ideas/{idea_id}` (update) handler, after `_repo.update_idea(...)`, if title or idea_seed changed:
+**Step 3: Add vector store write after Opportunity agent completes (memory_writer_node)**
+
+The `memory_writer_node` in `backend/app/agents/graphs/idea/memory_writer.py` already writes to the vector store after an Opportunity run. Verify it uses `idea.title + idea.idea_seed` as the summary. If it does, **no change needed** — the vector store will be enriched automatically once users run the Opportunity agent.
+
+In the `PATCH /ideas/{idea_id}` (update) handler, only write to vector store if PATCH supports `title` changes:
 
 ```python
 try:
     _get_vs().add_idea_summary(
         idea_id=updated.id,
-        summary=f"{updated.title}. {updated.idea_seed or ''}".strip(". "),
+        summary=updated.title,
     )
 except Exception:
     pass
@@ -610,16 +663,21 @@ git commit -m "feat(proactive): cross-idea analyzer uses vector similarity + AI 
 cat backend/app/core/scheduler.py
 ```
 
-**Step 2: Add deduplication — skip creating notifications for news_ids already in DB**
+**Step 2: Add deduplication — skip creating notifications for known (type, idea_id, news_id) combos**
 
-In `run_proactive_agents`, before creating a news notification, check if one already exists for that `news_id`:
+Dedup must use a **composite key** — `news_id` alone is not enough because the same news story could match multiple ideas. The correct key is `(type="news_match", idea_id, news_id)`.
+
+For cross-idea notifications, the key is `sorted([idea_a_id, idea_b_id])` stored in metadata — skip if both appear together in an existing `cross_idea_insight` notification.
+
+In `run_proactive_agents`, before creating a news notification:
 
 ```python
 # In the news monitor section inside run_proactive_agents:
 for notif in result.get("notifications", []):
     news_id = notif.get("news_id", "")
-    # Deduplicate: skip if we already have a notification for this news+idea pair
-    if news_id and _notif_repo.exists_for_metadata_key("news_id", news_id):
+    idea_id = notif.get("idea_id", "")
+    # Deduplicate: skip if we already have a notification for this EXACT (news_id, idea_id) pair
+    if news_id and idea_id and _notif_repo.exists_news_match(news_id=news_id, idea_id=idea_id):
         continue
     record = _notif_repo.create(
         type="news_match",
@@ -630,42 +688,95 @@ for notif in result.get("notifications", []):
     created_notifications.append(record)
 ```
 
-**Step 3: Add `exists_for_metadata_key` to NotificationRepository**
+For cross-idea analysis:
+
+```python
+for insight in result.get("insights", []):
+    idea_a_id = insight.get("idea_a_id", "")
+    idea_b_id = insight.get("idea_b_id", "")
+    # Deduplicate: sorted pair so (a,b) == (b,a)
+    if idea_a_id and idea_b_id and _notif_repo.exists_cross_idea(idea_a_id, idea_b_id):
+        continue
+    record = _notif_repo.create(
+        type="cross_idea_insight",
+        title=f"Related ideas detected",
+        body=insight.get("analysis", "These ideas share common themes."),
+        metadata=insight,
+    )
+    created_notifications.append(record)
+```
+
+**Step 3: Add `exists_news_match` and `exists_cross_idea` to NotificationRepository**
 
 In `backend/app/db/repo_notifications.py`, add:
 
 ```python
-def exists_for_metadata_key(self, key: str, value: str) -> bool:
-    """Return True if any notification has metadata_json containing {key: value}."""
+def exists_news_match(self, news_id: str, idea_id: str) -> bool:
+    """Return True if a news_match notification already exists for this (news_id, idea_id) pair."""
     with get_connection() as conn:
         row = conn.execute(
             """
             SELECT id FROM notification
-            WHERE json_extract(metadata_json, '$.' || ?) = ?
+            WHERE type = 'news_match'
+              AND json_extract(metadata_json, '$.news_id') = ?
+              AND json_extract(metadata_json, '$.idea_id') = ?
             LIMIT 1
             """,
-            (key, value),
+            (news_id, idea_id),
+        ).fetchone()
+    return row is not None
+
+
+def exists_cross_idea(self, idea_a_id: str, idea_b_id: str) -> bool:
+    """Return True if a cross_idea_insight notification already exists for this idea pair.
+
+    Order-independent: (a, b) == (b, a).
+    """
+    pair_a, pair_b = sorted([idea_a_id, idea_b_id])
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id FROM notification
+            WHERE type = 'cross_idea_insight'
+              AND (
+                (json_extract(metadata_json, '$.idea_a_id') = ? AND json_extract(metadata_json, '$.idea_b_id') = ?)
+                OR
+                (json_extract(metadata_json, '$.idea_a_id') = ? AND json_extract(metadata_json, '$.idea_b_id') = ?)
+              )
+            LIMIT 1
+            """,
+            (pair_a, pair_b, pair_b, pair_a),
         ).fetchone()
     return row is not None
 ```
 
-**Step 4: Add startup delay to scheduler**
+**Step 4: Fix scheduler startup delay**
 
-In `create_scheduler()`:
+**IMPORTANT**: `trigger="date", run_date=None` fires the job **immediately** when `scheduler.start()` is called, before the app is ready. Do NOT use `run_date=None` and patch it later — APScheduler does not support deferred `run_date` on `DateTrigger`.
+
+The correct approach: compute `run_date` at job-registration time, **before** calling `scheduler.start()`.
+
+In `create_scheduler()` (or wherever jobs are registered), pass `run_date` directly:
 
 ```python
+from datetime import datetime, timezone, timedelta
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
-    # Run once 60 seconds after startup (let the app fully initialize)
+
+    # WRONG (fires immediately): trigger="date", run_date=None
+    # RIGHT: compute run_date now, before scheduler.start()
+    startup_run_time = datetime.now(timezone.utc) + timedelta(seconds=60)
+
     scheduler.add_job(
         run_proactive_agents,
         trigger="date",
-        run_date=None,  # will be set dynamically in start_scheduler
+        run_date=startup_run_time,  # 60s from now at registration time
         id="proactive_agents_startup",
         replace_existing=True,
         kwargs={"trigger_type": "startup"},
     )
-    # Then every 6 hours
+    # Recurring every 6 hours
     scheduler.add_job(
         run_proactive_agents,
         trigger="interval",
@@ -677,20 +788,7 @@ def create_scheduler() -> AsyncIOScheduler:
     return scheduler
 ```
 
-In `app/main.py` (or wherever the scheduler is started), set the startup run time:
-
-```python
-from datetime import datetime, timezone, timedelta
-
-scheduler = create_scheduler()
-# Patch the startup job to run 60s from now
-startup_job = scheduler.get_job("proactive_agents_startup")
-if startup_job:
-    startup_job.modify(
-        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=60)
-    )
-scheduler.start()
-```
+**No patching needed in `main.py`** — `create_scheduler()` must be called when the app is ready (e.g., in a FastAPI `lifespan` handler), so `datetime.now()` inside `create_scheduler()` is already post-startup.
 
 **Step 5: Run tests**
 
@@ -711,7 +809,52 @@ git commit -m "feat(proactive): add notification deduplication and startup delay
 
 ---
 
-## Task 7: End-to-end smoke test for proactive agents
+## Task 7: Add targeted unit tests and end-to-end smoke test
+
+**Why new tests are needed**: The existing `test_proactive_agents.py` tests only verify that graphs return some output — they do NOT assert:
+
+- Network failures in `hn_client` still produce empty lists (not exceptions)
+- Duplicate notifications are not created when the scheduler runs twice with the same news
+- Data loss does not occur when ChromaDB restarts (because SQLite is source of truth)
+- Cross-idea dedup prevents duplicate `cross_idea_insight` notifications for the same pair
+
+These assertions must be added as explicit test cases. Write them **before** implementing the corresponding code (TDD).
+
+**New test cases to write:**
+
+```python
+# backend/tests/test_news_dedup.py
+
+def test_news_match_no_duplicate_notification(client, auth_headers):
+    """Running news scan twice with the same news/idea pair creates only 1 notification."""
+    # Setup: create an idea, add it to vector store, mock HN to return same story
+    # Run: POST /insights/news-scan twice
+    # Assert: notification count for that news_id+idea_id is exactly 1
+
+def test_cross_idea_no_duplicate_notification(client, auth_headers):
+    """Cross-idea analysis twice with same idea pair creates only 1 notification."""
+    # Setup: add 2 ideas to vector store with high similarity
+    # Run: POST /insights/cross-idea-analysis twice
+    # Assert: notification count for that pair is exactly 1
+```
+
+**Step 1: Write the failing tests (they will fail until dedup is implemented)**
+
+**Step 2: Run them to confirm they fail**
+
+```bash
+cd backend
+DECISIONOS_SEED_ADMIN_USERNAME=admin DECISIONOS_SEED_ADMIN_PASSWORD=admin \
+  PYTHONPATH=. .venv/bin/pytest tests/test_news_dedup.py -v --tb=short
+```
+
+Expected: FAIL with "expected 1 notification, got 2" or similar.
+
+**Step 3: Implement dedup (Task 6), then re-run to confirm they pass.**
+
+---
+
+## Task 8: End-to-end smoke test for proactive agents
 
 **Step 1: Start backend with real LLM_MODE**
 

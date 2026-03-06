@@ -10,6 +10,7 @@ class Settings:
     app_name: str
     cors_origins: tuple[str, ...]
     db_path: str
+    chroma_path: str | None  # None = in-memory (tests); path = persistent (prod)
     secret_key: str
     auth_disabled: bool
     auth_session_ttl_seconds: int
@@ -84,6 +85,7 @@ def get_settings() -> Settings:
         app_name="DecisionOS API",
         cors_origins=_parse_cors_origins(os.getenv("DECISIONOS_CORS_ORIGINS")),
         db_path=os.getenv("DECISIONOS_DB_PATH", "./decisionos.db").strip() or "./decisionos.db",
+        chroma_path=os.getenv("DECISIONOS_CHROMA_PATH", "./chroma_data").strip() or "./chroma_data",
         secret_key=(
             os.getenv("DECISIONOS_SECRET_KEY", "").strip()
             or "decisionos-dev-secret-change-me"
