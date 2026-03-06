@@ -32,7 +32,7 @@ export function EntryCards() {
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
 
   return (
-    <section className="mx-auto grid max-w-5xl gap-4 p-6 md:grid-cols-2">
+    <section className="mx-auto grid max-w-5xl grid-cols-1 gap-4 px-4 py-6 sm:grid-cols-2 sm:px-6">
       {entries.map((entry) => (
         <Link
           key={entry.step}

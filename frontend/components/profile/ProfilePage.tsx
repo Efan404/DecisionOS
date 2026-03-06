@@ -99,7 +99,7 @@ export function ProfilePage() {
 
   return (
     <main>
-      <section className="mx-auto mt-8 w-full max-w-2xl space-y-6 px-6 pb-16">
+      <section className="mx-auto mt-8 w-full max-w-2xl space-y-6 px-4 pb-16 sm:px-6">
         <h1 className="text-lg font-bold tracking-tight text-[#1e1e1e]">Profile</h1>
 
         {/* Account section */}
