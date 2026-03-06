@@ -149,4 +149,13 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         created_at TEXT NOT NULL
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS user_preferences (
+        user_id TEXT PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE,
+        email TEXT,
+        notify_enabled INTEGER NOT NULL DEFAULT 0,
+        notify_types TEXT NOT NULL DEFAULT '["news_match","cross_idea_insight","pattern_learned"]',
+        updated_at TEXT NOT NULL
+    );
+    """,
 )
