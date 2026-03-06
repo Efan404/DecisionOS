@@ -36,7 +36,7 @@ export function IdeasDashboard() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <section className="rounded-2xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

@@ -635,13 +635,13 @@ export function ScopeFreezePage() {
         ) : null}
 
         {/* Action buttons */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           {readonly ? (
             <button
               type="button"
               onClick={handleCreateNewVersion}
               disabled={saving}
-              className="rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Create New Version
             </button>
@@ -650,7 +650,7 @@ export function ScopeFreezePage() {
               type="button"
               onClick={handleFreeze}
               disabled={saving || loading || !draft}
-              className="rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {saving ? 'Freezing…' : 'Freeze Baseline'}
             </button>
@@ -659,7 +659,7 @@ export function ScopeFreezePage() {
             type="button"
             onClick={handleContinueToPrd}
             disabled={!canEnterPrd || saving}
-            className="rounded-xl bg-[#b9eb10] px-4 py-2 text-sm font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl bg-[#b9eb10] px-4 py-2 text-sm font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             Continue to PRD →
           </button>
