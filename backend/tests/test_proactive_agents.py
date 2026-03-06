@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
+os.environ.setdefault("DECISIONOS_CHROMA_PATH", "")  # force in-memory ChromaDB in tests
 
 from unittest.mock import patch
 
@@ -16,12 +17,19 @@ def _mock_generate_text(**kwargs):
 
 
 @patch("app.core.ai_gateway.generate_text", side_effect=_mock_generate_text)
-def test_news_monitor_graph_runs(mock_text):
+@patch("app.core.hn_client.httpx.get")
+def test_news_monitor_graph_runs(mock_http_get, mock_text):
     """News monitor graph executes without errors and produces notifications."""
+    from unittest.mock import MagicMock
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"hits": []}
+    mock_response.raise_for_status.return_value = None
+    mock_http_get.return_value = mock_response
+
     graph = build_news_monitor_graph()
     result = graph.invoke({
         "user_id": "default",
-        "idea_ids": ["demo-idea-1", "demo-idea-2"],
+        "idea_summaries": [],
         "notifications": [],
         "agent_thoughts": [],
     })
