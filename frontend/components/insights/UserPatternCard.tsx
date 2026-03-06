@@ -52,16 +52,16 @@ export function UserPatternCard() {
           No patterns learned yet. Make decisions across multiple ideas to build your profile.
         </p>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {entries.map(([key, value]) => (
             <li
               key={key}
-              className="flex items-center justify-between gap-3 rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-3 py-2.5"
             >
               <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/60 uppercase">
                 {key.replace(/_/g, ' ')}
               </span>
-              <span className="rounded-full bg-[#b9eb10] px-2 py-0.5 text-[11px] font-bold text-[#1e1e1e]">
+              <span className="shrink-0 rounded-full bg-[#b9eb10] px-2.5 py-0.5 text-[11px] font-bold text-[#1e1e1e]">
                 {value}
               </span>
             </li>
