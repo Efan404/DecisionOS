@@ -42,7 +42,7 @@ class ProfileRepository:
                     notify_types=["news_match", "cross_idea_insight", "pattern_learned"],
                     updated_at=now,
                 )
-        return self._row_to_prefs(row)
+            return self._row_to_prefs(row)
 
     def update(
         self,

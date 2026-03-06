@@ -4,10 +4,26 @@ import os
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
 
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=False)
+def clean_admin_prefs():
+    from app.db.engine import db_session
+    from app.db.repo_auth import AuthRepository
+    auth = AuthRepository()
+    user = auth.get_user_by_username("admin")
+    if user:
+        with db_session() as conn:
+            conn.execute("DELETE FROM user_preferences WHERE user_id = ?", (user.id,))
+    yield
+    if user:
+        with db_session() as conn:
+            conn.execute("DELETE FROM user_preferences WHERE user_id = ?", (user.id,))
 
 
 def _auth_header():
@@ -16,7 +32,7 @@ def _auth_header():
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_get_profile():
+def test_get_profile(clean_admin_prefs):
     headers = _auth_header()
     resp = client.get("/profile", headers=headers)
     assert resp.status_code == 200
@@ -27,14 +43,14 @@ def test_get_profile():
     assert "notify_types" in data
 
 
-def test_patch_profile_email():
+def test_patch_profile_email(clean_admin_prefs):
     headers = _auth_header()
     resp = client.patch("/profile", json={"email": "admin@example.com"}, headers=headers)
     assert resp.status_code == 200
     assert resp.json()["email"] == "admin@example.com"
 
 
-def test_patch_profile_notifications():
+def test_patch_profile_notifications(clean_admin_prefs):
     headers = _auth_header()
     resp = client.patch(
         "/profile",

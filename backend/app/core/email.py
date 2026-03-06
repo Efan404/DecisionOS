@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 import os
 import smtplib
@@ -30,14 +31,18 @@ def send_notification_email(*, to: str, notification: NotificationRecord) -> boo
         logger.debug("email.send skipped — SMTP_HOST not configured")
         return False
 
+    safe_title = html.escape(notification.title)
+    safe_body = html.escape(notification.body)
+    safe_type = html.escape(notification.type)
+
     subject = f"[DecisionOS] {notification.title}"
     body_html = f"""
 <html><body>
-<h2>{notification.title}</h2>
-<p>{notification.body}</p>
+<h2>{safe_title}</h2>
+<p>{safe_body}</p>
 <hr>
 <p style="color:#888;font-size:12px;">
-  Notification type: {notification.type}<br>
+  Notification type: {safe_type}<br>
   You can manage your notification preferences in your
   <a href="http://localhost:3000/profile">Profile settings</a>.
 </p>

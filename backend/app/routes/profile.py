@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.core.auth import AuthenticatedUser, require_authenticated_user
 from app.db.repo_profile import ProfileRepository
@@ -24,7 +24,7 @@ class ProfileOut(BaseModel):
 
 
 class ProfilePatch(BaseModel):
-    email: str | None = None
+    email: EmailStr | None = None
     notify_enabled: bool | None = None
     notify_types: list[str] | None = None
 
@@ -43,9 +43,6 @@ def get_profile(
     )
 
 
-_PATCH_SENTINEL = object()
-
-
 @router.patch("", response_model=ProfileOut)
 def patch_profile(
     payload: ProfilePatch,
@@ -58,7 +55,7 @@ def patch_profile(
 
     # Build kwargs — only pass email if it was explicitly set in the payload
     update_kwargs: dict = {"user_id": current_user.id}
-    if payload.email is not None:
+    if "email" in payload.model_fields_set:
         update_kwargs["email"] = payload.email
     if payload.notify_enabled is not None:
         update_kwargs["notify_enabled"] = payload.notify_enabled
