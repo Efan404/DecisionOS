@@ -473,8 +473,8 @@ def _insert_notifications(conn: sqlite3.Connection, now: str) -> None:
         (
             "demo-notif-3", "default", "cross_idea_insight",
             "Related ideas detected",
-            "Your AI Recipe Recommender and Local Event Discovery App both leverage location-based personalization and user preference learning. Consider shared infrastructure for recommendation engines and preference profiles.",
-            {"idea_a_id": DEMO_IDEA_1, "idea_b_id": DEMO_IDEA_2, "analysis": "Both ideas leverage location-based personalization and user preference learning. Shared recommendation engine infrastructure could accelerate both products."},
+            "Your AI Recipe Recommender and Local Event Discovery App both rely on AI-driven personalized recommendation engines — the Recipe app learns taste preferences to rank recipes, while the Event app learns interest preferences to rank local events. A shared user-preference learning pipeline and ranking algorithm could serve both products.",
+            {"idea_a_id": DEMO_IDEA_1, "idea_b_id": DEMO_IDEA_2, "analysis": "Both products need an AI recommendation engine that learns user preferences over time. The Recipe app ranks meals by taste/dietary history; the Event app ranks activities by attendance/interest history. A shared preference-learning pipeline and ranking service could accelerate development of both."},
         ),
         (
             "demo-notif-4", "default", "pattern_learned",

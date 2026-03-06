@@ -126,17 +126,28 @@ async def trigger_pattern_learning():
 @router.get("/cross-idea")
 async def get_cross_idea_insights():
     """Return existing cross-idea insights from notification table (no LLM call)."""
+    import json as _json
+    from app.db.repo_ideas import IdeaRepository
+    _idea_repo = IdeaRepository()
+
+    # Build id->title lookup
+    all_ideas, _ = _idea_repo.list_ideas(statuses=["draft", "active", "frozen"], limit=100)
+    title_map = {idea.id: idea.title for idea in all_ideas}
+
     records = _notif_repo.list_by_type("cross_idea_insight")
     insights = []
     for r in records:
-        import json as _json
         try:
             meta = _json.loads(r.metadata_json) if r.metadata_json else {}
         except Exception:
             meta = {}
+        idea_a_id = meta.get("idea_a_id", "")
+        idea_b_id = meta.get("idea_b_id", "")
         insights.append({
-            "idea_a_id": meta.get("idea_a_id", ""),
-            "idea_b_id": meta.get("idea_b_id", ""),
+            "idea_a_id": idea_a_id,
+            "idea_b_id": idea_b_id,
+            "idea_a_title": title_map.get(idea_a_id, ""),
+            "idea_b_title": title_map.get(idea_b_id, ""),
             "analysis": meta.get("analysis") or r.body,
         })
     return {"insights": insights}

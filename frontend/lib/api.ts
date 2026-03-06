@@ -414,6 +414,8 @@ export const dismissNotification = async (id: string): Promise<boolean> => {
 export type CrossIdeaInsight = {
   idea_a_id?: string
   idea_b_id?: string
+  idea_a_title?: string
+  idea_b_title?: string
   analysis?: string
   [key: string]: unknown
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 
 import { getCrossIdeaInsights, type CrossIdeaInsight } from '../../lib/api'
-import { HoverCard } from '../common/HoverCard'
 
 export function CrossIdeaInsights() {
   const [insights, setInsights] = useState<CrossIdeaInsight[]>([])
@@ -73,22 +72,10 @@ export function CrossIdeaInsights() {
               className="rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3"
             >
               {insight.idea_a_id && insight.idea_b_id ? (
-                <p className="mb-1 text-[11px] font-bold tracking-wide text-[#1e1e1e]/40 uppercase">
-                  <HoverCard align="left" trigger={
-                    <span className="cursor-default underline decoration-dotted decoration-[#1e1e1e]/20 underline-offset-2">
-                      {insight.idea_a_id.length > 12 ? `${insight.idea_a_id.slice(0, 12)}…` : insight.idea_a_id}
-                    </span>
-                  }>
-                    <span className="break-all font-mono text-[11px]">{insight.idea_a_id}</span>
-                  </HoverCard>
-                  {' ↔ '}
-                  <HoverCard align="left" trigger={
-                    <span className="cursor-default underline decoration-dotted decoration-[#1e1e1e]/20 underline-offset-2">
-                      {insight.idea_b_id.length > 12 ? `${insight.idea_b_id.slice(0, 12)}…` : insight.idea_b_id}
-                    </span>
-                  }>
-                    <span className="break-all font-mono text-[11px]">{insight.idea_b_id}</span>
-                  </HoverCard>
+                <p className="mb-1.5 text-[11px] font-bold tracking-wide text-[#1e1e1e]/50">
+                  {insight.idea_a_title || insight.idea_a_id}
+                  <span className="mx-1.5 text-[#b9eb10]">↔</span>
+                  {insight.idea_b_title || insight.idea_b_id}
                 </p>
               ) : null}
               <p className="text-xs leading-relaxed text-[#1e1e1e]/70">
