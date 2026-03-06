@@ -103,6 +103,13 @@ class AuthRepository:
             password=settings.seed_test_password,
             role="user",
         )
+        # Demo/mock user for video recordings and demos
+        _upsert_seed_user(
+            connection,
+            username="mock",
+            password="mock",
+            role="user",
+        )
 
 
 def _upsert_seed_user(

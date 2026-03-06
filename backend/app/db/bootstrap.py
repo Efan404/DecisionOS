@@ -34,7 +34,17 @@ def initialize_database() -> None:
         ensure_default_workspace(connection)
         ensure_default_ai_settings(connection)
         _auth_repo.ensure_seed_users(connection)
+        _seed_demo_ideas(connection)
     _seed_demo_data_if_empty()
+
+
+def _seed_demo_ideas(connection: sqlite3.Connection) -> None:
+    """Seed pre-populated demo data (ideas, nodes, notifications, etc.)."""
+    try:
+        from app.db.seed_demo import seed_demo_data
+        seed_demo_data(connection)
+    except Exception:
+        pass  # Non-critical for app startup
 
 
 def _seed_demo_data_if_empty() -> None:

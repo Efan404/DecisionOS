@@ -30,7 +30,8 @@ class ProfileRepoTestCase(unittest.TestCase):
         self._tmpdir.cleanup()
 
     def test_get_learned_patterns_empty(self) -> None:
-        patterns, count = self.repo.get_learned_patterns()
+        # Use a non-default user_id to test empty state (demo data seeds "default")
+        patterns, count = self.repo.get_learned_patterns(user_id="test-empty-user")
         self.assertEqual(patterns, {})
         self.assertEqual(count, 0)
 

@@ -52,7 +52,7 @@ class IdeasRepoTestCase(unittest.TestCase):
         self.assertEqual(fetched.id, created.id)
 
         default_items, _ = self.repo.list_ideas(statuses=["draft", "active", "frozen"], limit=50)
-        self.assertEqual(len(default_items), 1)
+        self.assertIn(created.id, [item.id for item in default_items])
 
         archived = self.repo.update_idea(
             created.id,
@@ -67,11 +67,10 @@ class IdeasRepoTestCase(unittest.TestCase):
         self.assertIsNotNone(archived.idea.archived_at)
 
         active_items, _ = self.repo.list_ideas(statuses=["draft", "active", "frozen"], limit=50)
-        self.assertEqual(active_items, [])
+        self.assertNotIn(created.id, [item.id for item in active_items])
 
         archived_items, _ = self.repo.list_ideas(statuses=["archived"], limit=50)
-        self.assertEqual(len(archived_items), 1)
-        self.assertEqual(archived_items[0].id, created.id)
+        self.assertIn(created.id, [item.id for item in archived_items])
 
     def test_update_idea_optimistic_locking(self) -> None:
         created = self.repo.create_idea(title="Versioned")
