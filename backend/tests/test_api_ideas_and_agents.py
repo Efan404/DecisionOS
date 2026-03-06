@@ -946,13 +946,53 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(prd["detail"]["code"], "PRD_GENERATION_FAILED")
 
     def test_prd_stream_emits_requirements_then_backlog_then_done(self) -> None:
-        # NOTE: two-stage generation (requirements + backlog events) is intentionally
-        # disabled while using the free model (see CLAUDE.md). Only markdown is generated
-        # in a single LLM call. This test validates the current single-call SSE flow.
+        # LangGraph two-stage generation: requirements + markdown in parallel (Stage A),
+        # then backlog (Stage B). All three events must be emitted before done.
         idea_id, version = self._create_idea("PRD Stream Idea")
         baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
 
-        with patch("app.core.llm.generate_prd_markdown", side_effect=_mock_prd_markdown):
+        def _mock_generate_structured_for_stream(**kwargs):
+            schema_model = kwargs.get("schema_model")
+            from app.schemas.prd import (
+                PRDRequirementsOutput, PRDMarkdownOutput, PRDBacklogOutput,
+                PRDBacklog, PRDBacklogItem, PRDRequirement, PRDSection,
+            )
+            if schema_model is PRDRequirementsOutput:
+                return PRDRequirementsOutput(requirements=[
+                    PRDRequirement(
+                        id=f"req-{i:03d}", title=f"Req {i}", description=f"Desc {i}",
+                        rationale=f"Rationale {i}", acceptance_criteria=["AC1", "AC2"],
+                        source_refs=["step2"],
+                    )
+                    for i in range(1, 7)
+                ])
+            if schema_model is PRDMarkdownOutput:
+                return PRDMarkdownOutput(
+                    markdown="# Test PRD\n\nMock markdown content with enough chars.",
+                    sections=[
+                        PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
+                        for i in range(1, 7)
+                    ],
+                )
+            if schema_model is PRDBacklogOutput:
+                return PRDBacklogOutput(backlog=PRDBacklog(items=[
+                    PRDBacklogItem(
+                        id=f"bl-{i:03d}", title=f"Item {i}", requirement_id="req-001",
+                        priority="P1", type="story", summary=f"Summary {i}",
+                        acceptance_criteria=["AC1", "AC2"], source_refs=["step2"],
+                    )
+                    for i in range(1, 9)
+                ]))
+            # Fallback
+            return PRDMarkdownOutput(
+                markdown="# Fallback",
+                sections=[
+                    PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
+                    for i in range(1, 7)
+                ],
+            )
+
+        with patch("app.core.ai_gateway.generate_structured", side_effect=_mock_generate_structured_for_stream):
             raw = self.client.request_raw(
                 "POST",
                 f"/ideas/{idea_id}/agents/prd/stream",
@@ -963,11 +1003,25 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         events = _read_sse_events(raw.body)
         event_names = [name for name, _ in events]
 
-        # Single-call mode: only progress + done; no requirements or backlog events
+        # LangGraph mode: requirements + backlog + done events all present
         self.assertIn("done", event_names)
         self.assertNotIn("error", event_names)
-        self.assertNotIn("requirements", event_names)
-        self.assertNotIn("backlog", event_names)
+        self.assertIn("requirements", event_names)
+        self.assertIn("backlog", event_names)
+
+        # requirements event has correct structure
+        req_event = next((data for name, data in events if name == "requirements"), None)
+        self.assertIsNotNone(req_event)
+        assert req_event is not None
+        self.assertIn("requirements", req_event)
+        self.assertEqual(len(req_event["requirements"]), 6)
+
+        # backlog event has correct structure
+        bl_event = next((data for name, data in events if name == "backlog"), None)
+        self.assertIsNotNone(bl_event)
+        assert bl_event is not None
+        self.assertIn("items", bl_event)
+        self.assertEqual(len(bl_event["items"]), 8)
 
         # done event bumped idea version
         done_event = next((data for name, data in events if name == "done"), None)
