@@ -301,47 +301,47 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right: Notification | Settings | User | Logout */}
-          <div className="flex items-center gap-1.5">
+          {/* Right: Bell  +  [Settings | User | Logout] grouped pill */}
+          <div className="flex items-center gap-2">
+            {/* Notification bell — standalone so badge has room */}
             <NotificationBell />
 
-            {/* Settings */}
-            <Link
-              href="/settings"
-              aria-label="Settings"
-              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80 sm:flex"
-            >
-              <Settings size={15} />
-            </Link>
-
-            {/* User avatar → Profile */}
-            <Link
-              href="/profile"
-              aria-label={`Profile: ${authSession.username}`}
-              title={authSession.username}
-              className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#1e1e1e]/12 bg-[#1e1e1e] text-[#b9eb10] transition hover:bg-[#333] sm:flex"
-            >
-              <Ghost size={15} />
-            </Link>
-
-            {/* Logout */}
-            <button
-              type="button"
-              aria-label="Logout"
-              title="Logout"
-              onClick={() => {
-                clearAuthSession()
-                router.replace('/login')
-              }}
-              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-red-50 hover:text-red-500 sm:flex"
-            >
-              <LogOut size={15} />
-            </button>
+            {/* Grouped toolbar pill: Settings | Profile | Logout */}
+            <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                title="Settings"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+              >
+                <Settings size={14} />
+              </Link>
+              <Link
+                href="/profile"
+                aria-label={`Profile: ${authSession.username}`}
+                title={authSession.username}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+              >
+                <Ghost size={14} />
+              </Link>
+              <button
+                type="button"
+                aria-label="Logout"
+                title="Logout"
+                onClick={() => {
+                  clearAuthSession()
+                  router.replace('/login')
+                }}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-red-50 hover:text-red-500"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
 
             {/* Mobile hamburger */}
             <button
               type="button"
-              className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white md:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white md:hidden"
               onClick={() => setMobileNavOpen((v) => !v)}
               aria-label="Toggle navigation"
             >
