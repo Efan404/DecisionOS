@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 
 import type { PrdBacklogItem, PrdSourceRef } from '../../lib/schemas'
+import { HoverCard } from '../common/HoverCard'
 
 type PrdBacklogPanelProps = {
   items: PrdBacklogItem[]
   selectedRequirementId: string | null
   onSelectRequirement: (requirementId: string) => void
+  requirementsById?: Record<string, string>
   onExportJson?: () => Promise<void> | void
   onExportCsv?: () => Promise<void> | void
   exporting?: boolean
@@ -29,6 +31,7 @@ export function PrdBacklogPanel({
   items,
   selectedRequirementId,
   onSelectRequirement,
+  requirementsById,
   onExportJson,
   onExportCsv,
   exporting = false,
@@ -177,7 +180,53 @@ export function PrdBacklogPanel({
                     active ? 'bg-cyan-50' : 'hover:bg-slate-50'
                   }`}
                 >
-                  <p className="text-sm font-medium leading-5 text-slate-900">{item.title}</p>
+                  <HoverCard
+                    align="left"
+                    maxWidth={360}
+                    trigger={
+                      <p className="cursor-default text-sm font-medium leading-5 text-slate-900">{item.title}</p>
+                    }
+                  >
+                    <div className="space-y-1.5">
+                      {item.acceptance_criteria.length > 0 ? (
+                        <div>
+                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">Acceptance criteria</p>
+                          <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
+                            {item.acceptance_criteria.map((ac, i) => (
+                              <li key={i}>{ac}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {item.depends_on.length > 0 ? (
+                        <div>
+                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">Depends on</p>
+                          <div className="flex flex-wrap gap-1">
+                            {item.depends_on.map((dep) => (
+                              <span
+                                key={dep}
+                                className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                              >
+                                {dep}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {item.source_refs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.source_refs.map((ref) => (
+                            <span
+                              key={ref}
+                              className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
+                            >
+                              {ref}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </HoverCard>
                   <p className="mt-0.5 text-xs leading-4 text-slate-500">{item.summary}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <span
@@ -190,9 +239,19 @@ export function PrdBacklogPanel({
                     >
                       {item.type}
                     </span>
-                    <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-                      {item.requirement_id}
-                    </span>
+                    <HoverCard
+                      align="left"
+                      trigger={
+                        <span className="cursor-default inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                          {item.requirement_id}
+                        </span>
+                      }
+                    >
+                      <p className="font-mono text-[11px] font-medium text-slate-600">{item.requirement_id}</p>
+                      {requirementsById?.[item.requirement_id] ? (
+                        <p className="mt-0.5 text-[11px] text-slate-500">{requirementsById[item.requirement_id]}</p>
+                      ) : null}
+                    </HoverCard>
                   </div>
                 </button>
               </li>
