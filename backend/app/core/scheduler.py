@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
+from functools import partial
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -28,15 +30,20 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
 
     created_notifications: list = []
 
+    loop = asyncio.get_event_loop()
+
     # -- News monitor ---------------------------------------------------------
     try:
         graph = build_news_monitor_graph()
-        result = graph.invoke({
-            "user_id": "default",
-            "idea_summaries": [],
-            "notifications": [],
-            "agent_thoughts": [],
-        })
+        result = await loop.run_in_executor(
+            None,
+            partial(graph.invoke, {
+                "user_id": "default",
+                "idea_summaries": [],
+                "notifications": [],
+                "agent_thoughts": [],
+            }),
+        )
         for notif in result.get("notifications", []):
             news_id = notif.get("news_id", "")
             idea_id = notif.get("idea_id", "")
@@ -56,12 +63,15 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     # -- Cross-idea analyzer --------------------------------------------------
     try:
         graph = build_cross_idea_graph()
-        result = graph.invoke({
-            "user_id": "default",
-            "idea_summaries": [],
-            "insights": [],
-            "agent_thoughts": [],
-        })
+        result = await loop.run_in_executor(
+            None,
+            partial(graph.invoke, {
+                "user_id": "default",
+                "idea_summaries": [],
+                "insights": [],
+                "agent_thoughts": [],
+            }),
+        )
         for insight in result.get("insights", []):
             idea_a_id = insight.get("idea_a_id", "")
             idea_b_id = insight.get("idea_b_id", "")
@@ -80,13 +90,20 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
 
     # -- User pattern learner -------------------------------------------------
     try:
+        from app.db.repo_decision_events import DecisionEventRepository
+        _event_repo = DecisionEventRepository()
+        current_event_count = _event_repo.count_for_user(user_id="default")
         graph = build_pattern_learner_graph()
-        result = graph.invoke({
-            "user_id": "default",
-            "decision_history": [],
-            "learned_preferences": {},
-            "agent_thoughts": [],
-        })
+        result = await loop.run_in_executor(
+            None,
+            partial(graph.invoke, {
+                "user_id": "default",
+                "current_event_count": current_event_count,
+                "decision_history": [],
+                "learned_preferences": {},
+                "agent_thoughts": [],
+            }),
+        )
         prefs = result.get("learned_preferences", {})
         if prefs:
             record = _notif_repo.create(
