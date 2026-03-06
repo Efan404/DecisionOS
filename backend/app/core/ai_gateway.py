@@ -89,6 +89,7 @@ def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> st
             {"role": "user", "content": user_prompt},
         ],
         "temperature": provider.temperature,
+        "enable_thinking": False,
     }
     logger.debug("_invoke_provider_text url=%s model=%s", endpoint, body["model"])
     decoded = _post_json(
