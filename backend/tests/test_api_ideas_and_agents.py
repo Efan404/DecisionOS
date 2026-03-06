@@ -1192,6 +1192,8 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(raw.status_code, 200)
         content_type = raw.headers.get("content-type", "")
         self.assertIn("text/csv", content_type)
+        content_disposition = raw.headers.get("content-disposition", "")
+        self.assertIn(f"decisionos-backlog-{idea_id}.csv", content_disposition)
         csv_text = raw.body.decode("utf-8")
         self.assertIn("id,title,type", csv_text)
         self.assertIn("Export Item 1", csv_text)
