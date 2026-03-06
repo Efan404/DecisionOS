@@ -1,11 +1,25 @@
 'use client'
 
-import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 
 import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
-import { HoverCard } from '../common/HoverCard'
 import { useIdeasStore } from '../../lib/ideas-store'
+
+function formatRelativeTime(isoString: string): string {
+  const date = new Date(isoString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  if (diffSec < 60) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffHour < 24) return `${diffHour}h ago`
+  if (diffDay < 30) return `${diffDay}d ago`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 export function IdeasDashboard() {
   const ideas = useIdeasStore((state) => state.ideas)
@@ -198,16 +212,12 @@ export function IdeasDashboard() {
                             {idea.status}
                           </span>
                         </div>
-                        <HoverCard align="left" trigger={
-                          <p
-                            className={`mt-1.5 text-[11px] cursor-default ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
-                          >
-                            {idea.updated_at.slice(0, 16)}
-                          </p>
-                        }>
-                          <p className="text-[11px] text-slate-500">Last updated</p>
-                          <p className="mt-0.5 font-mono text-[11px] text-slate-800">{idea.updated_at}</p>
-                        </HoverCard>
+                        <p
+                          className={`mt-1.5 text-[11px] ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
+                          title={idea.updated_at}
+                        >
+                          {formatRelativeTime(idea.updated_at)}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -222,18 +232,6 @@ export function IdeasDashboard() {
                       </button>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        href={`/ideas/${idea.id}/idea-canvas`}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                          isActive
-                            ? 'bg-white/10 text-white hover:bg-white/20'
-                            : 'border border-[#1e1e1e]/12 bg-[#f5f5f5] text-[#1e1e1e]/70 hover:bg-[#ebebeb]'
-                        }`}
-                      >
-                        Open Flow
-                      </Link>
-                    </div>
                   </>
                 )}
               </article>
