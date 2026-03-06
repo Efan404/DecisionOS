@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
-import { ApiError, postPrdFeedback } from '../../lib/api'
+import { ApiError, downloadPrdBacklogExport, postPrdFeedback } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -41,6 +41,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
+  const [exporting, setExporting] = useState(false)
   const [streamPartials, setStreamPartials] = useState<PrdStreamPartials>({
     requirements: null,
     backlog: null,
@@ -229,6 +230,27 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     }
   }
 
+  const handleExport = async (format: 'json' | 'csv') => {
+    if (!activeIdeaId) {
+      return
+    }
+    setExporting(true)
+    try {
+      await downloadPrdBacklogExport(activeIdeaId, format)
+      toast.success(`Backlog exported as ${format.toUpperCase()}`)
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? `${error.code ?? 'EXPORT_FAILED'}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : 'Export failed. Please try again.'
+      toast.error(message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (!canOpen) {
     return (
       <main>
@@ -258,6 +280,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         feedbackSubmitting={feedbackSubmitting}
         feedbackError={feedbackError}
         streamPartials={loading ? streamPartials : null}
+        onExportJson={() => handleExport('json')}
+        onExportCsv={() => handleExport('csv')}
+        exporting={exporting}
       />
     </main>
   )

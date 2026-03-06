@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { PrdPage } from '../PrdPage'
-import { postIdeaScopedAgent, postPrdFeedback } from '../../../lib/api'
+import { downloadPrdBacklogExport, postIdeaScopedAgent, postPrdFeedback } from '../../../lib/api'
 import { useIdeasStore } from '../../../lib/ideas-store'
 import { useDecisionStore } from '../../../lib/store'
 import { nextNavigationMock } from '../../../test/setup'
@@ -14,6 +14,7 @@ vi.mock('../../../lib/api', async (importOriginal) => {
     ...actual,
     postIdeaScopedAgent: vi.fn(),
     postPrdFeedback: vi.fn(),
+    downloadPrdBacklogExport: vi.fn().mockResolvedValue(undefined),
   }
 })
 
@@ -102,6 +103,83 @@ const initStores = () => {
     },
   })
 }
+
+const buildPrdBundle = () => ({
+  baseline_id: 'baseline-1',
+  context_fingerprint: 'fp-test',
+  generated_at: '2026-03-06T10:00:00Z',
+  generation_meta: {
+    provider_id: 'mock',
+    model: 'mock-v1',
+    confirmed_path_id: 'path-1',
+    selected_plan_id: 'plan-a',
+    baseline_id: 'baseline-1',
+  },
+  output: buildPrdData(),
+})
+
+const initStoresWithBundle = () => {
+  const loadIdeaDetail = vi.fn().mockResolvedValue(null)
+  useIdeasStore.setState({
+    activeIdeaId: 'idea-1',
+    ideas: [
+      {
+        id: 'idea-1',
+        workspace_id: 'default',
+        title: 'Idea 1',
+        stage: 'prd',
+        status: 'draft',
+        version: 12,
+        created_at: '2026-02-20T00:00:00.000Z',
+        updated_at: '2026-02-20T00:00:00.000Z',
+      },
+    ],
+    loadIdeaDetail,
+  })
+  useDecisionStore.setState({
+    context: {
+      session_id: 'session-1',
+      created_at: '2026-02-20T00:00:00.000Z',
+      idea_seed: 'seed',
+      selected_plan_id: 'plan-a',
+      confirmed_dag_path_id: 'path-1',
+      scope_frozen: true,
+      current_scope_baseline_id: 'baseline-1',
+      current_scope_baseline_version: 1,
+      scope: {
+        in_scope: [{ id: 'in-1', title: 'MVP', desc: 'desc', priority: 'P1' as const }],
+        out_scope: [{ id: 'out-1', title: 'Billing', desc: 'desc', reason: 'later' }],
+      },
+      prd_bundle: buildPrdBundle(),
+    },
+  })
+}
+
+describe('PrdPage export actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    initStoresWithBundle()
+    nextNavigationMock.setSearchParams('baseline_id=baseline-1')
+  })
+
+  test('Export CSV button calls downloadPrdBacklogExport with csv format', async () => {
+    render(<PrdPage />)
+    const csvButton = await screen.findByRole('button', { name: 'Export CSV' })
+    await userEvent.click(csvButton)
+    await waitFor(() => {
+      expect(downloadPrdBacklogExport).toHaveBeenCalledWith('idea-1', 'csv')
+    })
+  })
+
+  test('Export JSON button calls downloadPrdBacklogExport with json format', async () => {
+    render(<PrdPage />)
+    const jsonButton = await screen.findByRole('button', { name: 'Export JSON' })
+    await userEvent.click(jsonButton)
+    await waitFor(() => {
+      expect(downloadPrdBacklogExport).toHaveBeenCalledWith('idea-1', 'json')
+    })
+  })
+})
 
 describe('PrdPage baseline flow', () => {
   beforeEach(() => {
