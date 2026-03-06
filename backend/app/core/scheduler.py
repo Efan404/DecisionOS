@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -21,24 +22,27 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     """
     logger.info("scheduler.proactive_agents.start trigger=%s", trigger_type)
 
-    from app.agents.memory.vector_store import get_vector_store
     from app.agents.graphs.proactive.news_monitor import build_news_monitor_graph
     from app.agents.graphs.proactive.cross_idea_analyzer import build_cross_idea_graph
     from app.agents.graphs.proactive.user_pattern_learner import build_pattern_learner_graph
 
-    vs = get_vector_store()
     created_notifications: list = []
 
-    # ── News monitor ─────────────────────────────────────────────────────────
+    # -- News monitor ---------------------------------------------------------
     try:
         graph = build_news_monitor_graph()
         result = graph.invoke({
             "user_id": "default",
-            "idea_ids": [],
+            "idea_summaries": [],
             "notifications": [],
             "agent_thoughts": [],
         })
         for notif in result.get("notifications", []):
+            news_id = notif.get("news_id", "")
+            idea_id = notif.get("idea_id", "")
+            # Deduplicate: composite key (news_id, idea_id) -- same story can match multiple ideas
+            if news_id and idea_id and _notif_repo.exists_news_match(news_id=news_id, idea_id=idea_id):
+                continue
             record = _notif_repo.create(
                 type="news_match",
                 title=f"News: {notif.get('news_title', 'Untitled')}",
@@ -49,24 +53,24 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     except Exception:
         logger.warning("scheduler.news_monitor.failed", exc_info=True)
 
-    # ── Cross-idea analyzer ───────────────────────────────────────────────────
+    # -- Cross-idea analyzer --------------------------------------------------
     try:
-        all_ideas = vs._ideas.get(include=["documents", "metadatas"])
-        summaries = [
-            {"idea_id": id_, "summary": doc}
-            for id_, doc in zip(all_ideas["ids"], all_ideas["documents"])
-        ]
         graph = build_cross_idea_graph()
         result = graph.invoke({
             "user_id": "default",
-            "idea_summaries": summaries,
+            "idea_summaries": [],
             "insights": [],
             "agent_thoughts": [],
         })
         for insight in result.get("insights", []):
+            idea_a_id = insight.get("idea_a_id", "")
+            idea_b_id = insight.get("idea_b_id", "")
+            # Deduplicate: sorted pair so (a,b) == (b,a)
+            if idea_a_id and idea_b_id and _notif_repo.exists_cross_idea(idea_a_id, idea_b_id):
+                continue
             record = _notif_repo.create(
                 type="cross_idea_insight",
-                title=f"Ideas '{insight.get('idea_a_id', '')}' and '{insight.get('idea_b_id', '')}' are related",
+                title="Related ideas detected",
                 body=insight.get("analysis", "These ideas share common themes."),
                 metadata=insight,
             )
@@ -74,7 +78,7 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     except Exception:
         logger.warning("scheduler.cross_idea.failed", exc_info=True)
 
-    # ── User pattern learner ─────────────────────────────────────────────────
+    # -- User pattern learner -------------------------------------------------
     try:
         graph = build_pattern_learner_graph()
         result = graph.invoke({
@@ -97,7 +101,7 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
 
     logger.info("scheduler.proactive_agents.done notifications_created=%d", len(created_notifications))
 
-    # ── Email dispatch ────────────────────────────────────────────────────────
+    # -- Email dispatch -------------------------------------------------------
     for record in created_notifications:
         try:
             notifiable_users = _profile_repo.list_notifiable(record.type)
@@ -109,8 +113,28 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
 
 
 def create_scheduler() -> AsyncIOScheduler:
-    """Create and configure the APScheduler instance. Does not start it."""
+    """Create and configure the APScheduler instance. Does not start it.
+
+    Uses trigger="date" with run_date=now+60s for the startup job to prevent
+    the job from firing immediately when scheduler.start() is called (before
+    the app is fully ready).
+    """
     scheduler = AsyncIOScheduler()
+
+    # IMPORTANT: compute run_date before scheduler.start() is called.
+    # trigger="date", run_date=None fires immediately (before app is ready).
+    # Using now+60s ensures the app is fully initialized when the job runs.
+    startup_run_time = datetime.now(timezone.utc) + timedelta(seconds=60)
+
+    scheduler.add_job(
+        run_proactive_agents,
+        trigger="date",
+        run_date=startup_run_time,  # 60s from registration time, not None
+        id="proactive_agents_startup",
+        replace_existing=True,
+        kwargs={"trigger_type": "startup"},
+    )
+    # Recurring every 6 hours
     scheduler.add_job(
         run_proactive_agents,
         trigger="interval",

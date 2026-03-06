@@ -65,3 +65,42 @@ class NotificationRepository:
                 (now, notification_id),
             )
         return cursor.rowcount > 0
+
+    def exists_news_match(self, news_id: str, idea_id: str) -> bool:
+        """Return True if a news_match notification already exists for this (news_id, idea_id) pair.
+
+        Dedup key is composite: same story can match multiple ideas, so news_id alone is not enough.
+        """
+        with db_session() as conn:
+            row = conn.execute(
+                """
+                SELECT id FROM notification
+                WHERE type = 'news_match'
+                  AND json_extract(metadata_json, '$.news_id') = ?
+                  AND json_extract(metadata_json, '$.idea_id') = ?
+                LIMIT 1
+                """,
+                (news_id, idea_id),
+            ).fetchone()
+        return row is not None
+
+    def exists_cross_idea(self, idea_a_id: str, idea_b_id: str) -> bool:
+        """Return True if a cross_idea_insight notification already exists for this idea pair.
+
+        Order-independent: (a, b) == (b, a). The query checks both orderings.
+        """
+        with db_session() as conn:
+            row = conn.execute(
+                """
+                SELECT id FROM notification
+                WHERE type = 'cross_idea_insight'
+                  AND (
+                    (json_extract(metadata_json, '$.idea_a_id') = ? AND json_extract(metadata_json, '$.idea_b_id') = ?)
+                    OR
+                    (json_extract(metadata_json, '$.idea_a_id') = ? AND json_extract(metadata_json, '$.idea_b_id') = ?)
+                  )
+                LIMIT 1
+                """,
+                (idea_a_id, idea_b_id, idea_b_id, idea_a_id),
+            ).fetchone()
+        return row is not None
