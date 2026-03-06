@@ -41,6 +41,7 @@ def generate_structured(
     task: TaskName,
     user_prompt: str,
     schema_model: type[SchemaT],
+    max_retries: int = 2,
 ) -> SchemaT:
     provider = _get_active_provider()
     logger.info(
@@ -48,32 +49,58 @@ def generate_structured(
         task, provider.id, provider.model, len(user_prompt),
     )
     response_schema = schema_model.model_json_schema()
-    try:
-        raw = _invoke_provider(
-            provider=provider,
-            task=task,
-            user_prompt=user_prompt,
-            response_schema=response_schema,
-        )
-        result = schema_model.model_validate(raw)
-        logger.info("generate_structured task=%s provider=%s SUCCESS", task, provider.id)
-        return result
-    except Exception as exc:
-        logger.error("generate_structured task=%s provider=%s FAILED: %s", task, provider.id, exc)
-        raise
+    last_exc: Exception | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            raw = _invoke_provider(
+                provider=provider,
+                task=task,
+                user_prompt=user_prompt,
+                response_schema=response_schema,
+            )
+            result = schema_model.model_validate(raw)
+            logger.info("generate_structured task=%s provider=%s SUCCESS", task, provider.id)
+            return result
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                logger.warning(
+                    "generate_structured task=%s provider=%s attempt=%d/%d FAILED (retrying): %s",
+                    task, provider.id, attempt, max_retries, exc,
+                )
+                time.sleep(1)
+            else:
+                logger.error(
+                    "generate_structured task=%s provider=%s attempt=%d/%d FAILED: %s",
+                    task, provider.id, attempt, max_retries, exc,
+                )
+    raise last_exc  # type: ignore[misc]
 
 
-def generate_text(*, task: TaskName, user_prompt: str) -> str:
+def generate_text(*, task: TaskName, user_prompt: str, max_retries: int = 2) -> str:
     """Call provider and return raw text content (no schema enforcement)."""
     provider = _get_active_provider()
     logger.info("generate_text task=%s provider=%s model=%s", task, provider.id, provider.model)
-    try:
-        result = _invoke_provider_text(provider=provider, user_prompt=user_prompt)
-        logger.info("generate_text task=%s provider=%s SUCCESS len=%d", task, provider.id, len(result))
-        return result
-    except Exception as exc:
-        logger.error("generate_text task=%s provider=%s FAILED: %s", task, provider.id, exc)
-        raise
+    last_exc: Exception | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = _invoke_provider_text(provider=provider, user_prompt=user_prompt)
+            logger.info("generate_text task=%s provider=%s SUCCESS len=%d", task, provider.id, len(result))
+            return result
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                logger.warning(
+                    "generate_text task=%s provider=%s attempt=%d/%d FAILED (retrying): %s",
+                    task, provider.id, attempt, max_retries, exc,
+                )
+                time.sleep(1)
+            else:
+                logger.error(
+                    "generate_text task=%s provider=%s attempt=%d/%d FAILED: %s",
+                    task, provider.id, attempt, max_retries, exc,
+                )
+    raise last_exc  # type: ignore[misc]
 
 
 def _invoke_provider_text(*, provider: AIProviderConfig, user_prompt: str) -> str:
@@ -245,11 +272,37 @@ def _parse_json_from_content(content: str) -> dict[str, object]:
     if text.startswith("```"):
         lines = text.splitlines()
         inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
-        text = "\n".join(inner)
-    parsed = json.loads(text)
-    if not isinstance(parsed, dict):
-        raise RuntimeError("Provider response content is not a JSON object")
-    return cast(dict[str, object], parsed)
+        text = "\n".join(inner).strip()
+
+    # Try direct parse first
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return cast(dict[str, object], parsed)
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract the first JSON object from the text (handles LLMs
+    # that emit prose before/after the JSON block).
+    start = text.find("{")
+    if start != -1:
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : i + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict):
+                            return cast(dict[str, object], parsed)
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    raise RuntimeError(f"Provider response content is not valid JSON: {text[:300]}")
 
 
 def _call_openai_compatible_provider(
