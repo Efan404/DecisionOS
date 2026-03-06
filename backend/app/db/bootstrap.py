@@ -13,9 +13,23 @@ DEFAULT_WORKSPACE_NAME = "Default Workspace"
 _auth_repo = AuthRepository()
 
 
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
+
 def initialize_database() -> None:
     with db_session() as connection:
         for statement in SCHEMA_STATEMENTS:
+            stripped = statement.strip().upper()
+            if stripped.startswith("ALTER TABLE") and "ADD COLUMN" in stripped:
+                parts = statement.split()
+                table_name = parts[2]
+                col_idx = [i for i, p in enumerate(parts) if p.upper() == "COLUMN"]
+                if col_idx:
+                    col_name = parts[col_idx[0] + 1]
+                    if _column_exists(connection, table_name, col_name):
+                        continue
             connection.execute(statement)
         ensure_default_workspace(connection)
         ensure_default_ai_settings(connection)

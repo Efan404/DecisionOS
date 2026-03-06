@@ -124,4 +124,41 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_scope_baseline_items_order
     ON scope_baseline_items(baseline_id, lane, display_order);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS user_preferences (
+        user_id                   TEXT PRIMARY KEY,
+        email                     TEXT,
+        notify_enabled            INTEGER NOT NULL DEFAULT 0,
+        learned_patterns_json     TEXT NOT NULL DEFAULT '{}',
+        last_learned_event_count  INTEGER NOT NULL DEFAULT 0,
+        updated_at                TEXT NOT NULL DEFAULT ''
+    );
+    """,
+    """
+    ALTER TABLE user_preferences
+    ADD COLUMN learned_patterns_json TEXT NOT NULL DEFAULT '{}';
+    """,
+    """
+    ALTER TABLE user_preferences
+    ADD COLUMN last_learned_event_count INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS decision_events (
+        id          TEXT PRIMARY KEY,
+        user_id     TEXT NOT NULL DEFAULT 'default',
+        idea_id     TEXT,
+        event_type  TEXT NOT NULL CHECK (event_type IN (
+                        'dag_path_confirmed',
+                        'feasibility_plan_selected',
+                        'scope_frozen',
+                        'prd_generated'
+                    )),
+        payload_json TEXT NOT NULL DEFAULT '{}',
+        created_at  TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_decision_events_user_created
+    ON decision_events(user_id, created_at DESC);
+    """,
 )
