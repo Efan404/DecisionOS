@@ -4,9 +4,27 @@ import os
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
 
+import pytest
+
 from app.db.bootstrap import initialize_database
 
 initialize_database()
+
+
+@pytest.fixture(autouse=False)
+def clean_admin_prefs():
+    from app.db.engine import db_session
+    from app.db.repo_auth import AuthRepository
+    auth = AuthRepository()
+    user = auth.get_user_by_username("admin")
+    if user:
+        with db_session() as conn:
+            conn.execute("DELETE FROM user_preferences WHERE user_id = ?", (user.id,))
+    yield
+    # cleanup after test too
+    if user:
+        with db_session() as conn:
+            conn.execute("DELETE FROM user_preferences WHERE user_id = ?", (user.id,))
 
 
 def test_user_preferences_table_exists():
@@ -18,7 +36,7 @@ def test_user_preferences_table_exists():
     assert row is not None, "user_preferences table should exist"
 
 
-def test_get_or_create_preferences_default():
+def test_get_or_create_preferences_default(clean_admin_prefs):
     from app.db.repo_profile import ProfileRepository
     from app.db.repo_auth import AuthRepository
     repo = ProfileRepository()
@@ -32,7 +50,7 @@ def test_get_or_create_preferences_default():
     assert "news_match" in prefs.notify_types
 
 
-def test_update_preferences():
+def test_update_preferences(clean_admin_prefs):
     from app.db.repo_profile import ProfileRepository
     from app.db.repo_auth import AuthRepository
     repo = ProfileRepository()
