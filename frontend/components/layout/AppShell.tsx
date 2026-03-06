@@ -14,6 +14,7 @@ import {
   getAuthSessionServerSnapshot,
   subscribeAuthSession,
 } from '../../lib/auth'
+import { Ghost, LogOut, Settings } from 'lucide-react'
 import { NotificationBell } from '../notifications/NotificationBell'
 
 type StepItem = {
@@ -300,44 +301,42 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right: Notification | Settings | User */}
+          {/* Right: Notification | Settings | User | Logout */}
           <div className="flex items-center gap-1.5">
             <NotificationBell />
 
-            {/* Settings icon button */}
+            {/* Settings */}
             <Link
               href="/settings"
               aria-label="Settings"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80 sm:flex"
             >
-              <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
-                <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.4" />
-                <path
-                  d="M8 1.5v1M8 13.5v1M1.5 8h1M13.5 8h1M3.4 3.4l.7.7M11.9 11.9l.7.7M3.4 12.6l.7-.7M11.9 4.1l.7-.7"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Settings size={15} />
             </Link>
 
-            {/* User avatar → Profile page */}
+            {/* User avatar → Profile */}
             <Link
               href="/profile"
               aria-label={`Profile: ${authSession.username}`}
               title={authSession.username}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#1e1e1e]/12 bg-[#1e1e1e] text-[#b9eb10] transition hover:bg-[#333]"
+              className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#1e1e1e]/12 bg-[#1e1e1e] text-[#b9eb10] transition hover:bg-[#333] sm:flex"
             >
-              <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
-                <circle cx="8" cy="5.5" r="2.5" fill="currentColor" />
-                <path
-                  d="M2.5 13.5c0-2.76 2.46-5 5.5-5s5.5 2.24 5.5 5"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Ghost size={15} />
             </Link>
+
+            {/* Logout */}
+            <button
+              type="button"
+              aria-label="Logout"
+              title="Logout"
+              onClick={() => {
+                clearAuthSession()
+                router.replace('/login')
+              }}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/50 transition hover:bg-red-50 hover:text-red-500 sm:flex"
+            >
+              <LogOut size={15} />
+            </button>
 
             {/* Mobile hamburger */}
             <button
@@ -421,15 +420,7 @@ export function AppShell({ children }: AppShellProps) {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
-                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
-                  <circle cx="7" cy="4.5" r="2.2" fill="currentColor" />
-                  <path
-                    d="M2 12c0-2.76 2.24-5 5-5s5 2.24 5 5"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <Ghost size={13} />
                 {authSession.username}
               </Link>
               <Link
@@ -437,15 +428,7 @@ export function AppShell({ children }: AppShellProps) {
                 onClick={() => setMobileNavOpen(false)}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
-                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
-                  <circle cx="7" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.3" />
-                  <path
-                    d="M7 1v.9M7 12.1v.9M1 7h.9M12.1 7H13M2.9 2.9l.65.65M10.45 10.45l.65.65M2.9 11.1l.65-.65M10.45 3.55l.65-.65"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                <Settings size={13} />
                 Settings
               </Link>
               <button
@@ -457,15 +440,7 @@ export function AppShell({ children }: AppShellProps) {
                 }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
-                <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
-                  <path
-                    d="M5 7h7M9.5 5l2.5 2-2.5 2M5 2H2.5A1.5 1.5 0 0 0 1 3.5v7A1.5 1.5 0 0 0 2.5 12H5"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <LogOut size={13} />
                 Logout
               </button>
             </div>
