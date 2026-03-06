@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { buildIdeaFeasibilityDetailHref, resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
 import type { FeasibilityPlan } from '../../lib/schemas'
+import { HoverCard } from '../common/HoverCard'
 
 type PlanCardsProps = {
   plans: FeasibilityPlan[]
@@ -83,16 +84,37 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-base font-semibold tracking-tight">{plan.name}</h2>
-                <span
-                  className={[
-                    'rounded-md border px-2 py-1 text-[11px] font-medium',
-                    selected
-                      ? 'border-slate-200/20 bg-white/10 text-slate-100'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-[#b9eb10]/40 group-hover:bg-[#b9eb10]/10 group-hover:text-[#1e1e1e]',
-                  ].join(' ')}
+                <HoverCard
+                  align="right"
+                  trigger={
+                    <span
+                      className={[
+                        'rounded-md border px-2 py-1 text-[11px] font-medium cursor-default',
+                        selected
+                          ? 'border-slate-200/20 bg-white/10 text-slate-100'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 group-hover:border-[#b9eb10]/40 group-hover:bg-[#b9eb10]/10 group-hover:text-[#1e1e1e]',
+                      ].join(' ')}
+                    >
+                      Overall {plan.score_overall.toFixed(1)}
+                    </span>
+                  }
                 >
-                  Overall {plan.score_overall.toFixed(1)}
-                </span>
+                  <p className="mb-1.5 text-[11px] font-semibold text-slate-900">Score Breakdown</p>
+                  <ul className="space-y-1 text-[11px]">
+                    <li className="flex justify-between gap-4">
+                      <span className="text-slate-500">Technical</span>
+                      <span className="font-bold">{plan.scores.technical_feasibility.toFixed(1)}</span>
+                    </li>
+                    <li className="flex justify-between gap-4">
+                      <span className="text-slate-500">Market</span>
+                      <span className="font-bold">{plan.scores.market_viability.toFixed(1)}</span>
+                    </li>
+                    <li className="flex justify-between gap-4">
+                      <span className="text-slate-500">Risk</span>
+                      <span className="font-bold">{plan.scores.execution_risk.toFixed(1)}</span>
+                    </li>
+                  </ul>
+                </HoverCard>
               </div>
               <p className="mt-2 text-sm leading-6 text-current/80">{plan.summary}</p>
               <div

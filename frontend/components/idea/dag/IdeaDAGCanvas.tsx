@@ -108,6 +108,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
         status: n.id === expandingNodeId ? 'generating' : (n.status as DAGNodeData['status']),
         isSelected: n.id === selectedNodeId,
         isOnSelectedPath: selectedPathChain.includes(n.id),
+        edge_label: n.edge_label,
       }
       return { id: n.id, type: 'dagNode' as const, position: { x, y }, data }
     })

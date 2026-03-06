@@ -3,11 +3,14 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import clsx from 'clsx'
 
+import { HoverCard } from '../../common/HoverCard'
+
 export type DAGNodeData = {
   content: string
   status: 'active' | 'confirmed' | 'generating'
   isSelected: boolean
   isOnSelectedPath: boolean
+  edge_label?: string | null
 }
 
 type DAGNodeType = Node<DAGNodeData, 'dagNode'>
@@ -27,7 +30,18 @@ export function DAGNode({ data }: NodeProps<DAGNodeType>) {
         data.status === 'generating' && 'animate-pulse border-dashed border-[#334155]'
       )}
     >
-      <p className="line-clamp-3 leading-snug">{data.content}</p>
+      <HoverCard
+        align="center"
+        maxWidth={400}
+        trigger={<p className="line-clamp-3 leading-snug">{data.content}</p>}
+      >
+        <p className="leading-relaxed text-slate-700">{data.content}</p>
+        {data.edge_label ? (
+          <p className="mt-1.5 text-[10px] font-medium text-slate-400">
+            Edge: {data.edge_label}
+          </p>
+        ) : null}
+      </HoverCard>
       <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-0 !bg-[#334155]" />
       <Handle
         type="source"
