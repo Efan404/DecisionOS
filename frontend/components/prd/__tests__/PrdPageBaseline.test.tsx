@@ -164,6 +164,8 @@ describe('PrdPage export actions', () => {
 
   test('Export CSV button calls downloadPrdBacklogExport with csv format', async () => {
     render(<PrdPage />)
+    const reqTab = await screen.findByRole('button', { name: /Requirements/ })
+    await userEvent.click(reqTab)
     const csvButton = await screen.findByRole('button', { name: 'Export CSV' })
     await userEvent.click(csvButton)
     await waitFor(() => {
@@ -173,6 +175,8 @@ describe('PrdPage export actions', () => {
 
   test('Export JSON button calls downloadPrdBacklogExport with json format', async () => {
     render(<PrdPage />)
+    const reqTab = await screen.findByRole('button', { name: /Requirements/ })
+    await userEvent.click(reqTab)
     const jsonButton = await screen.findByRole('button', { name: 'Export JSON' })
     await userEvent.click(jsonButton)
     await waitFor(() => {
@@ -241,7 +245,7 @@ describe('PrdPage baseline flow', () => {
     })
   })
 
-  test('submits feedback to latest-only endpoint', async () => {
+  test('submits feedback via floating bubble after generation', async () => {
     render(<PrdPage />)
     await screen.findByText('Backlog 1')
     await waitFor(() => {
@@ -253,7 +257,7 @@ describe('PrdPage baseline flow', () => {
         'idea-1',
         expect.objectContaining({
           baseline_id: 'baseline-1',
-          rating_overall: 5,
+          rating_overall: 4,
         })
       )
     })

@@ -6,6 +6,9 @@ type PrdBacklogPanelProps = {
   items: PrdBacklogItem[]
   selectedRequirementId: string | null
   onSelectRequirement: (requirementId: string) => void
+  onExportJson?: () => Promise<void> | void
+  onExportCsv?: () => Promise<void> | void
+  exporting?: boolean
 }
 
 type FilterValue = 'all' | string
@@ -26,6 +29,9 @@ export function PrdBacklogPanel({
   items,
   selectedRequirementId,
   onSelectRequirement,
+  onExportJson,
+  onExportCsv,
+  exporting = false,
 }: PrdBacklogPanelProps) {
   const [priorityFilter, setPriorityFilter] = useState<FilterValue>('all')
   const [typeFilter, setTypeFilter] = useState<FilterValue>('all')
@@ -69,18 +75,42 @@ export function PrdBacklogPanel({
               {filtered.length}/{items.length}
             </span>
           </h2>
-          {/* Requirement linkage toggle */}
-          <button
-            type="button"
-            onClick={() => setFilterByRequirement((previous) => !previous)}
-            className={`cursor-pointer rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 ${
-              filterByRequirement && selectedRequirementId
-                ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
-                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-            }`}
-          >
-            {filterByRequirement && selectedRequirementId ? 'Linked to req' : 'All items'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Requirement linkage toggle */}
+            <button
+              type="button"
+              onClick={() => setFilterByRequirement((previous) => !previous)}
+              className={`cursor-pointer rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 ${
+                filterByRequirement && selectedRequirementId
+                  ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {filterByRequirement && selectedRequirementId ? 'Linked to req' : 'All items'}
+            </button>
+            {onExportJson ? (
+              <button
+                type="button"
+                onClick={() => void onExportJson()}
+                disabled={exporting}
+                aria-label="Export JSON"
+                className="cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                JSON
+              </button>
+            ) : null}
+            {onExportCsv ? (
+              <button
+                type="button"
+                onClick={() => void onExportCsv()}
+                disabled={exporting}
+                aria-label="Export CSV"
+                className="cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                CSV
+              </button>
+            ) : null}
+          </div>
         </div>
       </header>
 

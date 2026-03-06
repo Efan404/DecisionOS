@@ -36,10 +36,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   setIdeaVersionRef.current = useIdeasStore((state) => state.setIdeaVersion)
   loadIdeaDetailRef.current = useIdeasStore((state) => state.loadIdeaDetail)
   const [loading, setLoading] = useState(false)
-  const [isRegenerate, setIsRegenerate] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
-  const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
   const [exporting, setExporting] = useState(false)
   const inFlightGenerationKeyRef = useRef<string | null>(null)
@@ -99,7 +97,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
     let cancelled = false
     setLoading(true)
-    setIsRegenerate(hasLocalOutput)
     setErrorMessage(null)
     reset()
 
@@ -191,27 +188,23 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const handleSubmitFeedback = async (payload: {
     rating_overall: number
     rating_dimensions: PrdFeedbackDimensions
-    comment?: string
   }) => {
     if (!activeIdeaId || !activeIdea || !baselineId) {
       return
     }
     setFeedbackSubmitting(true)
-    setFeedbackError(null)
     try {
       const response = await postPrdFeedback(activeIdeaId, {
         version: activeIdea.version,
         baseline_id: baselineId,
         rating_overall: payload.rating_overall,
         rating_dimensions: payload.rating_dimensions,
-        comment: payload.comment,
       })
       setIdeaVersionRef.current(activeIdeaId, response.idea_version)
       const detail = await loadIdeaDetailRef.current(activeIdeaId)
       if (detail) {
         replaceContextRef.current(detail.context)
       }
-      toast.success('Feedback saved')
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -219,7 +212,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           : error instanceof Error
             ? error.message
             : 'Failed to submit feedback.'
-      setFeedbackError(message)
       toast.error(message)
       throw error
     } finally {
@@ -273,14 +265,12 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         bundle={context.prd_bundle}
         context={context}
         loading={loading}
-        isRegenerate={isRegenerate}
         errorMessage={errorMessage}
         baselineId={baselineId}
         onRetry={handleRetry}
         feedbackLatest={context.prd_feedback_latest}
         onSubmitFeedback={handleSubmitFeedback}
         feedbackSubmitting={feedbackSubmitting}
-        feedbackError={feedbackError}
         onExportJson={() => handleExport('json')}
         onExportCsv={() => handleExport('csv')}
         exporting={exporting}

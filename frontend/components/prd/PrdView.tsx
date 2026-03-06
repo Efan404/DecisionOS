@@ -12,7 +12,7 @@ import type {
   PrdOutput,
 } from '../../lib/schemas'
 import { PrdBacklogPanel } from './PrdBacklogPanel'
-import { PrdFeedbackCard } from './PrdFeedbackCard'
+import { PrdFeedbackBubble } from './PrdFeedbackBubble'
 
 type PrdViewProps = {
   prd?: PrdOutput
@@ -21,16 +21,13 @@ type PrdViewProps = {
   feedbackLatest?: PrdFeedbackLatest
   context: DecisionContext
   loading?: boolean
-  isRegenerate?: boolean
   errorMessage?: string | null
   onRetry?: () => void
   onSubmitFeedback?: (payload: {
     rating_overall: number
     rating_dimensions: PrdFeedbackDimensions
-    comment?: string
   }) => Promise<void>
   feedbackSubmitting?: boolean
-  feedbackError?: string | null
   onExportJson?: () => Promise<void> | void
   onExportCsv?: () => Promise<void> | void
   exporting?: boolean
@@ -38,37 +35,14 @@ type PrdViewProps = {
 
 // Status banner — one state at a time: loading > error > idle
 function StatusBanner({
-  loading,
-  isRegenerate,
   errorMessage,
   hasStaleOutput,
   onRetry,
 }: {
-  loading: boolean
-  isRegenerate: boolean
   errorMessage: string | null
   hasStaleOutput: boolean
   onRetry?: () => void
 }) {
-  if (loading) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex items-center gap-2.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"
-      >
-        <span
-          aria-hidden="true"
-          className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-blue-400 border-t-transparent"
-        />
-        {isRegenerate ? 'Regenerating PRD and backlog\u2026' : 'Generating PRD and backlog\u2026'}
-        {hasStaleOutput ? (
-          <span className="text-xs text-blue-500">(previous output shown below)</span>
-        ) : null}
-      </div>
-    )
-  }
-
   if (errorMessage) {
     return (
       <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
@@ -208,12 +182,10 @@ export function PrdView({
   feedbackLatest,
   context,
   loading = false,
-  isRegenerate = false,
   errorMessage = null,
   onRetry,
   onSubmitFeedback,
   feedbackSubmitting = false,
-  feedbackError = null,
   onExportJson,
   onExportCsv,
   exporting = false,
@@ -221,6 +193,10 @@ export function PrdView({
   const output = prd ?? bundle?.output
   const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('markdown')
+  const [feedbackDismissed, setFeedbackDismissed] = useState(false)
+
+  const showFeedbackBubble =
+    !loading && !feedbackDismissed && !feedbackLatest && Boolean(output) && Boolean(onSubmitFeedback)
 
   const selectedRequirementId = output?.requirements.some(
     (item) => item.id === selectedRequirementIdInput
@@ -301,38 +277,10 @@ export function PrdView({
             {output ? 'Regenerate' : 'Generate'}
           </button>
         ) : null}
-        {(onExportJson || onExportCsv) ? (
-          <div className="flex items-center gap-1.5">
-            {onExportJson ? (
-              <button
-                type="button"
-                onClick={() => void onExportJson()}
-                disabled={exporting || !output}
-                aria-label="Export JSON"
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Export JSON
-              </button>
-            ) : null}
-            {onExportCsv ? (
-              <button
-                type="button"
-                onClick={() => void onExportCsv()}
-                disabled={exporting || !output}
-                aria-label="Export CSV"
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Export CSV
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </header>
 
       {/* Status banner */}
       <StatusBanner
-        loading={loading}
-        isRegenerate={isRegenerate}
         errorMessage={errorMessage}
         hasStaleOutput={hasStaleOutput}
         onRetry={onRetry}
@@ -367,49 +315,78 @@ export function PrdView({
           {activeTab === 'markdown' ? <MarkdownPanel markdown={output.markdown} /> : null}
 
           {activeTab === 'requirements' ? (
-            <ul className="space-y-2">
-              {output.requirements.map((item) => {
-                const active = selectedRequirementId === item.id
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRequirementIdInput(item.id)}
-                      className={`w-full cursor-pointer rounded-xl border px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
-                        active
-                          ? 'border-indigo-300 bg-indigo-50 shadow-sm'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
-                            active
-                              ? 'bg-indigo-100 text-indigo-700'
-                              : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {item.id}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm leading-5 font-semibold text-slate-900">
-                            {item.title}
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
-                            {item.description}
-                          </p>
-                          {item.rationale ? (
-                            <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs text-slate-400 italic">
-                              {item.rationale}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Left: Requirements list */}
+              <ul className="space-y-2 overflow-auto lg:max-h-[65vh]">
+                {output.requirements.map((item) => {
+                  const active = selectedRequirementId === item.id
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRequirementIdInput(item.id)}
+                        className={`w-full cursor-pointer rounded-xl border px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+                          active
+                            ? 'border-indigo-300 bg-indigo-50 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                              active
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {item.id}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm leading-5 font-semibold text-slate-900">
+                              {item.title}
                             </p>
-                          ) : null}
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {item.description}
+                            </p>
+                            {item.rationale ? (
+                              <p className="mt-1.5 border-l-2 border-slate-200 pl-2 text-xs text-slate-400 italic">
+                                {item.rationale}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              {/* Right: Backlog panel filtered by selected requirement */}
+              <div className="space-y-3">
+                {selectedRequirementId ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                    <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700">
+                      {selectedRequirementId}
+                    </span>
+                    <span className="truncate text-xs text-slate-600">
+                      {requirementsById[selectedRequirementId] ?? ''}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
+                    Select a requirement to filter linked backlog items.
+                  </p>
+                )}
+                <PrdBacklogPanel
+                  items={output.backlog.items}
+                  selectedRequirementId={selectedRequirementId}
+                  onSelectRequirement={setSelectedRequirementIdInput}
+                  onExportJson={onExportJson}
+                  onExportCsv={onExportCsv}
+                  exporting={exporting}
+                />
+              </div>
+            </div>
           ) : null}
 
           {activeTab === 'sections' ? (
@@ -435,56 +412,29 @@ export function PrdView({
             </ul>
           ) : null}
 
-          <div className="space-y-4">
-            {selectedRequirementId ? (
-              <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-                <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-indigo-700">
-                  {selectedRequirementId}
-                </span>
-                <span className="truncate text-xs text-slate-600">
-                  {requirementsById[selectedRequirementId] ?? ''}
-                </span>
-              </div>
-            ) : (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
-                Select a requirement to filter linked backlog items.
-              </p>
-            )}
-            <PrdBacklogPanel
-              items={output.backlog.items}
-              selectedRequirementId={selectedRequirementId}
-              onSelectRequirement={setSelectedRequirementIdInput}
-            />
-            {baselineId && onSubmitFeedback ? (
-              <PrdFeedbackCard
-                key={`${baselineId}:${feedbackLatest?.submitted_at ?? 'draft'}`}
-                baselineId={baselineId}
-                latest={feedbackLatest}
-                disabled={feedbackSubmitting}
-                submitting={feedbackSubmitting}
-                errorMessage={feedbackError}
-                onSubmit={onSubmitFeedback}
-              />
-            ) : null}
-          </div>
         </div>
       ) : (
         /* Empty state — loading spinner or placeholder */
         <div className="space-y-4">
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
-            {loading ? (
-              <>
-                <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-                <p className="text-sm text-slate-500">Generating PRD&hellip;</p>
-              </>
-            ) : (
-              <p className="text-sm text-slate-500">
-                {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
-              </p>
-            )}
+            <p className="text-sm text-slate-500">
+              {loading
+                ? 'Waiting for agent\u2026'
+                : errorMessage
+                  ? 'Generation failed.'
+                  : 'No PRD generated yet.'}
+            </p>
           </div>
         </div>
       )}
+
+      {showFeedbackBubble && onSubmitFeedback ? (
+        <PrdFeedbackBubble
+          onSubmit={onSubmitFeedback}
+          submitting={feedbackSubmitting}
+          onDismiss={() => setFeedbackDismissed(true)}
+        />
+      ) : null}
     </section>
   )
 }
