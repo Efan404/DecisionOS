@@ -38,6 +38,20 @@ function PlanCardSkeleton() {
   )
 }
 
+// Score color: green ≥7, yellow ≥4, red <4
+const scoreColor = (score: number, selected: boolean) => {
+  if (selected) return 'text-white/90'
+  if (score >= 7) return 'text-emerald-600'
+  if (score >= 4) return 'text-amber-600'
+  return 'text-red-500'
+}
+
+const scoreBarColor = (score: number) => {
+  if (score >= 7) return 'bg-[#b9eb10]'
+  if (score >= 4) return 'bg-amber-400'
+  return 'bg-red-400'
+}
+
 export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }: PlanCardsProps) {
   const pathname = usePathname()
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
@@ -83,13 +97,32 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
               <p className="mt-2 text-sm leading-6 text-current/80">{plan.summary}</p>
               <div
                 className={[
-                  'mt-4 grid grid-cols-3 gap-2 rounded-lg border p-3 text-xs',
+                  'mt-4 rounded-lg border p-3 text-xs',
                   selected ? 'border-slate-200/20 bg-white/5' : 'border-slate-200 bg-slate-50/80',
                 ].join(' ')}
               >
-                <div>Tech: {plan.scores.technical_feasibility.toFixed(1)}</div>
-                <div>Market: {plan.scores.market_viability.toFixed(1)}</div>
-                <div>Risk: {plan.scores.execution_risk.toFixed(1)}</div>
+                {[
+                  { label: 'Tech', score: plan.scores.technical_feasibility },
+                  { label: 'Market', score: plan.scores.market_viability },
+                  { label: 'Risk', score: plan.scores.execution_risk },
+                ].map(({ label, score }) => (
+                  <div key={label} className="mb-2 last:mb-0">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className={selected ? 'text-white/60' : 'text-slate-500'}>{label}</span>
+                      <span className={`font-bold ${scoreColor(score, selected)}`}>
+                        {score.toFixed(1)}
+                      </span>
+                    </div>
+                    <div
+                      className={`h-1 w-full overflow-hidden rounded-full ${selected ? 'bg-white/10' : 'bg-slate-200'}`}
+                    >
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${scoreBarColor(score)}`}
+                        style={{ width: `${(score / 10) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </Link>
             <div className="mt-4 flex flex-wrap gap-2">
