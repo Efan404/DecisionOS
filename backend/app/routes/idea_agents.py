@@ -537,19 +537,24 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
 
 @router.post("/prd/stream")
 async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceResponse:
-    """Single-call PRD generation over SSE.
+    """LangGraph PRD generation over SSE.
 
-    Generates markdown + sections in one LLM call.
-    SSE events: progress → done | error
+    Graph: context_loader → [requirements_writer ‖ markdown_writer] → backlog_writer → prd_reviewer → memory_writer
+    SSE events: agent_thought | requirements | backlog | progress | done | error
     """
     _logger.info(
         "agent.prd.stream.start idea_id=%s version=%s baseline_id=%s",
         idea_id, payload.version, payload.baseline_id,
     )
 
+    from app.agents.graphs.prd_subgraph import build_prd_graph
+    from app.agents.state import DecisionOSState
+    from app.schemas.prd import PRDSection, PRDRequirement, PRDBacklogItem
+
     async def event_generator() -> AsyncIterator[dict[str, str]]:
         yield _sse_event("progress", {"step": "validating", "pct": 5})
 
+        # ── Validation (same as before) ───────────────────────────────────────
         idea = _repo.get_idea(idea_id)
         if idea is None:
             yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
@@ -577,84 +582,132 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             yield _sse_event("error", {"code": code, "message": message})
             return
 
-        slim_ctx = llm._build_slim_prd_context(pack)
         fingerprint = _context_pack_fingerprint(pack)
+        yield _sse_event("progress", {"step": "building_context", "pct": 10})
 
-        # Single LLM call: markdown + sections only
-        yield _sse_event("progress", {"step": "generating_prd", "pct": 15})
-        yield _sse_agent_thought("Architect", "Reading confirmed scope baseline and path context...")
-        yield _sse_agent_thought("Generator", "Drafting product requirements document structure...")
+        # ── Build LangGraph state from PrdContextPack ─────────────────────────
+        selected_plan = pack.step3_feasibility.selected_plan
+        initial_state: DecisionOSState = {
+            "idea_id": idea_id,
+            "idea_seed": pack.idea_seed,
+            "current_stage": "prd",
+            "opportunity_output": None,
+            "dag_path": {
+                "path_summary": pack.step2_path.path_summary,
+                "leaf_node_content": pack.step2_path.leaf_node_content,
+            },
+            "feasibility_output": {
+                "plans": [
+                    {
+                        "id": selected_plan.id,
+                        "name": selected_plan.name,
+                        "summary": selected_plan.summary,
+                        "score_overall": selected_plan.score_overall,
+                        "recommended_positioning": selected_plan.recommended_positioning,
+                    }
+                ]
+            },
+            "selected_plan_id": selected_plan.id,
+            "scope_output": {
+                "in_scope": [item.model_dump() for item in pack.step4_scope.in_scope],
+                "out_scope": [item.model_dump() for item in pack.step4_scope.out_scope],
+            },
+            "prd_output": None,
+            "prd_slim_context": None,
+            "prd_requirements": [],
+            "prd_markdown": "",
+            "prd_sections": [],
+            "prd_backlog_items": [],
+            "prd_review_issues": [],
+            "agent_thoughts": [],
+            "retrieved_patterns": [],
+            "retrieved_similar_ideas": [],
+            "user_preferences": None,
+        }
 
-        loop = asyncio.get_running_loop()
+        yield _sse_event("progress", {"step": "running_graph", "pct": 15})
+
+        # ── Stream LangGraph node updates ─────────────────────────────────────
         try:
-            md_result = await loop.run_in_executor(None, llm.generate_prd_markdown, slim_ctx)
+            graph = build_prd_graph()
+            final_state: dict[str, object] = dict(initial_state)  # type: ignore[assignment]
+
+            # LangGraph's astream yields {node_name: state_updates} dicts
+            async for chunk in graph.astream(initial_state, stream_mode="updates"):
+                for node_name, updates in chunk.items():
+                    if not isinstance(updates, dict):
+                        continue
+
+                    # Emit each agent thought as a dedicated SSE event
+                    for thought in updates.get("agent_thoughts", []):
+                        yield _sse_agent_thought(
+                            thought.get("agent", node_name),
+                            thought.get("detail", ""),
+                        )
+
+                    # Emit requirements as soon as they're ready (progressive render)
+                    if "prd_requirements" in updates and updates["prd_requirements"]:
+                        yield _sse_event("requirements", {
+                            "requirements": updates["prd_requirements"]
+                        })
+                        yield _sse_event("progress", {"step": "requirements_done", "pct": 45})
+
+                    # Emit backlog as soon as it's ready
+                    if "prd_backlog_items" in updates and updates["prd_backlog_items"]:
+                        yield _sse_event("backlog", {
+                            "items": updates["prd_backlog_items"]
+                        })
+                        yield _sse_event("progress", {"step": "backlog_done", "pct": 75})
+
+                    # Accumulate final state
+                    for k, v in updates.items():
+                        if k == "agent_thoughts":
+                            existing = final_state.get("agent_thoughts", [])
+                            final_state["agent_thoughts"] = list(existing) + list(v)  # type: ignore[arg-type]
+                        else:
+                            final_state[k] = v
+
         except Exception as exc:
             _raise_if_no_provider(exc)
-            _logger.exception("agent.prd.stream.failed idea_id=%s", idea_id)
+            _logger.exception("agent.prd.stream.graph.failed idea_id=%s", idea_id)
             yield _sse_event("error", {
                 "code": "PRD_GENERATION_FAILED",
-                "message": f"PRD generation failed: {exc}",
+                "message": f"PRD graph failed: {exc}",
             })
             return
 
-        # --- DISABLED: two-stage parallel generation (requirements + backlog) ---
-        # Re-enable when requirements/backlog tabs are needed again.
-        #
-        # # ── Stage A: requirements + markdown in parallel ──
-        # yield _sse_event("progress", {"step": "generating_requirements", "pct": 15})
-        # with ThreadPoolExecutor(max_workers=2) as pool:
-        #     fut_req = loop.run_in_executor(pool, llm.generate_prd_requirements, slim_ctx)
-        #     fut_md  = loop.run_in_executor(pool, llm.generate_prd_markdown,     slim_ctx)
-        #     try:
-        #         req_result, md_result = await asyncio.gather(fut_req, fut_md)
-        #     except Exception as exc:
-        #         _raise_if_no_provider(exc)
-        #         _logger.exception("agent.prd.stream.stage_a.failed idea_id=%s", idea_id)
-        #         yield _sse_event("error", {"code": "PRD_GENERATION_FAILED", "message": "Stage A generation failed"})
-        #         return
-        # # Emit requirements for progressive rendering
-        # yield _sse_event("requirements", {"requirements": [r.model_dump() for r in req_result.requirements]})
-        #
-        # # ── Stage B: backlog (needs requirement IDs from Stage A) ──
-        # yield _sse_event("progress", {"step": "generating_backlog", "pct": 60})
-        # requirement_ids = [r.id for r in req_result.requirements]
-        # try:
-        #     bl_result = await loop.run_in_executor(None, llm.generate_prd_backlog, slim_ctx, requirement_ids)
-        # except Exception as exc:
-        #     _raise_if_no_provider(exc)
-        #     _logger.exception("agent.prd.stream.stage_b.failed idea_id=%s", idea_id)
-        #     yield _sse_event("error", {"code": "PRD_GENERATION_FAILED", "message": "Stage B backlog generation failed"})
-        #     return
-        # yield _sse_event("backlog", {"items": [item.model_dump() for item in bl_result.backlog.items]})
-        # --- END DISABLED ---
-
-        yield _sse_agent_thought("Reviewer", "PRD generation complete. Validating output...")
         yield _sse_event("progress", {"step": "saving", "pct": 90})
 
+        # ── Assemble PRDOutput from graph's final state ───────────────────────
         try:
             provider_info = llm._get_active_provider_info()
         except RuntimeError:
             provider_info = {"id": None, "model": None}
+
         merged_output = PRDOutput(
-            markdown=md_result.markdown,
-            sections=md_result.sections,
-            requirements=[],
-            backlog=PRDBacklog(items=[]),
+            markdown=final_state.get("prd_markdown", ""),  # type: ignore[arg-type]
+            sections=[PRDSection(**s) for s in final_state.get("prd_sections", [])],  # type: ignore[union-attr]
+            requirements=[PRDRequirement(**r) for r in final_state.get("prd_requirements", [])],  # type: ignore[union-attr]
+            backlog=PRDBacklog(
+                items=[PRDBacklogItem(**item) for item in final_state.get("prd_backlog_items", [])]  # type: ignore[union-attr]
+            ),
             generation_meta=PRDGenerationMeta(
-                provider_id=provider_info["id"],
-                model=provider_info["model"],
+                provider_id=provider_info.get("id"),
+                model=provider_info.get("model"),
                 confirmed_path_id=pack.step2_path.path_id,
                 selected_plan_id=pack.step3_feasibility.selected_plan.id,
-                baseline_id=payload.baseline_id,
+                baseline_id=pack.step4_scope.baseline_meta.baseline_id,
             ),
         )
+
         bundle = PrdBundle(
-            baseline_id=payload.baseline_id,
+            baseline_id=pack.step4_scope.baseline_meta.baseline_id,
             context_fingerprint=fingerprint,
             generated_at=utc_now_iso(),
             generation_meta=merged_output.generation_meta,
             output=merged_output,
         )
+
         result = _repo.apply_agent_update(
             idea_id,
             version=payload.version,
