@@ -8,6 +8,7 @@ These tests verify that:
 from __future__ import annotations
 
 import os
+import tempfile
 
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
 os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "admin")
@@ -21,12 +22,20 @@ from app.db.repo_notifications import NotificationRepository
 
 
 @pytest.fixture
-def notif_repo():
-    """Return a NotificationRepository connected to an isolated in-memory DB."""
-    # The in-memory SQLite DB is initialized fresh per test via the bootstrap
+def notif_repo(tmp_path):
+    """Return a NotificationRepository connected to an isolated per-test DB file."""
+    # Each test gets a fresh DB file so notifications don't bleed across tests.
+    db_path = str(tmp_path / "test_dedup.db")
+    os.environ["DECISIONOS_DB_PATH"] = db_path
+    from app.core.settings import get_settings
+    get_settings.cache_clear()
+
     from app.db.bootstrap import initialize_database
     initialize_database()
-    return NotificationRepository()
+    yield NotificationRepository()
+
+    # Cleanup
+    get_settings.cache_clear()
 
 
 class TestNewsMatchDedup:
@@ -56,11 +65,9 @@ class TestNewsMatchDedup:
         # Different idea — should NOT be considered a duplicate
         assert notif_repo.exists_news_match(news_id="hn-42", idea_id="idea-B") is False
 
-    def test_news_scan_dedup_prevents_double_notification(self):
+    def test_news_scan_dedup_prevents_double_notification(self, notif_repo):
         """Running news scan route twice with the same news/idea pair creates only 1 notification."""
-        from app.db.bootstrap import initialize_database
-        initialize_database()
-        repo = NotificationRepository()
+        repo = notif_repo
 
         # Simulate what the news scan route does: check dedup before creating
         news_id = "hn-dedup-test"
@@ -124,11 +131,9 @@ class TestCrossIdeaDedup:
         assert notif_repo.exists_cross_idea("idea-P", "idea-Q") is True
         assert notif_repo.exists_cross_idea("idea-Q", "idea-P") is True
 
-    def test_cross_idea_dedup_prevents_double_notification(self):
+    def test_cross_idea_dedup_prevents_double_notification(self, notif_repo):
         """Running cross-idea analysis twice creates only 1 notification per pair."""
-        from app.db.bootstrap import initialize_database
-        initialize_database()
-        repo = NotificationRepository()
+        repo = notif_repo
 
         idea_a_id = "idea-dedup-A"
         idea_b_id = "idea-dedup-B"
