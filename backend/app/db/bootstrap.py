@@ -20,6 +20,19 @@ def initialize_database() -> None:
         ensure_default_workspace(connection)
         ensure_default_ai_settings(connection)
         _auth_repo.ensure_seed_users(connection)
+    _seed_demo_data_if_empty()
+
+
+def _seed_demo_data_if_empty() -> None:
+    """Seed vector store with demo data if collections are empty."""
+    try:
+        from app.agents.memory.vector_store import get_vector_store
+        vs = get_vector_store()
+        if vs._ideas.count() == 0:
+            from app.agents.memory.seed_data import seed_vector_store
+            seed_vector_store(vs)
+    except Exception:
+        pass  # Non-critical for app startup
 
 
 def ensure_default_workspace(connection: sqlite3.Connection) -> None:

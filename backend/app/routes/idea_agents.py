@@ -304,6 +304,120 @@ async def stream_opportunity(idea_id: str, payload: OpportunityIdeaRequest) -> E
     return EventSourceResponse(event_generator())
 
 
+@router.post("/opportunity/stream/v2")
+async def stream_opportunity_v2(idea_id: str, payload: OpportunityIdeaRequest) -> EventSourceResponse:
+    """Multi-agent opportunity generation with agent thought streaming."""
+    _logger.info("agent.opportunity.stream.v2.start idea_id=%s version=%s", idea_id, payload.version)
+
+    from app.agents.stream import run_opportunity_graph_sse
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        try:
+            async for event in run_opportunity_graph_sse(
+                idea_id=idea_id,
+                idea_seed=payload.idea_seed,
+            ):
+                yield event
+
+                # If this is the done event, persist to DB
+                if event.get("event") == "done":
+                    done_data = json.loads(event["data"])
+                    opp_output = done_data.get("opportunity_output")
+                    if opp_output:
+                        output = OpportunityOutput.model_validate(opp_output)
+                        result = _repo.apply_agent_update(
+                            idea_id,
+                            version=payload.version,
+                            mutate_context=lambda context: _apply_opportunity(context, payload, output),
+                            allow_conflict_retry=True,
+                        )
+                        error_payload = _sse_error_payload(result)
+                        if error_payload is not None:
+                            yield _sse_event("error", error_payload)
+                            return
+                        assert result.idea is not None
+                        yield _sse_event("done", {
+                            "idea_id": idea_id,
+                            "idea_version": result.idea.version,
+                            "data": output.model_dump(),
+                        })
+        except Exception as exc:
+            _raise_if_no_provider(exc)
+            _logger.exception("agent.opportunity.stream.v2.failed idea_id=%s", idea_id)
+            yield _sse_event("error", {"code": "AGENT_ERROR", "message": str(exc)})
+
+    return EventSourceResponse(event_generator())
+
+
+@router.post("/feasibility/stream/v2")
+async def stream_feasibility_v2(idea_id: str, payload: FeasibilityIdeaRequest) -> EventSourceResponse:
+    """Multi-agent feasibility generation with agent thought streaming."""
+    _logger.info("agent.feasibility.stream.v2.start idea_id=%s", idea_id)
+
+    from app.agents.stream import run_feasibility_graph_sse
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        try:
+            async for event in run_feasibility_graph_sse(
+                idea_id=idea_id,
+                idea_seed=payload.idea_seed,
+                confirmed_path_summary=payload.confirmed_path_summary or "",
+                confirmed_node_content=payload.confirmed_node_content or "",
+            ):
+                yield event
+        except Exception as exc:
+            _raise_if_no_provider(exc)
+            _logger.exception("agent.feasibility.stream.v2.failed idea_id=%s", idea_id)
+            yield _sse_event("error", {"code": "AGENT_ERROR", "message": str(exc)})
+
+    return EventSourceResponse(event_generator())
+
+
+@router.post("/prd/stream/v2")
+async def stream_prd_v2(idea_id: str, payload: PRDIdeaRequest) -> EventSourceResponse:
+    """Multi-agent PRD generation with agent thought streaming."""
+    _logger.info("agent.prd.stream.v2.start idea_id=%s", idea_id)
+
+    from app.agents.stream import run_prd_graph_sse
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        try:
+            # Build context from existing idea data
+            idea = _repo.get_idea(idea_id)
+            if idea is None:
+                yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+                return
+
+            context = parse_context_strict(idea.context)
+
+            dag_path = None
+            latest_path = repo_dag.get_latest_path(idea_id)
+            if latest_path:
+                dag_path = {
+                    "path_summary": context.confirmed_dag_path_summary or "",
+                    "leaf_node_content": context.confirmed_dag_node_content or context.idea_seed or "",
+                }
+
+            feasibility_output = context.feasibility.model_dump() if context.feasibility else None
+            scope_output = context.scope.model_dump() if context.scope else None
+
+            async for event in run_prd_graph_sse(
+                idea_id=idea_id,
+                idea_seed=context.idea_seed or "Untitled",
+                dag_path=dag_path,
+                feasibility_output=feasibility_output,
+                selected_plan_id=context.selected_plan_id or "",
+                scope_output=scope_output,
+            ):
+                yield event
+        except Exception as exc:
+            _raise_if_no_provider(exc)
+            _logger.exception("agent.prd.stream.v2.failed idea_id=%s", idea_id)
+            yield _sse_event("error", {"code": "AGENT_ERROR", "message": str(exc)})
+
+    return EventSourceResponse(event_generator())
+
+
 @router.post("/feasibility/stream")
 async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> EventSourceResponse:
     _logger.info("agent.feasibility.stream.start idea_id=%s version=%s", idea_id, payload.version)
