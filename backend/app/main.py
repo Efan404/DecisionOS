@@ -20,6 +20,7 @@ from app.routes.auth import router as auth_router
 from app.routes.health import router as health_router
 from app.routes.idea_agents import router as idea_agents_router
 from app.routes.idea_dag import router as idea_dag_router
+from app.routes.idea_prd_export import router as idea_prd_export_router
 from app.routes.idea_prd_feedback import router as idea_prd_feedback_router
 from app.routes.idea_scope import router as idea_scope_router
 from app.routes.ideas import router as ideas_router
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_settings_router, dependencies=protected_dependencies)
     app.include_router(ideas_router, dependencies=protected_dependencies)
     app.include_router(idea_agents_router, dependencies=protected_dependencies)
+    app.include_router(idea_prd_export_router, dependencies=protected_dependencies)
     app.include_router(idea_prd_feedback_router, dependencies=protected_dependencies)
     app.include_router(idea_dag_router, dependencies=protected_dependencies)
     app.include_router(idea_scope_router, dependencies=protected_dependencies)

@@ -149,3 +149,11 @@ class PrdFeedbackLatest(BaseModel):
     rating_overall: int = Field(ge=1, le=5)
     rating_dimensions: PrdFeedbackDimensions
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class PRDBacklogExportJson(BaseModel):
+    idea_id: str = Field(min_length=1)
+    baseline_id: str = Field(min_length=1)
+    exported_at: str = Field(min_length=1)
+    item_count: int = Field(ge=0)
+    items: list[PRDBacklogItem] = Field(default_factory=list)

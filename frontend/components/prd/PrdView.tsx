@@ -39,6 +39,9 @@ type PrdViewProps = {
   feedbackSubmitting?: boolean
   feedbackError?: string | null
   streamPartials?: PrdStreamPartials | null
+  onExportJson?: () => Promise<void> | void
+  onExportCsv?: () => Promise<void> | void
+  exporting?: boolean
 }
 
 // Status banner — one state at a time: loading > error > idle
@@ -222,6 +225,9 @@ export function PrdView({
   feedbackSubmitting = false,
   feedbackError = null,
   streamPartials = null,
+  onExportJson,
+  onExportCsv,
+  exporting = false,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
   // DISABLED: requirement selection state (used by Requirements tab and Backlog panel)
@@ -312,6 +318,32 @@ export function PrdView({
             )}
             {output ? 'Regenerate' : 'Generate'}
           </button>
+        ) : null}
+        {(onExportJson || onExportCsv) ? (
+          <div className="flex items-center gap-1.5">
+            {onExportJson ? (
+              <button
+                type="button"
+                onClick={() => void onExportJson()}
+                disabled={exporting || !output}
+                aria-label="Export JSON"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Export JSON
+              </button>
+            ) : null}
+            {onExportCsv ? (
+              <button
+                type="button"
+                onClick={() => void onExportCsv()}
+                disabled={exporting || !output}
+                aria-label="Export CSV"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Export CSV
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </header>
 

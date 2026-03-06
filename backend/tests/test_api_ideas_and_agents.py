@@ -1087,6 +1087,148 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(persisted["context"]["selected_plan_id"], selected_plan_id)
         self.assertEqual(persisted["stage"], "scope_freeze")
 
+    # ── PRD Backlog Export ────────────────────────────────────────────────────
+
+    def _build_context_with_persisted_backlog(
+        self,
+        *,
+        baseline_id: str,
+        item_count: int = 2,
+    ) -> dict[str, object]:
+        """Build a minimal DecisionContext payload with a persisted prd_bundle backlog."""
+        from app.core.contexts import create_default_context
+
+        ctx = create_default_context(idea_seed="export-test-seed")
+        base = ctx.model_dump(mode="python", exclude_none=True)
+
+        backlog_items = [
+            {
+                "id": f"bl-{i:03d}",
+                "title": f"Export Item {i}",
+                "requirement_id": "req-001",
+                "priority": "P1",
+                "type": "story",
+                "summary": f"Summary for item {i}",
+                "acceptance_criteria": ["AC one", "AC two"],
+                "source_refs": ["step4"],
+                "depends_on": [],
+            }
+            for i in range(1, item_count + 1)
+        ]
+
+        base["prd_bundle"] = {
+            "baseline_id": baseline_id,
+            "context_fingerprint": "fp-export-test",
+            "generated_at": "2026-03-06T10:00:00Z",
+            "generation_meta": {
+                "provider_id": "mock",
+                "model": "mock-v1",
+                "confirmed_path_id": "path-1",
+                "selected_plan_id": "plan-1",
+                "baseline_id": baseline_id,
+            },
+            "output": {
+                "markdown": "# PRD\n\nExport test.",
+                "sections": [
+                    {"id": f"s{i}", "title": f"Section {i}", "content": f"Content {i}"}
+                    for i in range(1, 7)
+                ],
+                "requirements": [],
+                "backlog": {"items": backlog_items},
+                "generation_meta": {
+                    "provider_id": "mock",
+                    "model": "mock-v1",
+                    "confirmed_path_id": "path-1",
+                    "selected_plan_id": "plan-1",
+                    "baseline_id": baseline_id,
+                },
+            },
+        }
+
+        return base
+
+    def test_prd_backlog_export_json(self) -> None:
+        idea_id, version = self._create_idea("Export JSON Idea")
+        context_payload = self._build_context_with_persisted_backlog(
+            baseline_id="baseline-export-1",
+            item_count=2,
+        )
+        patch_status, patched = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": version, "context": context_payload},
+        )
+        self.assertEqual(patch_status, 200)
+        assert patched is not None
+
+        status, body, headers = self.client.request_json_with_headers(
+            "GET",
+            f"/ideas/{idea_id}/prd/export?format=json",
+        )
+        self.assertEqual(status, 200)
+        assert body is not None
+        self.assertEqual(body["idea_id"], idea_id)
+        self.assertEqual(body["item_count"], 2)
+        self.assertEqual(body["items"][0]["requirement_id"], "req-001")
+
+    def test_prd_backlog_export_csv(self) -> None:
+        idea_id, version = self._create_idea("Export CSV Idea")
+        context_payload = self._build_context_with_persisted_backlog(
+            baseline_id="baseline-export-2",
+            item_count=2,
+        )
+        patch_status, patched = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": version, "context": context_payload},
+        )
+        self.assertEqual(patch_status, 200)
+        assert patched is not None
+
+        raw = self.client.request_raw(
+            "GET",
+            f"/ideas/{idea_id}/prd/export?format=csv",
+        )
+        self.assertEqual(raw.status_code, 200)
+        content_type = raw.headers.get("content-type", "")
+        self.assertIn("text/csv", content_type)
+        content_disposition = raw.headers.get("content-disposition", "")
+        self.assertIn(f"decisionos-backlog-{idea_id}.csv", content_disposition)
+        csv_text = raw.body.decode("utf-8")
+        self.assertIn("id,title,type", csv_text)
+        self.assertIn("Export Item 1", csv_text)
+
+    def test_prd_backlog_export_not_ready(self) -> None:
+        idea_id, _ = self._create_idea("Export Not Ready Idea")
+        status, body, _ = self.client.request_json_with_headers(
+            "GET",
+            f"/ideas/{idea_id}/prd/export?format=json",
+        )
+        self.assertEqual(status, 409)
+        assert body is not None
+        self.assertEqual(body["detail"]["code"], "PRD_BACKLOG_NOT_READY")
+
+    def test_prd_backlog_export_invalid_format(self) -> None:
+        idea_id, version = self._create_idea("Export Invalid Format Idea")
+        context_payload = self._build_context_with_persisted_backlog(
+            baseline_id="baseline-export-3",
+            item_count=1,
+        )
+        self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": version, "context": context_payload},
+        )
+        status, body, _ = self.client.request_json_with_headers(
+            "GET",
+            f"/ideas/{idea_id}/prd/export?format=xlsx",
+        )
+        self.assertEqual(status, 422)
+        assert body is not None
+        self.assertEqual(body["detail"]["code"], "EXPORT_FORMAT_INVALID")
+
+    # ── End PRD Backlog Export ────────────────────────────────────────────────
+
     def test_delete_idea_returns_204(self) -> None:
         r = self.client.request_raw("DELETE", f"/ideas/{self.idea_id}")
         self.assertEqual(r.status_code, 204)
@@ -1151,6 +1293,24 @@ class _AsgiTestClient:
         if not response.body:
             return response.status_code, None
         return response.status_code, json.loads(response.body.decode("utf-8"))
+
+    def request_json_with_headers(
+        self,
+        method: str,
+        path: str,
+        payload: dict[str, object] | None = None,
+        *,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[int, dict[str, object] | None, dict[str, str]]:
+        """Like request_json but also returns response headers."""
+        response = self.request_raw(method, path, payload, headers=headers)
+        body_parsed: dict[str, object] | None = None
+        if response.body:
+            try:
+                body_parsed = json.loads(response.body.decode("utf-8"))
+            except Exception:
+                pass
+        return response.status_code, body_parsed, response.headers
 
     def request_raw(
         self,
@@ -1241,15 +1401,21 @@ async def _run_asgi_request(
                 (name.encode("latin-1").lower(), value.encode("latin-1"))
             )
 
+    # Split path and query string so ?format=json etc. are handled correctly.
+    if "?" in path:
+        path_part, query_part = path.split("?", 1)
+    else:
+        path_part, query_part = path, ""
+
     scope = {
         "type": "http",
         "asgi": {"version": "3.0", "spec_version": "2.3"},
         "http_version": "1.1",
         "method": method.upper(),
         "scheme": "http",
-        "path": path,
-        "raw_path": path.encode("ascii"),
-        "query_string": b"",
+        "path": path_part,
+        "raw_path": path_part.encode("ascii"),
+        "query_string": query_part.encode("ascii"),
         "root_path": "",
         "headers": incoming_headers,
         "client": ("testclient", 123),
