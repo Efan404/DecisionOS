@@ -69,6 +69,7 @@ def build_single_plan_prompt(
     confirmed_node_content: str,
     confirmed_path_summary: str | None,
     plan_index: int,
+    market_evidence: str = "",
 ) -> str:
     """Build a prompt that asks the model for exactly ONE feasibility plan.
 
@@ -81,7 +82,7 @@ def build_single_plan_prompt(
         f"confirmed_path_summary={confirmed_path_summary!r}\n"
         f"idea_seed={idea_seed!r}\n"
     )
-    return (
+    prompt = (
         "Given the following product context, generate exactly ONE detailed feasibility plan "
         f"following {archetype}.\n\n"
         f"{context}\n"
@@ -97,6 +98,9 @@ def build_single_plan_prompt(
         "similarity (one sentence on what makes this competitor similar or relevant)\n"
         "Return a single JSON object representing this plan (not wrapped in an array or 'plans' key)."
     )
+    if market_evidence:
+        prompt += "\n\n## Market Evidence\n" + market_evidence
+    return prompt
 
 
 def build_scope_prompt(
@@ -127,6 +131,7 @@ def build_scope_prompt(
 def build_prd_prompt(
     *,
     context_pack: dict[str, object],
+    market_evidence: str = "",
 ) -> str:
     # Build a trimmed context that omits fields the LLM does not need:
     # - step2_path.path_json and path_md (verbose node trees)
@@ -158,7 +163,7 @@ def build_prd_prompt(
         ],
     }
 
-    return (
+    prompt = (
         f"{PRD_PROMPT}\n"
         f"context={json.dumps(slim_context, ensure_ascii=False)}\n"
         "Constraints: 6-12 requirements; 8-15 backlog items; each item maps requirement_id; "
@@ -166,6 +171,9 @@ def build_prd_prompt(
         "source_refs from step2/step3/step4; out_scope items must not be P0.\n"
         "Return JSON: markdown, sections, requirements, backlog, generation_meta."
     )
+    if market_evidence:
+        prompt += "\n\n## Market Evidence\n" + market_evidence
+    return prompt
 
 
 def expand_node_prompt(

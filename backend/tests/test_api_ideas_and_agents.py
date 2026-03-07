@@ -32,7 +32,7 @@ def _mock_opportunity(payload: object) -> object:
     )
 
 
-def _mock_single_plan(payload: object, plan_index: int) -> object:
+def _mock_single_plan(payload: object, plan_index: int, market_evidence: str = "") -> object:
     """Return a single Plan for stream_feasibility (generate_single_plan mock)."""
     from app.schemas.common import ReasoningBreakdown, ScoreBreakdown
     from app.schemas.feasibility import Plan
@@ -98,7 +98,7 @@ def _mock_scope(payload: object) -> object:
     )
 
 
-def _mock_prd(context_pack: object) -> object:
+def _mock_prd(context_pack: object, market_evidence: str = "") -> object:
     from app.schemas.prd import (
         PRDBacklog,
         PRDBacklogItem,

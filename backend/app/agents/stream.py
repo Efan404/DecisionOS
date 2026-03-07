@@ -39,6 +39,7 @@ async def run_opportunity_graph_sse(
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
 
     yield _sse_event("progress", {"step": "starting_agents", "pct": 5})
@@ -98,6 +99,7 @@ async def run_feasibility_graph_sse(
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
 
     yield _sse_event("progress", {"step": "starting_agents", "pct": 5})
@@ -154,6 +156,7 @@ async def run_prd_graph_sse(
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
 
     yield _sse_event("progress", {"step": "starting_agents", "pct": 5})

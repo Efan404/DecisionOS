@@ -28,6 +28,11 @@ def _requirements_writer_node(state: DecisionOSState) -> dict[str, object]:
             f"- {p.get('description', '')[:120]}" for p in patterns[:2]
         )
 
+    # Inject market evidence to inform requirements scope and differentiation
+    evidence = state.get("market_evidence_context", "")
+    if evidence:
+        prompt += "\n\n## Market Evidence\n" + evidence
+
     result: PRDRequirementsOutput = ai_gateway.generate_structured(
         task="prd",
         user_prompt=prompt,
@@ -58,6 +63,11 @@ def _markdown_writer_node(state: DecisionOSState) -> dict[str, object]:
         prompt += "\n\nSimilar past ideas for reference:\n" + "\n".join(
             f"- {s.get('summary', '')[:100]}" for s in similar[:2]
         )
+
+    # Inject market evidence to inform PRD narrative and positioning
+    evidence = state.get("market_evidence_context", "")
+    if evidence:
+        prompt += "\n\n## Market Evidence\n" + evidence
 
     result: PRDMarkdownOutput = ai_gateway.generate_structured(
         task="prd",

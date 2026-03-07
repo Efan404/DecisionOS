@@ -47,7 +47,7 @@ def generate_feasibility(payload: FeasibilityInput) -> FeasibilityOutput:
     )
 
 
-def generate_single_plan(payload: FeasibilityInput, plan_index: int) -> Plan:
+def generate_single_plan(payload: FeasibilityInput, plan_index: int, market_evidence: str = "") -> Plan:
     """Generate exactly one feasibility Plan concurrently with other plan calls."""
     from app.schemas.feasibility import Plan  # local import to avoid circular at module level
 
@@ -58,6 +58,7 @@ def generate_single_plan(payload: FeasibilityInput, plan_index: int) -> Plan:
             confirmed_node_content=payload.confirmed_node_content,
             confirmed_path_summary=payload.confirmed_path_summary,
             plan_index=plan_index,
+            market_evidence=market_evidence,
         ),
         schema_model=Plan,
     )
@@ -109,12 +110,13 @@ def _build_slim_prd_context(pack: PrdContextPack) -> dict[str, object]:
     }
 
 
-def generate_prd_strict(context_pack: PrdContextPack) -> PRDOutput:
+def generate_prd_strict(context_pack: PrdContextPack, market_evidence: str = "") -> PRDOutput:
     try:
         return ai_gateway.generate_structured(
             task="prd",
             user_prompt=prompts.build_prd_prompt(
                 context_pack=_build_slim_prd_context(context_pack),
+                market_evidence=market_evidence,
             ),
             schema_model=PRDOutput,
         )

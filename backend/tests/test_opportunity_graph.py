@@ -39,6 +39,7 @@ def test_opportunity_graph_produces_output_and_thoughts(mock_gen):
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
     result = graph.invoke(initial_state)
     assert result["opportunity_output"] is not None

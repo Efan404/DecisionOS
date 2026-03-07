@@ -23,6 +23,7 @@ def test_state_schema_defaults():
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
     assert state["idea_id"] == "test-id"
     assert state["agent_thoughts"] == []

@@ -99,6 +99,7 @@ def test_prd_graph_produces_requirements_markdown_and_backlog(mock_gen):
         "retrieved_patterns": [],
         "retrieved_similar_ideas": [],
         "user_preferences": None,
+        "market_evidence_context": "",
     }
 
     result = graph.invoke(initial_state)

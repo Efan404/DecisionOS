@@ -210,8 +210,15 @@ async def post_prd(idea_id: str, payload: PRDIdeaRequest) -> PRDAgentResponse:
         )
         raise
     fingerprint = _context_pack_fingerprint(pack)
+    # Retrieve market evidence (graceful: never blocks on failure)
     try:
-        output = llm.generate_prd_strict(pack)
+        from app.agents.nodes.evidence_retriever import retrieve_market_evidence_context
+        _prd_evidence = retrieve_market_evidence_context(query=pack.idea_seed)
+    except Exception:
+        _logger.warning("Market evidence retrieval failed for PRD", exc_info=True)
+        _prd_evidence = ""
+    try:
+        output = llm.generate_prd_strict(pack, market_evidence=_prd_evidence)
     except llm.PRDGenerationError as exc:
         _logger.warning(
             "agent.prd.failed idea_id=%s version=%s code=PRD_GENERATION_FAILED",
@@ -444,6 +451,15 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
             return
 
         yield _sse_agent_thought("Researcher", "Analyzing confirmed idea path and node context...")
+
+        # Retrieve market evidence (graceful: never blocks on failure)
+        try:
+            from app.agents.nodes.evidence_retriever import retrieve_market_evidence_context
+            _evidence = retrieve_market_evidence_context(query=payload.idea_seed)
+        except Exception:
+            _logger.warning("Market evidence retrieval failed for feasibility stream", exc_info=True)
+            _evidence = ""
+
         yield _sse_agent_thought("Generator", "Generating 3 feasibility plans in parallel...")
 
         loop = asyncio.get_running_loop()
@@ -451,7 +467,7 @@ async def stream_feasibility(idea_id: str, payload: FeasibilityIdeaRequest) -> E
         # Launch all 3 plan requests concurrently in a thread pool (LLM calls are blocking I/O)
         with ThreadPoolExecutor(max_workers=3) as pool:
             futures = [
-                loop.run_in_executor(pool, llm.generate_single_plan, payload, i)
+                loop.run_in_executor(pool, llm.generate_single_plan, payload, i, _evidence)
                 for i in range(3)
             ]
 
@@ -623,6 +639,7 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
             "retrieved_patterns": [],
             "retrieved_similar_ideas": [],
             "user_preferences": None,
+            "market_evidence_context": "",
         }
 
         yield _sse_event("progress", {"step": "running_graph", "pct": 15})

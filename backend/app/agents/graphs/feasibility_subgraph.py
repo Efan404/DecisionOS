@@ -47,6 +47,11 @@ def _plan_generator_node(state: DecisionOSState) -> dict[str, object]:
                 f"- {p.get('description', '')[:120]}" for p in patterns[:2]
             )
 
+        # Inject market evidence for differentiation and risk assessment
+        evidence = state.get("market_evidence_context", "")
+        if evidence:
+            prompt += "\n\n## Market Evidence\n" + evidence
+
         plan: Plan = ai_gateway.generate_structured(
             task="feasibility",
             user_prompt=prompt,
