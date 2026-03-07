@@ -578,6 +578,10 @@ def _insert_user_preferences(conn: sqlite3.Connection, now: str) -> None:
         "risk_tolerance": "Moderate — prefers validated markets",
         "focus_area": "Consumer AI applications",
         "decision_style": "Data-driven, favors scored comparisons",
+        "advisor_note": {
+            "text": "• Validate demand with a free tier before building premium AI gating.\n• Prioritize Consumer AI niches where scoring data can guide iterative pivots.\n• Balance moderate risk appetite by setting clear freemium-to-paid conversion targets early.",
+            "linked_patterns": ["business_model_preference", "focus_area", "risk_tolerance"],
+        },
     }
     patterns_json = json.dumps(patterns, ensure_ascii=False)
 
