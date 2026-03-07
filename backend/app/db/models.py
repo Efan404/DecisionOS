@@ -190,4 +190,87 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_decision_events_user_created
     ON decision_events(user_id, created_at DESC);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS competitor (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspace(id),
+        name TEXT NOT NULL,
+        canonical_url TEXT,
+        category TEXT,
+        status TEXT NOT NULL CHECK (status IN ('candidate', 'tracked', 'archived')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_competitor_workspace_updated
+    ON competitor(workspace_id, updated_at DESC);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS competitor_snapshot (
+        id TEXT PRIMARY KEY,
+        competitor_id TEXT NOT NULL REFERENCES competitor(id) ON DELETE CASCADE,
+        snapshot_version INTEGER NOT NULL CHECK (snapshot_version >= 1),
+        summary_json TEXT NOT NULL DEFAULT '{}',
+        quality_score REAL,
+        traction_score REAL,
+        relevance_score REAL,
+        underrated_score REAL,
+        confidence REAL,
+        created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_competitor_snapshot_version
+    ON competitor_snapshot(competitor_id, snapshot_version DESC);
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_competitor_snapshot_unique_version
+    ON competitor_snapshot(competitor_id, snapshot_version);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS evidence_source (
+        id TEXT PRIMARY KEY,
+        source_type TEXT NOT NULL CHECK (source_type IN ('website', 'pricing', 'docs', 'news', 'community', 'review')),
+        url TEXT NOT NULL,
+        title TEXT,
+        snippet TEXT,
+        published_at TEXT,
+        fetched_at TEXT NOT NULL,
+        confidence REAL,
+        payload_json TEXT
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS market_signal (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspace(id),
+        signal_type TEXT NOT NULL CHECK (signal_type IN ('competitor_update', 'market_news', 'community_buzz', 'pricing_change')),
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high')),
+        detected_at TEXT NOT NULL,
+        evidence_source_id TEXT REFERENCES evidence_source(id),
+        payload_json TEXT
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_market_signal_workspace_detected
+    ON market_signal(workspace_id, detected_at DESC);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS idea_evidence_link (
+        id TEXT PRIMARY KEY,
+        idea_id TEXT NOT NULL REFERENCES idea(id) ON DELETE CASCADE,
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('competitor', 'signal', 'insight')),
+        entity_id TEXT NOT NULL,
+        link_reason TEXT NOT NULL,
+        relevance_score REAL,
+        created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_idea_evidence_link_idea
+    ON idea_evidence_link(idea_id, entity_type, entity_id);
+    """,
 )
