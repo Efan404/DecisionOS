@@ -14,10 +14,15 @@ const buildSseUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
-  const base =
-    (typeof window !== 'undefined' &&
-      (process.env.NEXT_PUBLIC_API_SSE_URL || 'http://127.0.0.1:8000')) ||
-    (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000')
+  let base: string
+  if (typeof window !== 'undefined') {
+    // Browser: use NEXT_PUBLIC_API_SSE_URL if set (direct backend URL for local dev),
+    // otherwise fall back to /api-proxy (same-origin, works in production/Docker).
+    base = process.env.NEXT_PUBLIC_API_SSE_URL || '/api-proxy'
+  } else {
+    // SSR: call backend directly (server-to-server).
+    base = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000'
+  }
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 import { clearAuthSession } from './auth'

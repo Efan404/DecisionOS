@@ -600,12 +600,34 @@ export const downloadPrdBacklogExport = async (
   URL.revokeObjectURL(objectUrl)
 }
 
+/**
+ * PPT generation calls the LLM synchronously (~28-35s).
+ * Next.js rewrites have a ~30s hard timeout, so we bypass /api-proxy and call
+ * the backend directly — same pattern as SSE streams in sse.ts.
+ */
+const buildDirectUrl = (path: string): string => {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  const base =
+    typeof window !== 'undefined'
+      ? process.env.NEXT_PUBLIC_API_SSE_URL || '/api-proxy'
+      : (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000')
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 export const postPrdPpt = async (
   ideaId: string,
   payload: { version: number }
 ): Promise<AgentEnvelope & { data: PrdPpt }> => {
-  return await jsonPost<{ version: number }, AgentEnvelope & { data: PrdPpt }>(
-    `/ideas/${ideaId}/agents/prd/ppt`,
-    payload
-  )
+  const url = buildDirectUrl(`/ideas/${ideaId}/agents/prd/ppt`)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: withAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw await buildApiError(response)
+  }
+  return (await response.json()) as AgentEnvelope & { data: PrdPpt }
 }
