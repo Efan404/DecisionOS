@@ -6,6 +6,36 @@ type PlanDetailProps = {
   confirming?: boolean
 }
 
+type ScoreCardProps = {
+  label: string
+  value: number
+  tooltip: string
+}
+
+function ScoreCard({ label, value, tooltip }: ScoreCardProps) {
+  return (
+    <div className="group relative rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] p-3 text-sm">
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/40">{label}</span>
+        <span className="text-[10px] text-[#1e1e1e]/25 cursor-default select-none">?</span>
+      </div>
+      <p className="mt-0.5 text-lg font-bold text-[#1e1e1e]">{value.toFixed(1)}</p>
+      {/* Hover tooltip */}
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded-lg border border-[#1e1e1e]/10 bg-[#1e1e1e] px-3 py-2.5 text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+        {tooltip}
+        {/* Arrow */}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1e1e1e]" />
+      </div>
+    </div>
+  )
+}
+
+const SCORE_TOOLTIPS = {
+  technical: `How feasible the product is to build technically. Considers tech stack complexity, team skill requirements, third-party dependencies, and time-to-MVP. Higher = easier to build.`,
+  market: `How strong the market opportunity is. Considers market size, demand signals, competition density, and monetisation potential. Higher = more attractive market.`,
+  risk: `How well execution risk is managed under this approach. Considers funding risk, team risk, regulatory exposure, and go-to-market uncertainty. Higher = lower overall risk.`,
+}
+
 export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
   if (!plan) {
     return (
@@ -33,24 +63,21 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
         {/* Left column: scores + reasoning + positioning + confirm */}
         <div className="space-y-4 lg:col-span-3">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] p-3 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/40">Technical</span>
-              <p className="mt-0.5 text-lg font-bold text-[#1e1e1e]">
-                {plan.scores.technical_feasibility.toFixed(1)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] p-3 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/40">Market</span>
-              <p className="mt-0.5 text-lg font-bold text-[#1e1e1e]">
-                {plan.scores.market_viability.toFixed(1)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] p-3 text-sm">
-              <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/40">Risk Control</span>
-              <p className="mt-0.5 text-lg font-bold text-[#1e1e1e]">
-                {plan.scores.execution_risk.toFixed(1)}
-              </p>
-            </div>
+            <ScoreCard
+              label="Technical"
+              value={plan.scores.technical_feasibility}
+              tooltip={SCORE_TOOLTIPS.technical}
+            />
+            <ScoreCard
+              label="Market"
+              value={plan.scores.market_viability}
+              tooltip={SCORE_TOOLTIPS.market}
+            />
+            <ScoreCard
+              label="Risk Control"
+              value={plan.scores.execution_risk}
+              tooltip={SCORE_TOOLTIPS.risk}
+            />
           </div>
 
           <div className="space-y-3">
