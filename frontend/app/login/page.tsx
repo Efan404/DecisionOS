@@ -22,11 +22,23 @@ const AMBIENT_DOTS = [
 
 export default function LoginPage() {
   const t = useTranslations('login')
+  const tCommon = useTranslations('common')
   const router = useRouter()
   const [username, setUsername] = useState('mock')
   const [password, setPassword] = useState('mock')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleSwitchLocale = () => {
+    const currentLocale =
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('NEXT_LOCALE='))
+        ?.split('=')[1] ?? 'en'
+    const nextLocale = currentLocale === 'en' ? 'zh' : 'en'
+    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000`
+    window.location.reload()
+  }
 
   // Mouse-follow cursor dot
   const panelRef = useRef<HTMLDivElement>(null)
@@ -80,7 +92,14 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full">
       {/* ── Left panel: form ── */}
-      <div className="flex w-full flex-col justify-center bg-white px-8 py-12 sm:px-14 lg:w-1/2 lg:px-20">
+      <div className="relative flex w-full flex-col justify-center bg-white px-8 py-12 sm:px-14 lg:w-1/2 lg:px-20">
+        {/* Language switcher — top-right of left panel */}
+        <button
+          onClick={handleSwitchLocale}
+          className="absolute top-6 right-6 rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] px-3 py-1.5 text-xs font-medium text-[#1e1e1e]/60 transition hover:bg-[#ebebeb] hover:text-[#1e1e1e]"
+        >
+          {tCommon('switchLang')}
+        </button>
         <div className="mx-auto w-full max-w-sm">
           <p className="text-xs font-bold tracking-[0.25em] text-[#1e1e1e]/40 uppercase">
             DecisionOS
