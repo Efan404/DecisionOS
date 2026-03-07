@@ -136,19 +136,22 @@ export function InsightsPage() {
         onAgentThought: (data) => addThought(data),
         onDone: (data) => {
           const payload = data as {
+            insight_id: string
             summary: string
             decision_impact: string
             recommended_actions: string[]
+            signal_count: number
+            generated_at: string
           }
           // Build a local record so we can prepend it immediately
           newInsight = {
-            id: `local-${Date.now()}`,
+            id: payload.insight_id ?? `local-${Date.now()}`,
             idea_id: selectedIdeaId,
             summary: payload.summary ?? '',
             decision_impact: payload.decision_impact ?? '',
             recommended_actions: payload.recommended_actions ?? [],
-            signal_count: 0,
-            generated_at: new Date().toISOString(),
+            signal_count: payload.signal_count ?? 0,
+            generated_at: payload.generated_at ?? new Date().toISOString(),
           }
         },
         onError: (err) => {
