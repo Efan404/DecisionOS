@@ -20,6 +20,7 @@ import type {
   ScopeVersionedRequest,
   PrdFeedbackLatest,
   PrdFeedbackRequest,
+  PrdPpt,
   TestAIProviderRequest,
   TestAIProviderResponse,
   SearchSettingsDetail,
@@ -597,4 +598,14 @@ export const downloadPrdBacklogExport = async (
   anchor.click()
   document.body.removeChild(anchor)
   URL.revokeObjectURL(objectUrl)
+}
+
+export const postPrdPpt = async (
+  ideaId: string,
+  payload: { version: number }
+): Promise<AgentEnvelope & { data: PrdPpt }> => {
+  return await jsonPost<{ version: number }, AgentEnvelope & { data: PrdPpt }>(
+    `/ideas/${ideaId}/agents/prd/ppt`,
+    payload
+  )
 }

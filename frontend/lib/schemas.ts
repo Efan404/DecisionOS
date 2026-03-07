@@ -245,6 +245,12 @@ export const prdBundleSchema = z.object({
   output: prdOutputSchema,
 })
 
+export const prdPptSchema = z.object({
+  title: z.string().min(1),
+  markdown: z.string().min(1),
+  generation_meta: prdGenerationMetaSchema,
+})
+
 export const prdFeedbackDimensionsSchema = z.object({
   clarity: z.number().int().min(1).max(5),
   completeness: z.number().int().min(1).max(5),
@@ -300,6 +306,7 @@ export const decisionContextSchema = z.object({
   prd: prdOutputSchema.optional(),
   prd_bundle: prdBundleSchema.optional(),
   prd_feedback_latest: prdFeedbackLatestSchema.optional(),
+  prd_ppt: prdPptSchema.optional(),
   confirmed_dag_path_id: z.string().optional(),
   confirmed_dag_node_id: z.string().optional(),
   confirmed_dag_node_content: z.string().optional(),
@@ -429,6 +436,7 @@ export type PrdGenerationMeta = z.infer<typeof prdGenerationMetaSchema>
 export type PrdInput = z.infer<typeof prdInputSchema>
 export type PrdOutput = z.infer<typeof prdOutputSchema>
 export type PrdBundle = z.infer<typeof prdBundleSchema>
+export type PrdPpt = z.infer<typeof prdPptSchema>
 export type PrdFeedbackDimensions = z.infer<typeof prdFeedbackDimensionsSchema>
 export type PrdFeedbackLatest = z.infer<typeof prdFeedbackLatestSchema>
 export type PrdFeedbackRequest = z.infer<typeof prdFeedbackRequestSchema>

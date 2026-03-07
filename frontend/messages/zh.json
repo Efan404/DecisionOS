@@ -153,6 +153,10 @@
     "guardTitle": "PRD 上下文尚未就绪",
     "guardDesc": "请先完成范围冻结再打开 PRD 页面。",
     "errorNoBaseline": "请选择已冻结的基线以生成 PRD 和待办列表。",
+    "generatePpt": "生成 AiPPT 脚本",
+    "generatingPpt": "生成中…",
+    "pptSuccess": "PPT 脚本已生成，请查看下载文件。",
+    "pptError": "PPT 脚本生成失败。",
     "steps": {
       "validating": "验证想法上下文",
       "building_context": "构建 PRD 上下文包",

@@ -153,6 +153,10 @@
     "guardTitle": "PRD context not ready",
     "guardDesc": "Complete Scope Freeze before opening the PRD page.",
     "errorNoBaseline": "Select a frozen baseline to generate PRD and backlog.",
+    "generatePpt": "Generate AiPPT Script",
+    "generatingPpt": "Generating…",
+    "pptSuccess": "PPT script generated — check your downloads.",
+    "pptError": "PPT generation failed.",
     "steps": {
       "validating": "Validating idea context",
       "building_context": "Building PRD context pack",
