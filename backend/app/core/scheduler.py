@@ -116,6 +116,24 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     except Exception:
         logger.warning("scheduler.pattern_learner.failed", exc_info=True)
 
+    # -- Signal monitor (market evidence layer) --------------------------------
+    try:
+        from app.agents.graphs.proactive.signal_monitor import build_signal_monitor_graph
+        graph = build_signal_monitor_graph()
+        await loop.run_in_executor(
+            None,
+            partial(graph.invoke, {
+                "workspace_id": "default",
+                "idea_summaries": [],
+                "signals_created": [],
+                "links_created": [],
+                "agent_thoughts": [],
+            }),
+        )
+        logger.info("scheduler.signal_monitor.done")
+    except Exception:
+        logger.warning("scheduler.signal_monitor.failed", exc_info=True)
+
     logger.info("scheduler.proactive_agents.done notifications_created=%d", len(created_notifications))
 
     # -- Email dispatch -------------------------------------------------------

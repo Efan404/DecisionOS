@@ -123,6 +123,32 @@ async def trigger_pattern_learning():
     }
 
 
+@router.post("/signal-monitor/trigger")
+async def trigger_signal_monitor():
+    """Manually trigger the signal monitor (market evidence layer).
+
+    Fetches HN stories, creates MarketSignal records, and links them to
+    ideas (by vector similarity) and competitors (by URL domain match).
+    """
+    from app.agents.graphs.proactive.signal_monitor import build_signal_monitor_graph
+
+    loop = asyncio.get_event_loop()
+    graph = build_signal_monitor_graph()
+    result = await loop.run_in_executor(None, partial(graph.invoke, {
+        "workspace_id": "default",
+        "idea_summaries": [],
+        "signals_created": [],
+        "links_created": [],
+        "agent_thoughts": [],
+    }))
+
+    return {
+        "signals_created": len(result.get("signals_created", [])),
+        "links_created": len(result.get("links_created", [])),
+        "agent_thoughts": result.get("agent_thoughts", []),
+    }
+
+
 @router.get("/cross-idea")
 async def get_cross_idea_insights():
     """Return existing cross-idea insights from notification table (no LLM call)."""
