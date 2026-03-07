@@ -73,6 +73,17 @@ export function AppShell({ children }: AppShellProps) {
   const handleStartTour = () => {
     startTour()
   }
+
+  const handleSwitchLocale = () => {
+    const currentLocale =
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('NEXT_LOCALE='))
+        ?.split('=')[1] ?? 'en'
+    const nextLocale = currentLocale === 'en' ? 'zh' : 'en'
+    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000`
+    window.location.reload()
+  }
   const isLoginRoute = pathname === '/login'
   const [mounted, setMounted] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -367,6 +378,15 @@ export function AppShell({ children }: AppShellProps) {
                 <LogOut size={14} />
               </button>
             </div>
+
+            {/* Group 4: Language switcher (desktop only) */}
+            <button
+              type="button"
+              onClick={handleSwitchLocale}
+              className="hidden rounded-lg px-3 py-2 text-left text-xs font-medium text-[#1e1e1e]/40 transition hover:bg-[#e8e8e8] hover:text-[#1e1e1e] sm:block"
+            >
+              {tCommon('switchLang')}
+            </button>
 
             {/* Mobile hamburger */}
             <button
