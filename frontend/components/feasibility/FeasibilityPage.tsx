@@ -62,9 +62,9 @@ export function FeasibilityPage() {
   const tCommon = useTranslations('common')
 
   const FEASIBILITY_STEPS: { key: string; label: string }[] = [
-    { key: 'received_request', label: 'Received request' },
+    { key: 'received_request', label: t('steps.received_request') },
     { key: 'generating_plans', label: t('steps.generating_plans') },
-    { key: 'saving', label: 'Saving results' },
+    { key: 'saving', label: t('steps.saving') },
   ]
 
   const context = useDecisionStore((state) => state.context)
@@ -283,7 +283,7 @@ export function FeasibilityPage() {
       }
     } catch (error) {
       if (!isAbortError(error) && mountedRef.current) {
-        const message = error instanceof Error ? error.message : 'Request failed. Please try again.'
+        const message = error instanceof Error ? error.message : t('errorRequestFailed')
         setErrorMessage(message)
         toast.error(message)
       }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { listMarketInsightsForIdea, streamMarketInsight } from '../../lib/api'
@@ -24,6 +25,7 @@ const formatDate = (iso: string): string => {
 // ── Insight Card ─────────────────────────────────────────────────────────────
 
 function InsightCard({ insight }: { insight: MarketInsightRecord }) {
+  const t = useTranslations('insights.market')
   return (
     <div className="rounded-xl border border-[#1e1e1e]/10 bg-[#f5f5f5] px-5 py-4 shadow-sm">
       {/* Timestamp */}
@@ -34,7 +36,7 @@ function InsightCard({ insight }: { insight: MarketInsightRecord }) {
       {/* Summary */}
       <div className="mb-3">
         <p className="mb-1 text-[11px] font-bold tracking-widest text-[#1e1e1e]/50 uppercase">
-          Summary
+          {t('summary')}
         </p>
         <p className="text-sm leading-relaxed text-[#1e1e1e]">{insight.summary}</p>
       </div>
@@ -42,7 +44,7 @@ function InsightCard({ insight }: { insight: MarketInsightRecord }) {
       {/* Decision Impact */}
       <div className="mb-3">
         <p className="mb-1 text-[11px] font-bold tracking-widest text-[#1e1e1e]/50 uppercase">
-          Decision Impact
+          {t('decisionImpact')}
         </p>
         <p className="text-sm leading-relaxed text-[#1e1e1e]/80">{insight.decision_impact}</p>
       </div>
@@ -51,7 +53,7 @@ function InsightCard({ insight }: { insight: MarketInsightRecord }) {
       {insight.recommended_actions.length > 0 && (
         <div className="mb-3">
           <p className="mb-1 text-[11px] font-bold tracking-widest text-[#1e1e1e]/50 uppercase">
-            Recommended Actions
+            {t('recommendedActions')}
           </p>
           <ul className="space-y-1">
             {insight.recommended_actions.map((action, i) => (
@@ -66,7 +68,9 @@ function InsightCard({ insight }: { insight: MarketInsightRecord }) {
 
       {/* Signal count */}
       <p className="mt-2 text-[11px] text-[#1e1e1e]/40">
-        Based on {insight.signal_count} signal{insight.signal_count !== 1 ? 's' : ''}
+        {insight.signal_count === 1
+          ? t('signalCount', { count: insight.signal_count })
+          : t('signalCountPlural', { count: insight.signal_count })}
       </p>
     </div>
   )
@@ -75,6 +79,7 @@ function InsightCard({ insight }: { insight: MarketInsightRecord }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function InsightsPage() {
+  const t = useTranslations('insights.market')
   const ideas = useIdeasStore((state) => state.ideas)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
 
@@ -100,7 +105,7 @@ export function InsightsPage() {
       const data = await listMarketInsightsForIdea(ideaId)
       setInsights(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load insights.')
+      setError(err instanceof Error ? err.message : t('errorLoadFailed'))
     } finally {
       setLoadingInsights(false)
     }
@@ -155,7 +160,7 @@ export function InsightsPage() {
           }
         },
         onError: (err) => {
-          setError(err instanceof Error ? err.message : 'Analysis failed.')
+          setError(err instanceof Error ? err.message : t('errorAnalysisFailed'))
         },
       })
 
@@ -167,7 +172,7 @@ export function InsightsPage() {
       await loadInsights(selectedIdeaId)
     } catch (err) {
       if ((err as { name?: string }).name !== 'AbortError') {
-        setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.')
+        setError(err instanceof Error ? err.message : t('errorAnalysisFailed'))
       }
     } finally {
       setAnalyzing(false)
@@ -181,10 +186,8 @@ export function InsightsPage() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#1e1e1e]">Market Insights</h1>
-          <p className="mt-0.5 text-xs text-[#1e1e1e]/50">
-            AI-generated market intelligence for your ideas
-          </p>
+          <h1 className="text-xl font-bold text-[#1e1e1e]">{t('title')}</h1>
+          <p className="mt-0.5 text-xs text-[#1e1e1e]/50">{t('subtitle')}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -211,7 +214,7 @@ export function InsightsPage() {
             disabled={analyzing || !selectedIdeaId}
             className="rounded-lg bg-[#b9eb10] px-4 py-1.5 text-sm font-bold text-[#1e1e1e] shadow-sm transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {analyzing ? 'Analyzing\u2026' : 'Analyze'}
+            {analyzing ? t('analyzing') : t('analyze')}
           </button>
         </div>
       </div>
@@ -219,7 +222,8 @@ export function InsightsPage() {
       {/* Selected idea label (when only one idea) */}
       {ideas.length === 1 && selectedIdea && (
         <p className="mb-4 text-xs text-[#1e1e1e]/50">
-          Analyzing: <span className="font-semibold text-[#1e1e1e]">{selectedIdea.title}</span>
+          {t('analyzingLabel')}{' '}
+          <span className="font-semibold text-[#1e1e1e]">{selectedIdea.title}</span>
         </p>
       )}
 
@@ -239,13 +243,11 @@ export function InsightsPage() {
 
       {/* ── Insight list ─────────────────────────────────────────────────────── */}
       {loadingInsights ? (
-        <div className="py-8 text-center text-sm text-[#1e1e1e]/40">Loading insights&hellip;</div>
+        <div className="py-8 text-center text-sm text-[#1e1e1e]/40">{t('loadingInsights')}</div>
       ) : insights.length === 0 && !analyzing ? (
         <div className="rounded-xl border border-dashed border-[#1e1e1e]/15 bg-[#f5f5f5] px-6 py-12 text-center">
-          <p className="text-sm font-semibold text-[#1e1e1e]/50">No market insights yet</p>
-          <p className="mt-1 text-xs text-[#1e1e1e]/35">
-            Click &ldquo;Analyze&rdquo; to generate your first market insight for this idea.
-          </p>
+          <p className="text-sm font-semibold text-[#1e1e1e]/50">{t('noInsightsTitle')}</p>
+          <p className="mt-1 text-xs text-[#1e1e1e]/35">{t('noInsightsDesc')}</p>
         </div>
       ) : (
         <div className="space-y-4">

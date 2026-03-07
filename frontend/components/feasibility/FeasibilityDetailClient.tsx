@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
@@ -16,6 +17,7 @@ type FeasibilityDetailClientProps = {
 }
 
 export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps) {
+  const t = useTranslations('feasibility')
   const router = useRouter()
   const pathname = usePathname()
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
@@ -32,19 +34,13 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
 
   if (!context.feasibility) {
     return (
-      <GuardPanel
-        title="No feasibility context"
-        description="Generate and select a feasibility plan before opening this page."
-      />
+      <GuardPanel title={t('guardNoFeasibilityTitle')} description={t('guardNoFeasibilityDesc')} />
     )
   }
 
   if (!plan) {
     return (
-      <GuardPanel
-        title="Plan not found"
-        description="This plan is not in the current feasibility result. Return to the list and choose again."
-      />
+      <GuardPanel title={t('guardPlanNotFoundTitle')} description={t('guardPlanNotFoundDesc')} />
     )
   }
 
@@ -58,7 +54,7 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
         return
       }
       if (!activeIdea) {
-        toast.error('Missing active idea context')
+        toast.error(t('errorMissingActiveIdea'))
         return
       }
 
@@ -71,7 +67,7 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
       })
       setIdeaVersion(routeIdeaId, detail.version)
       replaceContext(detail.context)
-      toast.success('Plan confirmed')
+      toast.success(t('planConfirmed'))
       router.push(buildIdeaStepHref(routeIdeaId, 'scope-freeze'))
     } catch (error) {
       if (
@@ -85,12 +81,11 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
           replaceContext(latest.context)
           setIdeaVersion(routeIdeaId, latest.version)
         }
-        toast.error('Idea changed in another session. Reloaded latest data.')
+        toast.error(t('errorVersionConflict'))
         return
       }
 
-      const message =
-        error instanceof Error ? error.message : 'Failed to confirm this plan.'
+      const message = error instanceof Error ? error.message : t('errorPlanConfirmFailed')
       toast.error(message)
     } finally {
       setConfirming(false)

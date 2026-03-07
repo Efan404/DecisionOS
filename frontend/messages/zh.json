@@ -54,11 +54,22 @@
     "errorNoPath": "未找到已确认的 DAG 路径，请在想法画布中确认路径。",
     "errorInvalidPath": "已确认路径数据无效，请重新确认 DAG 路径。",
     "errorLoadPath": "加载已确认 DAG 路径失败。",
+    "errorRequestFailed": "请求失败，请重试。",
+    "errorMissingActiveIdea": "缺少当前想法上下文",
+    "errorPlanConfirmFailed": "确认方案失败。",
+    "errorVersionConflict": "另一个会话中的想法已更改，已重新加载最新数据。",
+    "guardNoFeasibilityTitle": "没有可行性上下文",
+    "guardNoFeasibilityDesc": "请先生成并选择一个可行性方案，再打开此页面。",
+    "guardPlanNotFoundTitle": "未找到方案",
+    "guardPlanNotFoundDesc": "当前可行性结果中不存在该方案，请返回列表重新选择。",
+    "planConfirmed": "方案已确认",
     "steps": {
+      "received_request": "接收请求",
       "plan_1": "方案 1 已就绪",
       "plan_2": "方案 2 已就绪",
       "plan_3": "方案 3 已就绪",
-      "generating_plans": "并行生成 3 个方案"
+      "generating_plans": "并行生成 3 个方案",
+      "saving": "保存结果"
     },
     "plan": {
       "scoreLabel": "综合评分",
@@ -68,7 +79,18 @@
       "selectPlan": "选择此方案",
       "selectedPlan": "已选择",
       "viewDetail": "查看详情",
-      "positioning": "推荐定位"
+      "positioning": "推荐定位",
+      "notFound": "未找到方案",
+      "confirmPlan": "确认此方案",
+      "confirming": "确认中…",
+      "reasoningTechnical": "技术分析",
+      "reasoningMarket": "市场分析",
+      "reasoningRisk": "执行风险分析",
+      "similarProducts": "类似产品",
+      "noCompetitors": "暂无竞品数据。",
+      "tooltipTechnical": "产品在技术上的可行性。综合考量技术栈复杂度、团队技能要求、第三方依赖及 MVP 交付时间。分数越高表示越易构建。",
+      "tooltipMarket": "市场机会的强度。综合考量市场规模、需求信号、竞争密度及变现潜力。分数越高表示市场越有吸引力。",
+      "tooltipRisk": "该方案对执行风险的管控程度。综合考量资金风险、团队风险、监管风险及市场拓展的不确定性。分数越高表示整体风险越低。"
     }
   },
   "scope": {
@@ -154,10 +176,6 @@
     "guardTitle": "PRD 上下文尚未就绪",
     "guardDesc": "请先完成范围冻结再打开 PRD 页面。",
     "errorNoBaseline": "请选择已冻结的基线以生成 PRD 和待办列表。",
-    "generatePpt": "生成 AiPPT 脚本",
-    "generatingPpt": "生成中…",
-    "pptSuccess": "PPT 脚本已生成，请查看下载文件。",
-    "pptError": "PPT 脚本生成失败。",
     "steps": {
       "validating": "验证想法上下文",
       "building_context": "构建 PRD 上下文包",
@@ -205,7 +223,24 @@
     "noPatterns": "尚未学习到规律。",
     "loading": "加载洞察中…",
     "triggerAnalysis": "触发分析",
-    "analysisRunning": "运行中…"
+    "analysisRunning": "运行中…",
+    "market": {
+      "title": "市场洞察",
+      "subtitle": "AI 为您的想法生成的市场情报",
+      "analyze": "分析",
+      "analyzing": "分析中…",
+      "analyzingLabel": "分析中：",
+      "loadingInsights": "加载洞察中…",
+      "noInsightsTitle": "暂无市场洞察",
+      "noInsightsDesc": "点击「分析」为此想法生成首条市场洞察。",
+      "summary": "摘要",
+      "decisionImpact": "决策影响",
+      "recommendedActions": "推荐行动",
+      "signalCount": "基于 {count} 条信号",
+      "signalCountPlural": "基于 {count} 条信号",
+      "errorLoadFailed": "加载洞察失败。",
+      "errorAnalysisFailed": "分析失败，请重试。"
+    }
   },
   "profile": {
     "title": "个人资料",
@@ -230,6 +265,27 @@
     "initializingAgents": "正在初始化代理…",
     "loadingDag": "加载想法路径…",
     "confirmPath": "确认路径"
+  },
+  "home": {
+    "open": "打开",
+    "entries": {
+      "ideaCanvas": {
+        "title": "想法画布",
+        "description": "输入想法种子，选择方向和路径。"
+      },
+      "feasibility": {
+        "title": "可行性分析",
+        "description": "查看可行性评分卡，确认一个方案。"
+      },
+      "scopeFreeze": {
+        "title": "范围冻结",
+        "description": "整理范围内外事项，冻结决策。"
+      },
+      "prd": {
+        "title": "产品需求文档",
+        "description": "查看生成的 PRD 内容。"
+      }
+    }
   },
   "notifications": {
     "title": "通知",

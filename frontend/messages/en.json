@@ -54,11 +54,22 @@
     "errorNoPath": "No confirmed DAG path found. Please confirm a path in Idea Canvas.",
     "errorInvalidPath": "Confirmed path payload is invalid. Re-confirm the DAG path.",
     "errorLoadPath": "Failed to load confirmed DAG path.",
+    "errorRequestFailed": "Request failed. Please try again.",
+    "errorMissingActiveIdea": "Missing active idea context",
+    "errorPlanConfirmFailed": "Failed to confirm this plan.",
+    "errorVersionConflict": "Idea changed in another session. Reloaded latest data.",
+    "guardNoFeasibilityTitle": "No feasibility context",
+    "guardNoFeasibilityDesc": "Generate and select a feasibility plan before opening this page.",
+    "guardPlanNotFoundTitle": "Plan not found",
+    "guardPlanNotFoundDesc": "This plan is not in the current feasibility result. Return to the list and choose again.",
+    "planConfirmed": "Plan confirmed",
     "steps": {
+      "received_request": "Received request",
       "plan_1": "Plan 1 ready",
       "plan_2": "Plan 2 ready",
       "plan_3": "Plan 3 ready",
-      "generating_plans": "Generating 3 plans in parallel"
+      "generating_plans": "Generating 3 plans in parallel",
+      "saving": "Saving results"
     },
     "plan": {
       "scoreLabel": "Score",
@@ -68,7 +79,18 @@
       "selectPlan": "Select Plan",
       "selectedPlan": "Selected",
       "viewDetail": "View detail",
-      "positioning": "Recommended positioning"
+      "positioning": "Recommended positioning",
+      "notFound": "Plan not found",
+      "confirmPlan": "Confirm This Plan",
+      "confirming": "Confirming…",
+      "reasoningTechnical": "Reasoning · Technical",
+      "reasoningMarket": "Reasoning · Market",
+      "reasoningRisk": "Reasoning · Execution Risk",
+      "similarProducts": "Similar Products",
+      "noCompetitors": "No competitor data available for this plan.",
+      "tooltipTechnical": "How feasible the product is to build technically. Considers tech stack complexity, team skill requirements, third-party dependencies, and time-to-MVP. Higher = easier to build.",
+      "tooltipMarket": "How strong the market opportunity is. Considers market size, demand signals, competition density, and monetisation potential. Higher = more attractive market.",
+      "tooltipRisk": "How well execution risk is managed under this approach. Considers funding risk, team risk, regulatory exposure, and go-to-market uncertainty. Higher = lower overall risk."
     }
   },
   "scope": {
@@ -154,10 +176,6 @@
     "guardTitle": "PRD context not ready",
     "guardDesc": "Complete Scope Freeze before opening the PRD page.",
     "errorNoBaseline": "Select a frozen baseline to generate PRD and backlog.",
-    "generatePpt": "Generate AiPPT Script",
-    "generatingPpt": "Generating…",
-    "pptSuccess": "PPT script generated — check your downloads.",
-    "pptError": "PPT generation failed.",
     "steps": {
       "validating": "Validating idea context",
       "building_context": "Building PRD context pack",
@@ -205,7 +223,24 @@
     "noPatterns": "No patterns learned yet.",
     "loading": "Loading insights…",
     "triggerAnalysis": "Trigger Analysis",
-    "analysisRunning": "Running…"
+    "analysisRunning": "Running…",
+    "market": {
+      "title": "Market Insights",
+      "subtitle": "AI-generated market intelligence for your ideas",
+      "analyze": "Analyze",
+      "analyzing": "Analyzing…",
+      "analyzingLabel": "Analyzing:",
+      "loadingInsights": "Loading insights…",
+      "noInsightsTitle": "No market insights yet",
+      "noInsightsDesc": "Click \"Analyze\" to generate your first market insight for this idea.",
+      "summary": "Summary",
+      "decisionImpact": "Decision Impact",
+      "recommendedActions": "Recommended Actions",
+      "signalCount": "Based on {count} signal",
+      "signalCountPlural": "Based on {count} signals",
+      "errorLoadFailed": "Failed to load insights.",
+      "errorAnalysisFailed": "Analysis failed. Please try again."
+    }
   },
   "profile": {
     "title": "Profile",
@@ -230,6 +265,27 @@
     "initializingAgents": "Initializing agents…",
     "loadingDag": "Loading idea path…",
     "confirmPath": "Confirm Path"
+  },
+  "home": {
+    "open": "Open",
+    "entries": {
+      "ideaCanvas": {
+        "title": "Idea Canvas",
+        "description": "Enter an idea seed and choose direction and path."
+      },
+      "feasibility": {
+        "title": "Feasibility",
+        "description": "Review feasibility scorecards and confirm a plan."
+      },
+      "scopeFreeze": {
+        "title": "Scope Freeze",
+        "description": "Organize IN/OUT scope and freeze decisions."
+      },
+      "prd": {
+        "title": "PRD",
+        "description": "Review generated PRD content."
+      }
+    }
   },
   "notifications": {
     "title": "Notifications",

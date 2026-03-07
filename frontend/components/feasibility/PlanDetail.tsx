@@ -31,19 +31,13 @@ function ScoreCard({ label, value, tooltip }: ScoreCardProps) {
   )
 }
 
-const SCORE_TOOLTIPS = {
-  technical: `How feasible the product is to build technically. Considers tech stack complexity, team skill requirements, third-party dependencies, and time-to-MVP. Higher = easier to build.`,
-  market: `How strong the market opportunity is. Considers market size, demand signals, competition density, and monetisation potential. Higher = more attractive market.`,
-  risk: `How well execution risk is managed under this approach. Considers funding risk, team risk, regulatory exposure, and go-to-market uncertainty. Higher = lower overall risk.`,
-}
-
 export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
   const t = useTranslations('feasibility')
 
   if (!plan) {
     return (
       <section className="mx-auto w-full max-w-3xl rounded-xl border border-dashed p-6">
-        <h1 className="text-xl font-semibold">Plan not found</h1>
+        <h1 className="text-xl font-semibold">{t('plan.notFound')}</h1>
       </section>
     )
   }
@@ -69,24 +63,24 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
             <ScoreCard
               label={t('plan.techLabel')}
               value={plan.scores.technical_feasibility}
-              tooltip={SCORE_TOOLTIPS.technical}
+              tooltip={t('plan.tooltipTechnical')}
             />
             <ScoreCard
               label={t('plan.marketLabel')}
               value={plan.scores.market_viability}
-              tooltip={SCORE_TOOLTIPS.market}
+              tooltip={t('plan.tooltipMarket')}
             />
             <ScoreCard
               label={t('plan.riskLabel')}
               value={plan.scores.execution_risk}
-              tooltip={SCORE_TOOLTIPS.risk}
+              tooltip={t('plan.tooltipRisk')}
             />
           </div>
 
           <div className="space-y-3">
             <div className="rounded-lg border border-[#1e1e1e]/10 p-4">
               <h2 className="text-xs font-semibold tracking-wide text-[#1e1e1e]/50">
-                Reasoning &middot; Technical
+                {t('plan.reasoningTechnical')}
               </h2>
               <p className="mt-1.5 text-sm leading-relaxed text-[#1e1e1e]/70">
                 {plan.reasoning.technical_feasibility}
@@ -94,7 +88,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
             </div>
             <div className="rounded-lg border border-[#1e1e1e]/10 p-4">
               <h2 className="text-xs font-semibold tracking-wide text-[#1e1e1e]/50">
-                Reasoning &middot; Market
+                {t('plan.reasoningMarket')}
               </h2>
               <p className="mt-1.5 text-sm leading-relaxed text-[#1e1e1e]/70">
                 {plan.reasoning.market_viability}
@@ -102,7 +96,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
             </div>
             <div className="rounded-lg border border-[#1e1e1e]/10 p-4">
               <h2 className="text-xs font-semibold tracking-wide text-[#1e1e1e]/50">
-                Reasoning &middot; Execution Risk
+                {t('plan.reasoningRisk')}
               </h2>
               <p className="mt-1.5 text-sm leading-relaxed text-[#1e1e1e]/70">
                 {plan.reasoning.execution_risk}
@@ -126,7 +120,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
               disabled={confirming}
               className="w-full rounded-xl bg-[#1e1e1e] px-5 py-3 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {confirming ? 'Confirming\u2026' : 'Confirm This Plan'}
+              {confirming ? t('plan.confirming') : t('plan.confirmPlan')}
             </button>
           ) : null}
         </div>
@@ -134,11 +128,9 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
         {/* Right column: competitors */}
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-[#1e1e1e]/10 bg-[#f5f5f5] p-4">
-            <h3 className="text-sm font-semibold text-[#1e1e1e]">Similar Products</h3>
+            <h3 className="text-sm font-semibold text-[#1e1e1e]">{t('plan.similarProducts')}</h3>
             {!plan.competitors?.length ? (
-              <p className="mt-3 text-xs text-[#1e1e1e]/40">
-                No competitor data available for this plan.
-              </p>
+              <p className="mt-3 text-xs text-[#1e1e1e]/40">{t('plan.noCompetitors')}</p>
             ) : (
               <ul className="mt-3 space-y-3">
                 {plan.competitors.map((c) => (
