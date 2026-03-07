@@ -102,6 +102,24 @@ def seed_demo_data(conn: sqlite3.Connection) -> None:
     # ------------------------------------------------------------------
     _insert_user_preferences(conn, now)
 
+    # ------------------------------------------------------------------
+    # 8. MARKET SIGNALS
+    # ------------------------------------------------------------------
+    if not _table_has_demo_rows(conn, "market_signal", "demo-signal-%"):
+        _insert_market_signals(conn, now)
+
+    # ------------------------------------------------------------------
+    # 9. MARKET INSIGHTS (per-idea AI analysis reports)
+    # ------------------------------------------------------------------
+    if not _table_has_demo_rows(conn, "market_insight", "demo-insight-%"):
+        _insert_market_insights(conn, now)
+
+    # ------------------------------------------------------------------
+    # 10. CROSS-IDEA INSIGHTS (DB table, not just notifications)
+    # ------------------------------------------------------------------
+    if not _table_has_demo_rows(conn, "cross_idea_insight", "demo-cross-%"):
+        _insert_cross_idea_insights(conn, now)
+
 
 # ===================================================================
 # IDEA 1: AI Recipe Recommender — fully completed (PRD stage)
@@ -512,6 +530,18 @@ def _insert_notifications(conn: sqlite3.Connection, now: str) -> None:
             "Based on your recent decisions: business_model_preference: Freemium with premium AI features, risk_tolerance: Moderate, focus_area: Consumer AI applications",
             {"preferences": {"business_model_preference": "Freemium with premium AI features", "risk_tolerance": "Moderate — prefers validated markets", "focus_area": "Consumer AI applications", "decision_style": "Data-driven, favors scored comparisons"}},
         ),
+        (
+            "demo-notif-5", "default", "market_signal",
+            "Competitor alert: Yummly launches AI meal planner",
+            "Yummly just announced an AI-powered weekly meal planner with dietary restriction support — directly competing with your AI Recipe Recommender's core proposition.",
+            {"signal_id": "demo-signal-yummly", "signal_type": "competitor_update", "severity": "high"},
+        ),
+        (
+            "demo-notif-6", "default", "market_insight",
+            "Market insight ready: AI Recipe Recommender",
+            "The AI nutrition market is accelerating: regulatory tailwinds from new FDA guidance, rising consumer demand for personalization, and a gap in affordable B2C tools. Your positioning as a freemium AI meal planner is well-timed.",
+            {"idea_id": DEMO_IDEA_1, "insight_id": "demo-insight-recipe", "action_url": f"/insights?idea={DEMO_IDEA_1}"},
+        ),
     ]
     for nid, user_id, ntype, title, body, metadata in notifications:
         conn.execute(
@@ -582,4 +612,145 @@ def _insert_user_preferences(conn: sqlite3.Connection, now: str) -> None:
                  last_learned_event_count = excluded.last_learned_event_count,
                  updated_at = excluded.updated_at""",
             (mock_uid, patterns_json, 6, now),
+        )
+
+
+# ===================================================================
+# MARKET SIGNALS
+# ===================================================================
+def _insert_market_signals(conn: sqlite3.Connection, now: str) -> None:
+    workspace_id = "default"
+    signals = [
+        (
+            "demo-signal-yummly", workspace_id, "competitor_update",
+            "Competitor alert: Yummly launches AI meal planner",
+            "Yummly just announced an AI-powered weekly meal planner with dietary restriction support and calorie tracking, directly competing with the core proposition of AI Recipe Recommender. Early user reviews cite strong UX but limited cuisine diversity.",
+            "high", now, None,
+            json.dumps({"source_url": "https://example.com/yummly-ai", "competitor_name": "Yummly"}),
+        ),
+        (
+            "demo-signal-fda", workspace_id, "market_news",
+            "FDA issues new guidance on AI-generated dietary recommendations",
+            "The FDA released updated guidance clarifying that AI-generated meal and nutrition recommendations fall outside current medical device regulation, removing a major compliance barrier for consumer nutrition apps.",
+            "medium", now, None,
+            json.dumps({"source_url": "https://example.com/fda-ai-nutrition"}),
+        ),
+        (
+            "demo-signal-funding", workspace_id, "market_news",
+            "VC funding in AI food-tech up 60% YoY — investor appetite is strong",
+            "Venture capital investment in AI-powered food and nutrition startups rose 60% year-over-year in Q1 2026, with seed rounds averaging $2.1M. Investors are particularly interested in personalization and dietary-restriction handling.",
+            "medium", now, None,
+            json.dumps({"source_url": "https://example.com/foodtech-funding-2026"}),
+        ),
+        (
+            "demo-signal-eventbrite", workspace_id, "competitor_update",
+            "Eventbrite rolls out AI-powered local event discovery feed",
+            "Eventbrite launched a personalized discovery feed powered by attendance history and social graph signals, directly overlapping with the Local Event Discovery App's positioning as an AI-first alternative.",
+            "high", now, None,
+            json.dumps({"source_url": "https://example.com/eventbrite-ai-feed", "competitor_name": "Eventbrite"}),
+        ),
+    ]
+    for sid, wid, stype, title, summary, severity, detected_at, evidence_source_id, payload_json in signals:
+        conn.execute(
+            "INSERT INTO market_signal (id, workspace_id, signal_type, title, summary, severity, detected_at, evidence_source_id, payload_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (sid, wid, stype, title, summary, severity, detected_at, evidence_source_id, payload_json),
+        )
+    # Link signals to ideas via idea_evidence_link
+    links = [
+        ("demo-link-yummly-recipe", DEMO_IDEA_1, "signal", "demo-signal-yummly", "Direct competitor overlap in AI meal planning", 0.92),
+        ("demo-link-fda-recipe",    DEMO_IDEA_1, "signal", "demo-signal-fda",    "Regulatory tailwind reduces compliance risk", 0.78),
+        ("demo-link-funding-recipe",DEMO_IDEA_1, "signal", "demo-signal-funding","Investor appetite validates market opportunity", 0.65),
+        ("demo-link-eventbrite-events", DEMO_IDEA_2, "signal", "demo-signal-eventbrite", "Direct competitor overlap in local event discovery", 0.88),
+        ("demo-link-funding-events",    DEMO_IDEA_2, "signal", "demo-signal-funding",    "Investor appetite validates broader market", 0.55),
+    ]
+    for lid, idea_id, entity_type, entity_id, link_reason, relevance_score in links:
+        conn.execute(
+            "INSERT INTO idea_evidence_link (id, idea_id, entity_type, entity_id, link_reason, relevance_score, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (lid, idea_id, entity_type, entity_id, link_reason, relevance_score, now),
+        )
+
+
+# ===================================================================
+# MARKET INSIGHTS (per-idea AI analysis)
+# ===================================================================
+def _insert_market_insights(conn: sqlite3.Connection, now: str) -> None:
+    insights = [
+        (
+            "demo-insight-recipe", DEMO_IDEA_1,
+            "The AI nutrition market is accelerating with significant regulatory tailwinds. Recent FDA guidance removes compliance barriers for consumer AI dietary tools, while VC investment in the sector is up 60% YoY. However, Yummly's new AI meal planner creates a well-resourced direct competitor that must be differentiated against.",
+            "Yummly's launch raises urgency — your window for first-mover advantage is narrowing. FDA guidance is a green light to move fast without regulatory risk. Prioritize cuisine diversity and dietary edge-cases as key differentiators where Yummly is weakest.",
+            json.dumps([
+                "Audit Yummly's AI meal planner for gap analysis — identify 3 dietary restriction types they handle poorly",
+                "Fast-track onboarding flow to capture users before Yummly's marketing ramp peaks",
+                "Prepare a 'vs Yummly' positioning page emphasizing cuisine breadth and dietary flexibility",
+            ]),
+            3, now,
+        ),
+        (
+            "demo-insight-events", DEMO_IDEA_2,
+            "The local event discovery space is heating up: Eventbrite's AI feed launch validates the personalization hypothesis but signals increased competition. VC funding tailwinds indicate the market timing is favorable for a focused competitor, particularly one targeting underserved niche communities.",
+            "Eventbrite's move validates your core thesis but compresses the differentiation window. Competing head-on on general events is inadvisable — pivot positioning to niche communities (e.g., indie music, tech meetups, outdoor activities) where Eventbrite's algorithm lacks training data.",
+            json.dumps([
+                "Define 3 niche community verticals where Eventbrite's AI has weak coverage",
+                "Implement community-specific onboarding to build early high-signal training data",
+                "Reach out to 10 local event organizers in target niches for early partnership and data seeding",
+            ]),
+            2, now,
+        ),
+    ]
+    for iid, idea_id, summary, decision_impact, recommended_actions_json, signal_count, generated_at in insights:
+        conn.execute(
+            "INSERT INTO market_insight (id, idea_id, summary, decision_impact, recommended_actions, signal_count, generated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (iid, idea_id, summary, decision_impact, recommended_actions_json, signal_count, generated_at),
+        )
+
+
+# ===================================================================
+# CROSS-IDEA INSIGHTS (DB table)
+# ===================================================================
+def _insert_cross_idea_insights(conn: sqlite3.Connection, now: str) -> None:
+    # idea_a_id < idea_b_id is enforced by CHECK constraint
+    # "demo-idea-devtools" < "demo-idea-events" < "demo-idea-recipe" (lexicographic)
+    insights = [
+        (
+            "demo-cross-recipe-events",
+            "default",
+            DEMO_IDEA_2,  # demo-idea-events
+            DEMO_IDEA_1,  # demo-idea-recipe — but must have a < b
+            "execution_reuse",
+            "Both ideas require an AI personalization engine that learns user preferences over time. The Recipe app ranks meals by dietary history; the Event app ranks events by attendance history. A shared preference-learning pipeline could serve both.",
+            "Building the recommendation engine twice doubles engineering cost and splits your ML training data. A shared service accelerates both products and compounds learning signal.",
+            "reuse_scope",
+            0.81, 0.74,
+            json.dumps({"shared_components": ["preference_learner", "ranking_model", "user_profile_store"]}),
+            "demo-fingerprint-cross-001",
+        ),
+        (
+            "demo-cross-devtools-recipe",
+            "default",
+            DEMO_IDEA_3,  # demo-idea-devtools
+            DEMO_IDEA_1,  # demo-idea-recipe
+            "shared_audience",
+            "Both ideas target tech-savvy early adopters willing to pay for AI productivity tools. The Recipe app's target user (health-conscious professional) overlaps significantly with the DevTools user (software developer managing personal health alongside work).",
+            "A shared early-adopter community can provide feedback for both products and reduce CAC through cross-promotion. Joint beta launch could amplify signal.",
+            "keep_separate",
+            0.62, 0.55,
+            json.dumps({"audience_overlap": "tech-savvy early adopters, 25-40, health-conscious"}),
+            "demo-fingerprint-cross-002",
+        ),
+    ]
+    for (iid, workspace_id, idea_a_id, idea_b_id, insight_type, summary, why_it_matters,
+         recommended_action, confidence, similarity_score, evidence_json, fingerprint) in insights:
+        # Enforce a < b
+        a, b = sorted([idea_a_id, idea_b_id])
+        conn.execute(
+            "INSERT INTO cross_idea_insight "
+            "(id, workspace_id, idea_a_id, idea_b_id, insight_type, summary, why_it_matters, "
+            "recommended_action, confidence, similarity_score, evidence_json, fingerprint, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (iid, workspace_id, a, b, insight_type, summary, why_it_matters,
+             recommended_action, confidence, similarity_score, evidence_json, fingerprint, now, now),
         )
