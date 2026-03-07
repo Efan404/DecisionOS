@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { dismissNotification, getNotifications, type Notification } from '../../lib/api'
 
 const POLL_INTERVAL_MS = 30_000
 
 export function NotificationBell() {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   // Per-notification dismissing state instead of shared global loading
@@ -158,15 +160,20 @@ export function NotificationBell() {
                             : null
 
                         return actionUrl ? (
-                          <a
-                            href={actionUrl}
-                            onClick={() => void handleDismiss(n.id)}
-                            className="text-xs leading-snug font-medium text-[#1e1e1e] hover:text-[#b9eb10] hover:underline transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDismiss(n.id)
+                              router.push(actionUrl)
+                            }}
+                            className="text-left text-xs leading-snug font-medium text-[#1e1e1e] transition-colors hover:text-[#b9eb10] hover:underline"
                           >
                             {n.title}
-                          </a>
+                          </button>
                         ) : (
-                          <p className="text-xs leading-snug font-medium text-[#1e1e1e]">{n.title}</p>
+                          <p className="text-xs leading-snug font-medium text-[#1e1e1e]">
+                            {n.title}
+                          </p>
                         )
                       })()}
                       <p className="mt-0.5 text-[11px] leading-snug text-[#1e1e1e]/50">{n.body}</p>
