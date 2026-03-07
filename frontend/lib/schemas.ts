@@ -445,3 +445,48 @@ export type TestAIProviderResponse = z.infer<typeof testAiProviderResponseSchema
 export type AuthUser = z.infer<typeof authUserSchema>
 export type AuthLoginRequest = z.infer<typeof authLoginRequestSchema>
 export type AuthLoginResponse = z.infer<typeof authLoginResponseSchema>
+
+// ── Search Settings ───────────────────────────────────────────────────────────
+
+export type SearchProviderKind = 'exa' | 'tavily' | 'hn_algolia'
+
+export interface SearchProviderConfig {
+  provider: SearchProviderKind
+  api_key_masked?: string | null
+}
+
+export interface SearchSettingsDetail {
+  id: string
+  provider: SearchProviderKind
+  api_key_masked?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SearchSettingsPatch {
+  provider?: SearchProviderKind
+  api_key?: string | null
+}
+
+export interface TestSearchProviderRequest {
+  provider: SearchProviderKind
+  api_key?: string | null
+  query?: string | null
+}
+
+export interface TestSearchProviderResponse {
+  ok: boolean
+  result_count: number
+  sample_titles: string[]
+  error?: string | null
+}
+
+export interface MarketInsightRecord {
+  id: string
+  idea_id: string
+  summary: string
+  decision_impact: string
+  recommended_actions: string[]
+  signal_count: number
+  generated_at: string
+}

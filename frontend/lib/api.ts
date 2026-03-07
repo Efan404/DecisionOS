@@ -20,6 +20,11 @@ import type {
   PrdFeedbackRequest,
   TestAIProviderRequest,
   TestAIProviderResponse,
+  SearchSettingsDetail,
+  SearchSettingsPatch,
+  TestSearchProviderRequest,
+  TestSearchProviderResponse,
+  MarketInsightRecord,
 } from './schemas'
 import { clearAuthSession, getAccessToken } from './auth'
 
@@ -448,17 +453,33 @@ export type CrossIdeaInsightV2 = {
   idea_b_id: string
   idea_a_title?: string
   idea_b_title?: string
-  insight_type: 'execution_reuse' | 'merge_candidate' | 'positioning_conflict' | 'shared_audience' | 'shared_capability' | 'evidence_overlap'
+  insight_type:
+    | 'execution_reuse'
+    | 'merge_candidate'
+    | 'positioning_conflict'
+    | 'shared_audience'
+    | 'shared_capability'
+    | 'evidence_overlap'
   summary: string
   why_it_matters: string
-  recommended_action: 'review' | 'compare_feasibility' | 'reuse_scope' | 'reuse_prd_requirements' | 'merge_ideas' | 'keep_separate'
+  recommended_action:
+    | 'review'
+    | 'compare_feasibility'
+    | 'reuse_scope'
+    | 'reuse_prd_requirements'
+    | 'merge_ideas'
+    | 'keep_separate'
   confidence: number | null
   similarity_score: number | null
   created_at: string
 }
 
-export const getCrossIdeaInsightsForIdea = async (ideaId: string): Promise<{ idea_id: string; data: CrossIdeaInsightV2[] }> => {
-  return await jsonGet<{ idea_id: string; data: CrossIdeaInsightV2[] }>(`/ideas/${ideaId}/cross-insights`)
+export const getCrossIdeaInsightsForIdea = async (
+  ideaId: string
+): Promise<{ idea_id: string; data: CrossIdeaInsightV2[] }> => {
+  return await jsonGet<{ idea_id: string; data: CrossIdeaInsightV2[] }>(
+    `/ideas/${ideaId}/cross-insights`
+  )
 }
 
 export type UserPatternsResult = {
@@ -467,6 +488,70 @@ export type UserPatternsResult = {
 
 export const getUserPatterns = async (): Promise<UserPatternsResult> => {
   return await jsonGet<UserPatternsResult>('/insights/user-patterns')
+}
+
+// ── Search Settings ───────────────────────────────────────────────────────────
+
+export const getSearchSettings = async (): Promise<SearchSettingsDetail> => {
+  return await jsonGet<SearchSettingsDetail>('/settings/search')
+}
+
+export const patchSearchSettings = async (
+  payload: SearchSettingsPatch
+): Promise<SearchSettingsDetail> => {
+  return await jsonPatch<SearchSettingsPatch, SearchSettingsDetail>('/settings/search', payload)
+}
+
+export const testSearchProvider = async (
+  payload: TestSearchProviderRequest
+): Promise<TestSearchProviderResponse> => {
+  return await jsonPost<TestSearchProviderRequest, TestSearchProviderResponse>(
+    '/settings/search/test',
+    payload
+  )
+}
+
+export const listMarketInsightsForIdea = async (ideaId: string): Promise<MarketInsightRecord[]> => {
+  return await jsonGet<MarketInsightRecord[]>(`/ideas/${ideaId}/insights`)
+}
+
+export const listAllMarketInsights = async (): Promise<MarketInsightRecord[]> => {
+  return await jsonGet<MarketInsightRecord[]>('/insights/market-insights')
+}
+
+type MarketInsightStreamCallbacks = {
+  onProgress?: (data: unknown) => void
+  onDone?: (data: unknown) => void
+  onError?: (error: unknown) => void
+  onAgentThought?: (data: { agent: string; thought: string }) => void
+}
+
+/** Returns the SSE path for the market insight stream endpoint. */
+export const streamMarketInsightPath = (ideaId: string): string =>
+  `/ideas/${ideaId}/agents/market-insight/stream`
+
+/**
+ * SSE stream for POST /ideas/{ideaId}/agents/market-insight/stream.
+ * Uses a dynamic import of streamPost to avoid a circular dependency
+ * (sse.ts already imports buildApiUrl/withAuthHeaders from api.ts).
+ */
+export const streamMarketInsight = async (
+  ideaId: string,
+  signal: AbortSignal,
+  callbacks: MarketInsightStreamCallbacks = {}
+): Promise<void> => {
+  const { streamPost } = await import('./sse')
+  return await streamPost(
+    streamMarketInsightPath(ideaId),
+    {},
+    {
+      onProgress: callbacks.onProgress,
+      onDone: callbacks.onDone,
+      onError: callbacks.onError,
+      onAgentThought: callbacks.onAgentThought,
+    },
+    signal
+  )
 }
 
 // ── PRD Backlog Export ────────────────────────────────────────────────────────
