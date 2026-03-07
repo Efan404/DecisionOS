@@ -9,6 +9,7 @@ from app.agents.nodes.context_loader import context_loader_node
 from app.agents.nodes.memory_writer import memory_writer_node
 from app.agents.nodes.plan_synthesizer import plan_synthesizer_node
 from app.agents.nodes.pattern_matcher import pattern_matcher_node
+from app.agents.nodes.strategy_router import strategy_router_node
 from app.core import ai_gateway, prompts
 from app.core.time import utc_now_iso
 from app.schemas.feasibility import Plan, FeasibilityOutput
@@ -21,18 +22,41 @@ _PLAN_ARCHETYPES = [
     "a platform / ecosystem / partner-led approach",
 ]
 
+# Maps recommended_strategy value → archetype string (for reordering)
+_STRATEGY_TO_ARCHETYPE = {
+    "bootstrapped": "a bootstrapped / capital-light approach",
+    "vc_funded": "a VC-funded / growth-first approach",
+    "platform": "a platform / ecosystem / partner-led approach",
+}
+
+
+def _reorder_archetypes(recommended_strategy: str) -> list[str]:
+    """Place the recommended archetype first, keep others in original order."""
+    preferred = _STRATEGY_TO_ARCHETYPE.get(recommended_strategy)
+    if not preferred or preferred not in _PLAN_ARCHETYPES:
+        return _PLAN_ARCHETYPES
+    others = [a for a in _PLAN_ARCHETYPES if a != preferred]
+    return [preferred] + others
+
 
 def _plan_generator_node(state: DecisionOSState) -> dict[str, object]:
-    """Generate 3 feasibility plans (sequential, each with different archetype)."""
+    """Generate 3 feasibility plans (sequential, each with different archetype).
+
+    The recommended archetype (from strategy_router) is placed first so the
+    plan most relevant to the idea seed is generated and presented first.
+    """
     idea_seed = state["idea_seed"]
     dag_path = state.get("dag_path") or {}
     path_summary = dag_path.get("path_summary", "")
     node_content = dag_path.get("leaf_node_content", idea_seed)
 
+    recommended_strategy = state.get("recommended_strategy", "bootstrapped")
+    archetypes = _reorder_archetypes(recommended_strategy)
+
     plans: list[dict] = []
     thoughts: list[AgentThought] = []
 
-    for i, archetype in enumerate(_PLAN_ARCHETYPES):
+    for i, archetype in enumerate(archetypes):
         prompt = prompts.build_single_plan_prompt(
             idea_seed=idea_seed,
             confirmed_node_content=node_content,
@@ -78,17 +102,19 @@ def _plan_generator_node(state: DecisionOSState) -> dict[str, object]:
 
 
 def build_feasibility_graph() -> StateGraph:
-    """Build feasibility subgraph: ContextLoader -> PlanGenerator -> Synthesizer -> PatternMatcher -> MemoryWriter."""
+    """Build feasibility subgraph: ContextLoader -> StrategyRouter -> PlanGenerator -> Synthesizer -> PatternMatcher -> MemoryWriter."""
     graph = StateGraph(DecisionOSState)
 
     graph.add_node("context_loader", context_loader_node)
+    graph.add_node("strategy_router", strategy_router_node)
     graph.add_node("plan_generator", _plan_generator_node)
     graph.add_node("plan_synthesizer", plan_synthesizer_node)
     graph.add_node("pattern_matcher", pattern_matcher_node)
     graph.add_node("memory_writer", memory_writer_node)
 
     graph.add_edge(START, "context_loader")
-    graph.add_edge("context_loader", "plan_generator")
+    graph.add_edge("context_loader", "strategy_router")
+    graph.add_edge("strategy_router", "plan_generator")
     graph.add_edge("plan_generator", "plan_synthesizer")
     graph.add_edge("plan_synthesizer", "pattern_matcher")
     graph.add_edge("pattern_matcher", "memory_writer")

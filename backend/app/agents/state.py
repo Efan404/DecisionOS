@@ -34,3 +34,4 @@ class DecisionOSState(TypedDict):
     retrieved_similar_ideas: list[dict]
     user_preferences: dict | None
     market_evidence_context: str  # summarized evidence text for prompt injection, default ""
+    recommended_strategy: str  # rule-based routing: "bootstrapped" | "vc_funded" | "platform"
