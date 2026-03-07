@@ -36,11 +36,7 @@ function buildPrdProgressSteps(
   const currentIndex = PRD_STEP_KEYS.findIndex((k) => k === currentStep)
   return PRD_STEP_KEYS.map((key, i) => ({
     key,
-    label: ['requirements_writing', 'backlog_writing'].includes(key)
-      ? key === 'requirements_writing'
-        ? 'Writing requirements & PRD…'
-        : 'Generating backlog…'
-      : t(`steps.${key}`),
+    label: t(`steps.${key}`),
     status:
       currentStep === null
         ? 'pending'

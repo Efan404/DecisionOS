@@ -159,7 +159,9 @@
       "running_graph": "启动 AI 代理",
       "requirements_done": "需求已写入",
       "backlog_done": "待办列表已生成",
-      "saving": "保存到数据库"
+      "saving": "保存到数据库",
+      "requirements_writing": "正在编写需求与 PRD…",
+      "backlog_writing": "正在生成待办事项…"
     }
   },
   "settings": {

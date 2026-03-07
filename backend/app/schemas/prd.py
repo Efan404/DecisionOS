@@ -55,13 +55,13 @@ class PRDGenerationMeta(BaseModel):
 
 class PRDRequirementsOutput(BaseModel):
     """Output of the parallel requirements LLM call."""
-    requirements: list[PRDRequirement] = Field(min_length=6, max_length=12)
+    requirements: list[PRDRequirement] = Field(min_length=1, max_length=12)
 
 
 class PRDMarkdownOutput(BaseModel):
     """Output of the parallel markdown+sections LLM call."""
     markdown: str
-    sections: list[PRDSection] = Field(min_length=6)
+    sections: list[PRDSection] = Field(default_factory=list)
 
 
 class PRDBacklogOutput(BaseModel):
@@ -71,16 +71,15 @@ class PRDBacklogOutput(BaseModel):
 
 class PRDFullOutput(BaseModel):
     """Single-call output combining requirements + markdown + backlog."""
-    requirements: list[PRDRequirement] = Field(min_length=6, max_length=12)
+    requirements: list[PRDRequirement] = Field(min_length=1, max_length=12)
     markdown: str
-    sections: list[PRDSection] = Field(min_length=6)
+    sections: list[PRDSection] = Field(default_factory=list)
     backlog: PRDBacklog
 
 
 class PRDOutput(BaseModel):
     markdown: str
-    sections: list[PRDSection] = Field(min_length=6)
-    # commented out for demo – was: Field(min_length=6, max_length=12)
+    sections: list[PRDSection] = Field(default_factory=list)
     requirements: list[PRDRequirement] = Field(default_factory=list)
     backlog: PRDBacklog
     generation_meta: PRDGenerationMeta

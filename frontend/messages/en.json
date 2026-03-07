@@ -159,7 +159,9 @@
       "running_graph": "Starting AI agents",
       "requirements_done": "Requirements written",
       "backlog_done": "Backlog generated",
-      "saving": "Saving to database"
+      "saving": "Saving to database",
+      "requirements_writing": "Writing requirements & PRD…",
+      "backlog_writing": "Generating backlog…"
     }
   },
   "settings": {

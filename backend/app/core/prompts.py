@@ -267,34 +267,31 @@ def build_prd_markdown_prompt(*, context: dict[str, object]) -> str:
     )
 
 
-def build_prd_full_prompt(*, context: dict[str, object]) -> str:
-    """Single-call prompt: generate requirements + markdown + backlog in one shot."""
-    return (
-        "You are a senior PM writing a delivery-ready PRD. "
-        "Given the product context below, produce ALL of the following in ONE JSON response.\n\n"
-        "1. requirements (6-12 items):\n"
-        "   - id: req-001, req-002, ... in order\n"
-        "   - title: concise noun phrase (≤10 words)\n"
-        "   - description: 2-3 sentences — what + why, specific to this product\n"
-        "   - rationale: 1-2 sentences on business/user value, must NOT restate description\n"
-        "   - acceptance_criteria: 3-6 verifiable behaviour statements each as "
-        '"[Actor] can [action] and [observable outcome]"\n'
-        "   - source_refs: one or more of [step2, step3, step4]\n\n"
-        "2. markdown: full PRD document as clean GitHub-flavoured markdown with 6-12 named sections.\n"
-        "   Required sections: Executive Summary, Problem Statement, User Personas, "
-        "Key Capabilities, Out of Scope, plus others (success metrics, technical considerations, etc.).\n"
-        "   Each section: ≥3 substantive sentences, self-contained.\n\n"
-        "3. sections: structured representation of each section from the markdown "
-        "(id, title, content).\n\n"
-        "4. backlog.items (8-15 items): executable backlog items referencing the requirement IDs above.\n"
-        "   Each item: id (bl-001...), title, requirement_id (must match a req-NNN above), "
-        "priority (P0/P1/P2), type (epic/story/task), summary, "
-        "2-8 acceptance_criteria, source_refs, depends_on (bl-ids, may be empty).\n"
-        "   Out-of-scope items must not be P0.\n\n"
-        f"context={json.dumps(context, ensure_ascii=False)}\n"
-        'Return JSON: {"requirements":[...],"markdown":"...","sections":[...],"backlog":{"items":[...]}}'
-    )
+def build_prd_full_prompt(
+    *, context: dict[str, object], n_requirements: int = 5, n_backlog: int = 8
+) -> str:
+    """Single-call prompt: generate requirements + markdown + backlog.
 
+    n_requirements and n_backlog are pre-computed by build_prd_plan_prompt.
+    sections field is omitted — frontend uses markdown directly.
+    """
+    return (
+        f"You are a senior PM. Produce a concise PRD in ONE JSON response.\n\n"
+        f"EXACT COUNTS (do not exceed): requirements={n_requirements}, backlog.items={n_backlog}\n\n"
+        "requirements fields (per item):\n"
+        "  id: req-001..., title: ≤8 words, description: 1-2 sentences,\n"
+        "  rationale: 1 sentence, acceptance_criteria: 2-3 items,\n"
+        "  source_refs: one or more of [step2, step3, step4]\n\n"
+        "markdown: 4-5 sections (Executive Summary, Key Capabilities, Out of Scope, "
+        "Success Metrics, + 1 optional). Each section: 2-3 sentences. Total ≤500 words.\n\n"
+        "backlog.items fields (per item):\n"
+        "  id: bl-001..., title: ≤8 words, requirement_id: must match a req-NNN above,\n"
+        "  priority: P0|P1|P2, type: epic|story|task, summary: 1 sentence,\n"
+        "  acceptance_criteria: 2-3 items, source_refs, depends_on: []\n\n"
+        f"context={json.dumps(context, ensure_ascii=False)}\n\n"
+        'Return ONLY valid JSON, no markdown fences:\n'
+        '{"requirements":[...],"markdown":"...","backlog":{"items":[...]}}'
+    )
 
 def build_prd_backlog_prompt(
     *,
@@ -312,4 +309,23 @@ def build_prd_backlog_prompt(
         f"context={json.dumps(context, ensure_ascii=False)}\n"
         f"requirement_ids={json.dumps(requirement_ids)}\n"
         "Return JSON: {\"backlog\": {\"items\": [...]}}"
+    )
+
+
+def build_prd_plan_prompt(*, in_scope_count: int, out_scope_count: int, idea_seed: str) -> str:
+    """Fast pre-flight call: estimate appropriate requirements and backlog counts.
+
+    Returns JSON: {"n_requirements": int, "n_backlog": int, "rationale": str}
+    """
+    return (
+        "You are a senior PM scoping a PRD. Given the product scope below, "
+        "decide the appropriate number of requirements and backlog items.\n\n"
+        f"Product idea: {idea_seed}\n"
+        f"IN scope items: {in_scope_count}\n"
+        f"OUT scope items: {out_scope_count}\n\n"
+        "Rules:\n"
+        "- n_requirements: 1 requirement per 1-2 IN scope items, min 3, max 8\n"
+        "- n_backlog: 1.5x n_requirements rounded up, min 5, max 12\n"
+        "- Keep it lean — fewer, more impactful items beat long lists\n\n"
+        'Return ONLY JSON: {"n_requirements": <int>, "n_backlog": <int>, "rationale": "<1 sentence>"}'
     )

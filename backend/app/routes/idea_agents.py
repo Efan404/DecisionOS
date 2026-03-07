@@ -666,10 +666,11 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
 
         fingerprint = _context_pack_fingerprint(pack)
         yield _sse_event("progress", {"step": "building_context", "pct": 10})
-        yield _sse_agent_thought("PRD Writer", "Generating requirements, narrative, and backlog in one pass...")
 
         # ── Build slim context for the LLM prompt ─────────────────────────────
         selected_plan = pack.step3_feasibility.selected_plan
+        in_scope_items = pack.step4_scope.in_scope
+        out_scope_items = pack.step4_scope.out_scope
         slim_ctx: dict[str, object] = {
             "idea_seed": pack.idea_seed,
             "path_summary": pack.step2_path.path_summary,
@@ -679,11 +680,38 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
                 "summary": selected_plan.summary,
                 "recommended_positioning": selected_plan.recommended_positioning,
             },
-            "in_scope": [i.model_dump() for i in pack.step4_scope.in_scope],
-            "out_scope": [i.model_dump() for i in pack.step4_scope.out_scope],
+            "in_scope": [i.model_dump() for i in in_scope_items],
+            "out_scope": [i.model_dump() for i in out_scope_items],
         }
 
-        prompt = prompts.build_prd_full_prompt(context=slim_ctx)
+        # ── Phase 1: fast pre-flight to estimate counts ───────────────────────
+        yield _sse_event("progress", {"step": "running_graph", "pct": 15})
+        yield _sse_agent_thought("PRD Writer", "Analysing scope to determine requirements and backlog size...")
+        plan_prompt = prompts.build_prd_plan_prompt(
+            in_scope_count=len(in_scope_items),
+            out_scope_count=len(out_scope_items),
+            idea_seed=pack.idea_seed,
+        )
+        n_requirements = 5
+        n_backlog = 8
+        try:
+            import json as _json
+            plan_raw = ai_gateway.generate_text(task="prd", user_prompt=plan_prompt, max_retries=1)
+            plan_data = _json.loads(plan_raw.strip().strip("```json").strip("```").strip())
+            n_requirements = max(3, min(8, int(plan_data.get("n_requirements", 5))))
+            n_backlog = max(5, min(12, int(plan_data.get("n_backlog", 8))))
+            yield _sse_agent_thought(
+                "PRD Writer",
+                f"Scope: {len(in_scope_items)} IN / {len(out_scope_items)} OUT → "
+                f"generating {n_requirements} requirements, {n_backlog} backlog items",
+            )
+        except Exception:
+            pass  # fall back to defaults silently
+
+        # ── Phase 2: main PRD generation ──────────────────────────────────────
+        prompt = prompts.build_prd_full_prompt(
+            context=slim_ctx, n_requirements=n_requirements, n_backlog=n_backlog
+        )
 
         # ── Run LLM in thread pool; heartbeat every 3s to keep SSE alive ──────
         loop = asyncio.get_running_loop()
@@ -702,9 +730,10 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
                 await asyncio.wait_for(asyncio.shield(llm_future), timeout=3.0)
             except asyncio.TimeoutError:
                 heartbeat_tick += 1
-                # Smoothly advance 15% → 80% while waiting
-                pct = min(80, 15 + heartbeat_tick * 3)
-                yield _sse_event("progress", {"step": "generating", "pct": pct})
+                # 20% → 75%: first half = requirements_writing, second half = backlog_writing
+                pct = min(75, 20 + heartbeat_tick * 3)
+                step = "requirements_writing" if pct < 50 else "backlog_writing"
+                yield _sse_event("progress", {"step": step, "pct": pct})
             except Exception:
                 break  # real error — let the await below surface it
 

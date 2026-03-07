@@ -260,7 +260,7 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
   )
 }
 
-type MainTab = 'markdown' | 'requirements' | 'sections'
+type MainTab = 'markdown' | 'requirements'
 
 export function PrdView({
   prd,
@@ -312,7 +312,6 @@ export function PrdView({
     ? [
         { id: 'markdown', label: t('tabMarkdown') },
         { id: 'requirements', label: t('tabRequirements'), count: output.requirements.length },
-        { id: 'sections', label: t('tabSections'), count: output.sections.length },
       ]
     : []
 
