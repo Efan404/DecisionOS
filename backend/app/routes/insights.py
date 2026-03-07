@@ -212,6 +212,29 @@ async def get_cross_idea_insights():
     return {"insights": insights}
 
 
+from app.db.repo_market_insights import MarketInsightRepository as _MIRepo
+_mi_repo = _MIRepo()
+
+
+@router.get("/market-insights")
+async def list_all_market_insights() -> dict:
+    insights = _mi_repo.list_all(limit=50)
+    return {
+        "insights": [
+            {
+                "id": r.id,
+                "idea_id": r.idea_id,
+                "summary": r.summary,
+                "decision_impact": r.decision_impact,
+                "recommended_actions": r.recommended_actions,
+                "signal_count": r.signal_count,
+                "generated_at": r.generated_at,
+            }
+            for r in insights
+        ]
+    }
+
+
 @router.get("/user-patterns")
 async def get_user_patterns():
     """Get learned user patterns from DB cache (written by scheduler / POST learn-patterns)."""

@@ -16,6 +16,7 @@ from app.core.settings import get_settings
 from app.db.bootstrap import initialize_database
 from app.routes.agents import router as agents_router
 from app.routes.ai_settings import router as ai_settings_router
+from app.routes.search_settings import router as search_settings_router
 from app.routes.auth import router as auth_router
 from app.routes.health import router as health_router
 from app.routes.idea_agents import router as idea_agents_router
@@ -25,6 +26,7 @@ from app.routes.idea_prd_feedback import router as idea_prd_feedback_router
 from app.routes.idea_scope import router as idea_scope_router
 from app.routes.idea_cross_insights import router as idea_cross_insights_router
 from app.routes.idea_market_evidence import router as idea_market_evidence_router
+from app.routes.market_insight import router as market_insight_router
 from app.routes.ideas import router as ideas_router
 from app.routes.notifications import router as notifications_router
 from app.routes.insights import router as insights_router
@@ -95,6 +97,7 @@ def create_app() -> FastAPI:
     protected_dependencies = [] if settings.auth_disabled else [Depends(require_authenticated_user)]
     app.include_router(workspaces_router, dependencies=protected_dependencies)
     app.include_router(ai_settings_router, dependencies=protected_dependencies)
+    app.include_router(search_settings_router, dependencies=protected_dependencies)
     app.include_router(ideas_router, dependencies=protected_dependencies)
     app.include_router(idea_agents_router, dependencies=protected_dependencies)
     app.include_router(idea_prd_export_router, dependencies=protected_dependencies)
@@ -103,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(idea_scope_router, dependencies=protected_dependencies)
     app.include_router(idea_cross_insights_router, dependencies=protected_dependencies)
     app.include_router(idea_market_evidence_router, dependencies=protected_dependencies)
+    app.include_router(market_insight_router, dependencies=protected_dependencies)
     app.include_router(agents_router, dependencies=protected_dependencies)
     app.include_router(notifications_router, dependencies=protected_dependencies)
     app.include_router(insights_router, dependencies=protected_dependencies)
