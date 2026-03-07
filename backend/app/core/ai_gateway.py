@@ -303,6 +303,7 @@ def _call_openai_compatible_provider(
     )
     body: dict[str, object] = {
         "model": model,
+        "max_tokens": 8192,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT + "\n\nIMPORTANT: Always respond with valid JSON matching the requested schema."},
             {"role": "user", "content": structured_prompt},
