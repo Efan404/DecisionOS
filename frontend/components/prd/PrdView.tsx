@@ -564,29 +564,6 @@ export function PrdView({
               </div>
             </div>
           ) : null}
-
-          {activeTab === 'sections' ? (
-            <ul className="space-y-2">
-              {output.sections.map((section, idx) => (
-                <li
-                  key={section.id}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
-                        {section.title}
-                      </p>
-                      <p className="mt-1.5 text-sm leading-6 text-slate-700">{section.content}</p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </div>
       ) : !loading ? (
         /* Empty state — only shown when not loading and no output */

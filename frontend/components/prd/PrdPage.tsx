@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { type ProgressStep } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
@@ -75,8 +74,10 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
   const [exporting, setExporting] = useState(false)
+  const [localPrdOutput, setLocalPrdOutput] = useState<
+    import('../../lib/schemas').PrdBundle | null
+  >(null)
   const inFlightGenerationKeyRef = useRef<string | null>(null)
-  const { thoughts, addThought, reset } = useAgentThoughts()
   // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
   // This prevents a spurious "Select a frozen baseline" error when navigating via the
   // sidebar (which omits the query param) but a frozen baseline already exists.
@@ -135,7 +136,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     setProgressStep(null)
     setProgressPct(0)
     setErrorMessage(null)
-    reset()
+    setLocalPrdOutput(null)
     // Clear stale PRD so PrdView shows the loading progress instead of old content
     replaceContextRef.current({
       ...useDecisionStore.getState().context,
@@ -175,23 +176,23 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
                 console.log('[PrdPage] stream done', donePayload)
               }
             },
-            onAgentThought: (data) => {
-              if (!cancelled) addThought(data)
+            onAgentThought: (_data) => {
+              // agent thoughts displayed via generation progress steps only
             },
           }
         )
         if (!cancelled && donePayload) {
           const envelope = donePayload
           setIdeaVersionRef.current(activeIdeaId, envelope.idea_version)
-          // Load and apply context BEFORE turning off loading,
-          // so PrdView sees prd_bundle populated when it re-renders.
+          // Load fresh context from backend — prd_bundle will be populated.
           const detail = await loadIdeaDetailRef.current(activeIdeaId)
-          console.log(
-            '[PrdPage] loadIdeaDetail result hasPrdBundle=%s',
-            Boolean(detail?.context?.prd_bundle)
-          )
           if (!cancelled) {
-            if (detail) {
+            if (detail?.context?.prd_bundle) {
+              // Set local state first so PrdView immediately sees the bundle
+              // regardless of Zustand subscription timing.
+              setLocalPrdOutput(detail.context.prd_bundle)
+              replaceContextRef.current(detail.context)
+            } else if (detail) {
               replaceContextRef.current(detail.context)
             }
             setRetryNonce(0)
@@ -303,14 +304,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
   return (
     <main>
-      {thoughts.length > 0 && (
-        <div className="mx-auto w-full max-w-7xl px-6 pt-3">
-          <AgentThoughtStream thoughts={thoughts} isActive={loading} />
-        </div>
-      )}
       <PrdView
-        prd={context.prd_bundle?.output ?? context.prd}
-        bundle={context.prd_bundle}
+        prd={localPrdOutput?.output ?? context.prd_bundle?.output ?? context.prd}
+        bundle={localPrdOutput ?? context.prd_bundle}
         progressSteps={loading ? buildPrdProgressSteps(progressStep, t) : undefined}
         progressPct={loading ? progressPct : undefined}
         context={context}
