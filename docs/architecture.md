@@ -144,20 +144,28 @@ START → load_ideas_for_topics → fetch_news → match_news_to_ideas → END
 - **Deduplication**: `(news_id, idea_id)` composite key checked before notification insert
 - **Notification type**: `news_match`
 
-### 2. Cross-Idea Analyzer
+### 2. Cross-Idea Analyzer (V2)
 
-Discovers strategic overlaps between user's ideas using vector similarity + LLM analysis.
+Discovers strategic relationships between ideas using structured analysis: candidate recall via vector similarity + relational boosts, then LLM-powered pair analysis producing typed insights.
 
-**State**: `CrossIdeaState` — `{user_id, idea_summaries, insights, agent_thoughts}`
+**State**: `CrossIdeaState` — `{workspace_id, idea_summaries, insights, agent_thoughts}`
 
 ```
-START → load_ideas → find_similar_pairs → END
+START → load_ideas → analyze_ideas → END
 ```
 
-- **load_ideas**: Loads all idea summaries from ChromaDB
-- **find_similar_pairs**: For each idea, queries similar ideas (threshold: **0.40** cosine distance). For each match, calls LLM to explain the strategic overlap in 1-2 sentences. Deduplicates pairs via `frozenset({idea_a, idea_b})`.
-- **Deduplication**: Order-independent `(idea_a_id, idea_b_id)` check
-- **Notification type**: `cross_idea_insight`
+- **load_ideas**: Loads recently updated ideas from SQLite (up to 20, statuses: draft/active/frozen)
+- **analyze_ideas**: For each idea, uses `CrossIdeaInsightsService.analyze_anchor_idea()` to:
+  1. Find candidate related ideas via vector similarity + shared competitor/signal boosts
+  2. Filter weak candidates (composite score ≤ 0.3)
+  3. Build bounded comparison context (≤ 1000 tokens) per pair
+  4. Call LLM for structured analysis (insight_type, summary, why_it_matters, recommended_action, confidence)
+  5. Persist results to `cross_idea_insight` table with fingerprint-based dedup
+- **Insight types**: `execution_reuse`, `merge_candidate`, `positioning_conflict`, `shared_audience`, `shared_capability`, `evidence_overlap`
+- **Recommended actions**: `review`, `compare_feasibility`, `reuse_scope`, `reuse_prd_requirements`, `merge_ideas`, `keep_separate`
+- **Notification**: Only for high-value types (`merge_candidate`, `positioning_conflict`, `execution_reuse` with confidence ≥ 0.7)
+- **Deduplication**: Canonical pair ordering (`idea_a_id < idea_b_id`) + fingerprint uniqueness
+- **API**: `GET /ideas/{idea_id}/cross-insights`, `POST /ideas/{idea_id}/cross-insights/sync`
 
 ### 3. Pattern Learner
 
@@ -324,6 +332,8 @@ Proactive Agent → Scheduler (dedup check) → notification table → Frontend 
 | `POST` | `/notifications/{id}/dismiss` | Mark as read |
 | `POST` | `/insights/news-scan` | Manually trigger news monitor |
 | `POST` | `/insights/cross-idea-analysis` | Manually trigger cross-idea analyzer |
+| `GET` | `/ideas/{idea_id}/cross-insights` | List structured cross-idea insights for one idea |
+| `POST` | `/ideas/{idea_id}/cross-insights/sync` | Trigger cross-idea analysis for one idea |
 | `POST` | `/insights/learn-patterns` | Manually trigger pattern learner |
 | `GET` | `/insights/user-patterns` | Fetch learned patterns |
 

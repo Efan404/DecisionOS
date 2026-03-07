@@ -2,34 +2,74 @@
 
 import { useEffect, useState } from 'react'
 
-import { getCrossIdeaInsights, type CrossIdeaInsight } from '../../lib/api'
+import {
+  getCrossIdeaInsights,
+  getCrossIdeaInsightsForIdea,
+  type CrossIdeaInsightV2,
+  type CrossIdeaInsight,
+} from '../../lib/api'
+import { CrossIdeaInsightList } from './CrossIdeaInsightList'
 
-export function CrossIdeaInsights() {
-  const [insights, setInsights] = useState<CrossIdeaInsight[]>([])
+interface CrossIdeaInsightsProps {
+  ideaId?: string | null
+}
+
+/**
+ * Convert a legacy freeform insight into a V2 shape for unified rendering.
+ * Fields that don't exist in the legacy format are filled with sensible defaults.
+ */
+const legacyToV2 = (legacy: CrossIdeaInsight, index: number): CrossIdeaInsightV2 => ({
+  id: `legacy-${legacy.idea_a_id ?? ''}-${legacy.idea_b_id ?? ''}-${index}`,
+  idea_a_id: legacy.idea_a_id ?? '',
+  idea_b_id: legacy.idea_b_id ?? '',
+  idea_a_title: legacy.idea_a_title,
+  idea_b_title: legacy.idea_b_title,
+  insight_type: 'evidence_overlap',
+  summary: legacy.analysis ?? JSON.stringify(legacy),
+  why_it_matters: '',
+  recommended_action: 'review',
+  confidence: null,
+  similarity_score: null,
+  created_at: new Date().toISOString(),
+})
+
+export function CrossIdeaInsights({ ideaId }: CrossIdeaInsightsProps = {}) {
+  const [insights, setInsights] = useState<CrossIdeaInsightV2[]>([])
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchInsights = async () => {
+    if (ideaId) {
+      const result = await getCrossIdeaInsightsForIdea(ideaId)
+      return result.data
+    }
+    // Fallback to legacy endpoint
+    const result = await getCrossIdeaInsights()
+    return result.insights.map(legacyToV2)
+  }
+
   useEffect(() => {
     const run = async () => {
       try {
-        const result = await getCrossIdeaInsights()
-        setInsights(result.insights)
+        const data = await fetchInsights()
+        setInsights(data)
       } catch {
-        // Silently fail on initial load — user can click Analyze
+        // Silently fail on initial load — user can click Refresh
       } finally {
         setLoading(false)
       }
     }
     void run()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ideaId])
 
   const handleRefresh = async () => {
     setAnalyzing(true)
     setError(null)
     try {
-      const result = await getCrossIdeaInsights()
-      setInsights(result.insights)
+      const data = await fetchInsights()
+      setInsights(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load insights.')
     } finally {
@@ -52,39 +92,15 @@ export function CrossIdeaInsights() {
           disabled={analyzing}
           className="shrink-0 rounded-lg bg-[#b9eb10] px-3 py-1.5 text-xs font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {analyzing ? 'Refreshing…' : 'Refresh'}
+          {analyzing ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
       {error ? <p className="mt-3 text-xs text-red-600">{error}</p> : null}
 
-      {!loading && insights.length === 0 && !analyzing && !error ? (
-        <p className="mt-4 text-xs text-[#1e1e1e]/40">
-          No cross-idea connections found yet. Add more ideas to unlock insights.
-        </p>
-      ) : null}
-
-      {insights.length > 0 && (
-        <ul className="mt-4 space-y-3">
-          {insights.map((insight, i) => (
-            <li
-              key={`${insight.idea_a_id ?? ''}-${insight.idea_b_id ?? ''}-${i}`}
-              className="rounded-lg border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3"
-            >
-              {insight.idea_a_id && insight.idea_b_id ? (
-                <p className="mb-1.5 text-[11px] font-bold tracking-wide text-[#1e1e1e]/50">
-                  {insight.idea_a_title || insight.idea_a_id}
-                  <span className="mx-1.5 text-[#b9eb10]">↔</span>
-                  {insight.idea_b_title || insight.idea_b_id}
-                </p>
-              ) : null}
-              <p className="text-xs leading-relaxed text-[#1e1e1e]/70">
-                {insight.analysis ?? JSON.stringify(insight)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="mt-4">
+        <CrossIdeaInsightList insights={insights} loading={loading || analyzing} />
+      </div>
     </div>
   )
 }

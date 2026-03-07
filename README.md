@@ -310,6 +310,21 @@ DecisionOS includes a market evidence layer that tracks competitors and market s
 
 If the ChromaDB cache is deleted or corrupted, competitor/signal chunks can be rebuilt programmatically via `MarketEvidenceService.rebuild_market_chunks_for_competitor(competitor_id)`. This reads canonical data from SQLite and re-indexes it into the vector store.
 
+### Cross-Idea Insights V2
+
+Cross-Idea Insights V2 identifies reusable assets, merge candidates, and positioning conflicts across ideas using structured analysis.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/ideas/{idea_id}/cross-insights` | List structured cross-idea insights for one idea |
+| `POST` | `/ideas/{idea_id}/cross-insights/sync` | Trigger cross-idea analysis for one idea |
+| `POST` | `/insights/cross-idea-analysis` | Trigger workspace-wide cross-idea analysis |
+| `GET` | `/insights/cross-idea` | List all cross-idea insights (V2 + legacy) |
+
+**Insight types**: `execution_reuse`, `merge_candidate`, `positioning_conflict`, `shared_audience`, `shared_capability`, `evidence_overlap`
+
+**No graph database in V1** — SQLite relations plus vector recall are sufficient for current requirements.
+
 ## Development
 
 ### Frontend

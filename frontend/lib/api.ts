@@ -411,7 +411,8 @@ export const dismissNotification = async (id: string): Promise<boolean> => {
 
 // ── Insights ──────────────────────────────────────────────────────────────────
 
-export type CrossIdeaInsight = {
+/** @deprecated Use CrossIdeaInsightV2 instead */
+export type CrossIdeaInsightLegacy = {
   idea_a_id?: string
   idea_b_id?: string
   idea_a_title?: string
@@ -419,6 +420,9 @@ export type CrossIdeaInsight = {
   analysis?: string
   [key: string]: unknown
 }
+
+/** @deprecated Alias kept for backwards compatibility */
+export type CrossIdeaInsight = CrossIdeaInsightLegacy
 
 export type CrossIdeaAnalysisResult = {
   insights: CrossIdeaInsight[]
@@ -434,6 +438,27 @@ export const triggerCrossIdeaAnalysis = async (): Promise<CrossIdeaAnalysisResul
     '/insights/cross-idea-analysis',
     {}
   )
+}
+
+// ── Cross-Idea Insights V2 ───────────────────────────────────────────────────
+
+export type CrossIdeaInsightV2 = {
+  id: string
+  idea_a_id: string
+  idea_b_id: string
+  idea_a_title?: string
+  idea_b_title?: string
+  insight_type: 'execution_reuse' | 'merge_candidate' | 'positioning_conflict' | 'shared_audience' | 'shared_capability' | 'evidence_overlap'
+  summary: string
+  why_it_matters: string
+  recommended_action: 'review' | 'compare_feasibility' | 'reuse_scope' | 'reuse_prd_requirements' | 'merge_ideas' | 'keep_separate'
+  confidence: number | null
+  similarity_score: number | null
+  created_at: string
+}
+
+export const getCrossIdeaInsightsForIdea = async (ideaId: string): Promise<{ idea_id: string; data: CrossIdeaInsightV2[] }> => {
+  return await jsonGet<{ idea_id: string; data: CrossIdeaInsightV2[] }>(`/ideas/${ideaId}/cross-insights`)
 }
 
 export type UserPatternsResult = {
