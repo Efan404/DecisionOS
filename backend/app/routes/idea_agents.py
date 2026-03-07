@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
-from app.core import llm, prompts
+from app.core import ai_gateway, llm, prompts
 from app.core.contexts import parse_context_strict
 from app.core.time import utc_now_iso
 from app.db import repo_dag
