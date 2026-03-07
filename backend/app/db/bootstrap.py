@@ -38,6 +38,34 @@ def initialize_database() -> None:
     _seed_demo_data_if_empty()
 
 
+def seed_demo_sqlite() -> None:
+    """Ensure schema/bootstrap exist, then seed SQLite demo records idempotently."""
+    with db_session() as connection:
+        for statement in SCHEMA_STATEMENTS:
+            stripped = statement.strip().upper()
+            if stripped.startswith("ALTER TABLE") and "ADD COLUMN" in stripped:
+                parts = statement.split()
+                table_name = parts[2]
+                col_idx = [i for i, p in enumerate(parts) if p.upper() == "COLUMN"]
+                if col_idx:
+                    col_name = parts[col_idx[0] + 1]
+                    if _column_exists(connection, table_name, col_name):
+                        continue
+            connection.execute(statement)
+        ensure_default_workspace(connection)
+        ensure_default_ai_settings(connection)
+        _auth_repo.ensure_seed_users(connection)
+        _seed_demo_ideas(connection)
+
+
+def seed_demo_vector_store() -> None:
+    """Seed vector-store demo collections idempotently."""
+    from app.agents.memory.seed_data import seed_vector_store
+    from app.agents.memory.vector_store import get_vector_store
+
+    seed_vector_store(get_vector_store())
+
+
 def _seed_demo_ideas(connection: sqlite3.Connection) -> None:
     """Seed pre-populated demo data (ideas, nodes, notifications, etc.)."""
     try:

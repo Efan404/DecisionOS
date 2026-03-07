@@ -111,6 +111,22 @@ cd backend
 UV_CACHE_DIR=../.uv-cache uv run --python .venv/bin/python uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+### Demo Data Initialization Notes
+
+- App startup calls `initialize_database()` and will:
+  - create schema and default workspace
+  - create seed users
+  - seed SQLite demo records from `backend/app/db/seed_demo.py`
+  - seed Chroma demo collections only when the collections are empty
+- `DECISIONOS_DB_PATH` and `DECISIONOS_CHROMA_PATH` default to relative paths:
+  - `./decisionos.db`
+  - `./chroma_data`
+- Relative paths resolve from the process working directory. In practice:
+  - `cd backend && uvicorn ...` uses `backend/decisionos.db`
+  - starting from another directory with the same relative env var may create a different SQLite file
+- The existing standalone script `backend/scripts/seed_demo.py` seeds the vector store only. It does **not** seed SQLite demo ideas, DAGs, baselines, notifications, or decision events.
+- For remote or repeatable demo seeding, prefer an explicit seed command over relying on implicit startup bootstrap side effects.
+
 ### 4. Start Frontend
 
 ```bash
@@ -247,6 +263,7 @@ If you prefer Coolify to build images itself without GitHub Actions:
 | Variable                              | Default                           | Description                                                             |
 | ------------------------------------- | --------------------------------- | ----------------------------------------------------------------------- |
 | `DECISIONOS_DB_PATH`                  | `./decisionos.db`                 | SQLite database path                                                    |
+| `DECISIONOS_CHROMA_PATH`              | `./chroma_data`                   | Chroma persistence path; empty string forces in-memory mode in tests    |
 | `DECISIONOS_SECRET_KEY`               | `decisionos-dev-secret-change-me` | Encryption key for secrets                                              |
 | `DECISIONOS_CORS_ORIGINS`             | `http://localhost:3000`           | Comma-separated allowed origins                                         |
 | `DECISIONOS_AUTH_DISABLED`            | `false`                           | Disable auth (dev only)                                                 |
@@ -260,6 +277,12 @@ Two seed users are created on first startup:
 
 - **Admin**: Required, credentials from environment variables
 - **Test**: Optional, defaults to `test`/`test` (configurable via env)
+
+### Path Resolution Warning
+
+- `DECISIONOS_DB_PATH=./decisionos.db` is safe only if you always start the API from the same directory.
+- For Docker or remote environments, prefer an absolute path such as `/data/decisionos.db`.
+- If demo data appears missing, verify the actual runtime DB and Chroma paths before assuming seeding failed.
 
 ## Core Concepts
 

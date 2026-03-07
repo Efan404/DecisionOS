@@ -283,7 +283,7 @@ def _insert_idea_2(conn: sqlite3.Connection, now: str) -> None:
                     "recommended_positioning": "Social event planning platform for friend groups",
                     "competitors": [
                         {"name": "Partiful", "url": "https://partiful.com", "similarity": "Gen-Z focused social event invitations with playful RSVP pages and friend activity feeds. Viral word-of-mouth growth, backed by a16z. Focused on party invites rather than discovery."},
-                        {"name": "IRL (shut down)", "url": null, "similarity": "Cautionary tale: social events app raised $170M at $1B valuation, then shut down in June 2023 after SEC investigation revealed 95% of its 20M users were bots. Validates market interest but shows cold-start risk."},
+                        {"name": "IRL (shut down)", "url": None, "similarity": "Cautionary tale: social events app raised $170M at $1B valuation, then shut down in June 2023 after SEC investigation revealed 95% of its 20M users were bots. Validates market interest but shows cold-start risk."},
                         {"name": "Facebook Events", "url": "https://www.facebook.com/events", "similarity": "Largest social event platform with 700M+ monthly users. Built-in friend activity and RSVPs, but declining engagement among 18-34 demographic and cluttered with sponsored content."},
                     ]
                 },
