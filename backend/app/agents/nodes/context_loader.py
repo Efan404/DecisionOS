@@ -7,6 +7,24 @@ from app.agents.nodes.evidence_retriever import retrieve_market_evidence_context
 from app.agents.state import AgentThought, DecisionOSState
 
 
+_STAGE_FOCUS: dict[str, str] = {
+    "opportunity": "market opportunity, user pain points, unmet needs, emerging trends",
+    "feasibility": "business model, market size, competition, monetization strategy",
+    "scope": "MVP features, technical requirements, user stories, product scope",
+    "prd": "product requirements, acceptance criteria, backlog, delivery specification",
+}
+
+
+def _rewrite_query(idea_seed: str, stage: str) -> str:
+    """Enrich the retrieval query with stage-specific focus keywords.
+
+    Pure string concatenation — zero latency, no LLM call.
+    Improves vector search relevance by anchoring the query to the current stage.
+    """
+    focus = _STAGE_FOCUS.get(stage, "product idea, market opportunity, user value")
+    return f"{idea_seed} | {focus}"
+
+
 def context_loader_node(state: DecisionOSState) -> dict[str, object]:
     """Load similar ideas, decision patterns, and market evidence from vector memory.
     When stage is 'prd', also build the slim context dict shared by writer nodes.
@@ -15,12 +33,15 @@ def context_loader_node(state: DecisionOSState) -> dict[str, object]:
     idea_id = state["idea_id"]
     stage = state.get("current_stage", "")
 
+    # Rewrite query with stage-specific focus for better retrieval relevance
+    retrieval_query = _rewrite_query(idea_seed, stage)
+
     vs = get_vector_store()
-    similar_ideas = vs.search_similar_ideas(query=idea_seed, n_results=3, exclude_id=idea_id)
-    patterns = vs.search_patterns(query=idea_seed, n_results=3)
+    similar_ideas = vs.search_similar_ideas(query=retrieval_query, n_results=3, exclude_id=idea_id)
+    patterns = vs.search_patterns(query=retrieval_query, n_results=3)
 
     # Retrieve market evidence (graceful: never blocks on failure)
-    evidence_context = retrieve_market_evidence_context(query=idea_seed)
+    evidence_context = retrieve_market_evidence_context(query=retrieval_query)
 
     updates: dict[str, object] = {
         "retrieved_similar_ideas": similar_ideas,
@@ -59,6 +80,7 @@ def context_loader_node(state: DecisionOSState) -> dict[str, object]:
         "agent": "context_loader",
         "action": "memory_retrieval",
         "detail": (
+            f"Query rewritten for stage='{stage}'. "
             f"Retrieved {len(similar_ideas)} similar ideas and "
             f"{len(patterns)} decision patterns from vector memory."
             + evidence_note
