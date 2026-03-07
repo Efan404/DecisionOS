@@ -99,7 +99,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 autoComplete="username"
-                placeholder="admin"
+                placeholder="mock"
                 required
               />
             </label>

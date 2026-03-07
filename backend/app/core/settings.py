@@ -75,8 +75,8 @@ def get_settings() -> Settings:
             default=43200,
             minimum=300,
         ),
-        seed_admin_username=os.getenv("DECISIONOS_SEED_ADMIN_USERNAME", "admin").strip() or "admin",
-        seed_admin_password=os.getenv("DECISIONOS_SEED_ADMIN_PASSWORD", "admin").strip() or "admin",
+        seed_admin_username=os.getenv("DECISIONOS_SEED_ADMIN_USERNAME", "mock").strip() or "mock",
+        seed_admin_password=os.getenv("DECISIONOS_SEED_ADMIN_PASSWORD", "mock").strip() or "mock",
         seed_test_username=os.getenv("DECISIONOS_SEED_TEST_USERNAME", "test").strip() or "test",
         seed_test_password=os.getenv("DECISIONOS_SEED_TEST_PASSWORD", "test").strip() or "test",
         rate_limit_login_max_requests=_parse_int(

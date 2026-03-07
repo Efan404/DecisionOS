@@ -49,7 +49,7 @@ class AuthRepositoryTestCase(unittest.TestCase):
         with db_session() as connection:
             user_row = connection.execute(
                 "SELECT id FROM user_account WHERE username = ?",
-                ("admin",),
+                ("mock",),
             ).fetchone()
             assert user_row is not None
             user_id = str(user_row["id"])
@@ -81,7 +81,7 @@ class AuthRepositoryTestCase(unittest.TestCase):
         user = self.repo.get_user_by_session_token(valid_token)
         self.assertIsNotNone(user)
         assert user is not None
-        self.assertEqual(user.username, "admin")
+        self.assertEqual(user.username, "mock")
 
         expired_user = self.repo.get_user_by_session_token(expired_token)
         self.assertIsNone(expired_user)

@@ -14,7 +14,7 @@ def clean_admin_prefs():
     from app.db.engine import db_session
     from app.db.repo_auth import AuthRepository
     auth = AuthRepository()
-    user = auth.get_user_by_username("admin")
+    user = auth.get_user_by_username("mock")
     if user:
         with db_session() as conn:
             conn.execute("DELETE FROM user_preferences WHERE user_id = ?", (user.id,))
@@ -25,7 +25,7 @@ def clean_admin_prefs():
 
 
 def _auth_header():
-    resp = client.post("/auth/login", json={"username": "admin", "password": "AIHackathon20250225!"})
+    resp = client.post("/auth/login", json={"username": "mock", "password": "mock"})
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
