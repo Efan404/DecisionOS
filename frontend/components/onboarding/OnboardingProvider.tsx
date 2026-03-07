@@ -126,7 +126,7 @@ const steps: Tour[] = [
  * Handles auto-start on mount and marks completion when the tour closes.
  */
 function OnboardingAutoStart() {
-  const { startOnborda, closeOnborda, isOnbordaVisible } = useOnborda()
+  const { startOnborda, isOnbordaVisible } = useOnborda()
   const { shouldAutoStart, markCompleted } = useOnboarding()
 
   // Track whether we have ever started the tour in this session.
@@ -161,7 +161,7 @@ function OnboardingAutoStart() {
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
   return (
     <OnbordaContextProvider>
-      <Onborda steps={steps} shadowRgb="0,0,0" shadowOpacity="0.5" cardComponent={OnboardingCard}>
+      <Onborda steps={steps} shadowRgb="0,0,0" shadowOpacity="0.7" cardComponent={OnboardingCard}>
         {children}
       </Onborda>
       <OnboardingAutoStart />
