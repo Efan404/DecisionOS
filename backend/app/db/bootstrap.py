@@ -123,6 +123,7 @@ def seed_demo_sqlite() -> None:
                     if _column_exists(connection, table_name, col_name):
                         continue
             connection.execute(statement)
+        _migrate_notification_types(connection)
         ensure_default_workspace(connection)
         ensure_default_ai_settings(connection)
         ensure_default_search_settings(connection)

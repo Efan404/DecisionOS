@@ -333,19 +333,4 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_market_insight_idea
     ON market_insight(idea_id, generated_at DESC);
     """,
-    """
-    CREATE TABLE IF NOT EXISTS notification_v2 (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL DEFAULT 'default',
-        type TEXT NOT NULL CHECK (type IN (
-            'news_match', 'cross_idea_insight', 'pattern_learned',
-            'market_signal', 'market_insight'
-        )),
-        title TEXT NOT NULL,
-        body TEXT NOT NULL,
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        read_at TEXT,
-        created_at TEXT NOT NULL
-    );
-    """,
 )

@@ -43,3 +43,34 @@ def test_notification_accepts_market_insight_type():
             "VALUES ('test-mi-1', 'default', 'market_insight', 'Test', 'Body', '{}', '2026-01-01T00:00:00Z')"
         )
         conn.execute("DELETE FROM notification WHERE id='test-mi-1'")
+
+def test_notification_still_accepts_old_types_after_migration():
+    """Old notification types must still be accepted after migration."""
+    initialize_database()
+    with db_session() as conn:
+        for notif_type in ('news_match', 'cross_idea_insight', 'pattern_learned'):
+            conn.execute(
+                "INSERT INTO notification (id, user_id, type, title, body, metadata_json, created_at) "
+                "VALUES (?, 'default', ?, 'Test', 'Body', '{}', '2026-01-01T00:00:00Z')",
+                (f"test-old-{notif_type}", notif_type),
+            )
+            conn.execute("DELETE FROM notification WHERE id=?", (f"test-old-{notif_type}",))
+
+def test_initialize_database_idempotent_preserves_notifications():
+    """Calling initialize_database() twice must NOT destroy existing notification rows."""
+    initialize_database()
+    with db_session() as conn:
+        conn.execute(
+            "INSERT INTO notification (id, user_id, type, title, body, metadata_json, created_at) "
+            "VALUES ('persist-test', 'default', 'news_match', 'Keep me', 'Body', '{}', '2026-01-01T00:00:00Z')"
+        )
+    # Second call — must not wipe the table
+    initialize_database()
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT id FROM notification WHERE id='persist-test'"
+        ).fetchone()
+    # Cleanup
+    with db_session() as conn:
+        conn.execute("DELETE FROM notification WHERE id='persist-test'")
+    assert row is not None, "initialize_database() must not destroy existing notification rows"
