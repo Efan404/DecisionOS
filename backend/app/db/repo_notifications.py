@@ -112,3 +112,14 @@ class NotificationRepository:
                 (idea_a_id, idea_b_id, idea_b_id, idea_a_id),
             ).fetchone()
         return row is not None
+
+    def exists_market_signal(self, signal_id: str) -> bool:
+        """Return True if a market_signal notification already exists for this signal_id."""
+        with db_session() as conn:
+            row = conn.execute(
+                "SELECT id FROM notification "
+                "WHERE type = 'market_signal' "
+                "AND json_extract(metadata_json, '$.signal_id') = ? LIMIT 1",
+                (signal_id,),
+            ).fetchone()
+        return row is not None

@@ -52,29 +52,25 @@ def fresh_vector_store(monkeypatch):
     vs_mod._singleton = None
 
 
-def _mock_hn_response(hits: list[dict]) -> MagicMock:
-    """Build a mock httpx response returning the given Algolia hits."""
-    resp = MagicMock()
-    resp.json.return_value = {"hits": hits}
-    resp.raise_for_status.return_value = None
-    return resp
+from app.core.search_gateway import SearchResult
 
+FAKE_RESULT_1 = SearchResult(
+    title="AI code review startup raises $10M",
+    url="https://example.com/ai-code-review",
+    snippet="AI code review startup raises $10M in funding",
+    source="hn_algolia",
+    published_date="2026-03-07T00:00:00Z",
+    score=0.9,
+)
 
-FAKE_HIT_1 = {
-    "objectID": "111",
-    "title": "AI code review startup raises $10M",
-    "url": "https://example.com/ai-code-review",
-    "points": 200,
-    "created_at": "2026-03-07T00:00:00Z",
-}
-
-FAKE_HIT_2 = {
-    "objectID": "222",
-    "title": "New competitor launches developer dashboard",
-    "url": "https://devdash.io/launch",
-    "points": 150,
-    "created_at": "2026-03-07T01:00:00Z",
-}
+FAKE_RESULT_2 = SearchResult(
+    title="New competitor launches developer dashboard",
+    url="https://devdash.io/launch",
+    snippet="New competitor launches developer dashboard product",
+    source="hn_algolia",
+    published_date="2026-03-07T01:00:00Z",
+    score=0.75,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -92,10 +88,8 @@ def _make_idea(title: str, idea_seed: str) -> object:
     return idea
 
 
-@patch("app.core.hn_client.httpx.get")
-def test_news_item_becomes_market_signal(mock_http_get):
-    """Given a fake HN story, verify a MarketSignal record is created."""
-    mock_http_get.return_value = _mock_hn_response([FAKE_HIT_1])
+@patch("app.agents.graphs.proactive.signal_monitor.search_web", return_value=[FAKE_RESULT_1])
+def test_news_item_becomes_market_signal(mock_search):
 
     _make_idea("AI code review tool", "AI code review tool for developers")
 
@@ -122,10 +116,8 @@ def test_news_item_becomes_market_signal(mock_http_get):
     assert any(s.title == "AI code review startup raises $10M" for s in db_signals)
 
 
-@patch("app.core.hn_client.httpx.get")
-def test_signal_links_to_idea_by_similarity(mock_http_get):
-    """Verify that a signal gets linked to a relevant idea via vector similarity."""
-    mock_http_get.return_value = _mock_hn_response([FAKE_HIT_1])
+@patch("app.agents.graphs.proactive.signal_monitor.search_web", return_value=[FAKE_RESULT_1])
+def test_signal_links_to_idea_by_similarity(mock_search):
 
     # Use a seed identical to the news title so cosine distance stays well below threshold
     idea = _make_idea("AI code review startup raises $10M", "AI code review startup raises $10M")
@@ -154,11 +146,10 @@ def test_signal_links_to_idea_by_similarity(mock_http_get):
     assert signal_links[0].entity_type == "signal"
 
 
-@patch("app.core.hn_client.httpx.get")
-def test_signal_links_to_competitor_by_url_match(mock_http_get):
+@patch("app.agents.graphs.proactive.signal_monitor.search_web", return_value=[FAKE_RESULT_2])
+def test_signal_links_to_competitor_by_url_match(mock_search):
     """Verify that if the news URL matches a tracked competitor's canonical_url,
     the signal is also linked to that competitor via a matched idea."""
-    mock_http_get.return_value = _mock_hn_response([FAKE_HIT_2])
 
     # Create a real idea with seed identical to news title for reliable similarity match
     idea = _make_idea("New competitor launches developer dashboard", "New competitor launches developer dashboard")
@@ -192,10 +183,9 @@ def test_signal_links_to_competitor_by_url_match(mock_http_get):
     assert comp_links[0]["idea_id"] == idea.id
 
 
-@patch("app.core.hn_client.httpx.get")
-def test_deduplication_prevents_repeat_signals(mock_http_get):
+@patch("app.agents.graphs.proactive.signal_monitor.search_web", return_value=[FAKE_RESULT_1])
+def test_deduplication_prevents_repeat_signals(mock_search):
     """Same news URL processed twice should produce only one signal."""
-    mock_http_get.return_value = _mock_hn_response([FAKE_HIT_1])
 
     _make_idea("AI code review tool", "AI code review tool for developers")
 

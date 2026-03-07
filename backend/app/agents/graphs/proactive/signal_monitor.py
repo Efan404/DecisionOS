@@ -1,4 +1,4 @@
-"""Signal monitor — converts HN news into MarketSignal records linked to ideas/competitors.
+"""Signal monitor — converts web search results into MarketSignal records linked to ideas/competitors.
 
 Runs alongside (not replacing) the existing news_monitor.py.
 Uses repositories directly (not the service layer).
@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from langgraph.graph import StateGraph, START, END
 
-from app.core.hn_client import fetch_stories_for_topics
+from app.core.search_gateway import search as search_web, SearchResult
 from app.core.time import utc_now_iso
 from app.agents.memory.vector_store import get_vector_store
 from app.db.repo_market_signals import MarketSignalRepository
@@ -55,23 +55,30 @@ def _load_ideas(state: SignalMonitorState) -> dict:
 
 
 def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
-    """Fetch HN stories, create EvidenceSource + MarketSignal for each new URL.
+    """Fetch web search results, create EvidenceSource + MarketSignal for each new URL.
 
     Deduplicates by checking if a signal with the same URL already exists.
     """
     workspace_id = state.get("workspace_id", "default")
     summaries = state.get("idea_summaries", [])
 
-    # Derive search topics from idea summaries (same pattern as news_monitor)
-    topics: list[str] = []
-    for s in summaries[:10]:
-        words = s["summary"].split()[:4]
+    # Build search queries from idea summaries
+    queries: list[str] = []
+    for s in summaries[:5]:
+        words = s["summary"].split()[:6]
         if words:
-            topics.append(" ".join(words))
-    if not topics:
-        topics = ["AI startup product"]
+            queries.append(" ".join(words))
+    if not queries:
+        queries = ["AI startup product market"]
 
-    stories = fetch_stories_for_topics(topics, limit_per_topic=5)
+    # Use search_gateway (falls back to HN Algolia if no provider configured)
+    all_results: list[SearchResult] = []
+    seen_urls: set[str] = set()
+    for query in queries:
+        for result in search_web(query, max_results=5):
+            if result.url not in seen_urls:
+                seen_urls.add(result.url)
+                all_results.append(result)
 
     sig_repo = MarketSignalRepository()
     comp_repo = CompetitorRepository()
@@ -79,26 +86,31 @@ def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
 
     signals_created: list[dict] = []
 
-    for story in stories:
-        url = story.url or f"https://news.ycombinator.com/item?id={story.id}"
-        title = story.title or "Untitled"
+    for result in all_results:
+        url = result.url
+        title = result.title or "Untitled"
 
         # --- Dedup: skip if we already have a signal for this URL ---
         if sig_repo.signal_exists_for_url(workspace_id, url):
             continue
 
-        # Create EvidenceSource (raw news item)
+        # Create EvidenceSource (raw search result)
+        # source_type must be one of the DB-allowed values; map search provider kinds to "news"
         try:
             evidence = comp_repo.create_evidence_source(
                 source_type="news",
                 url=url,
                 title=title,
-                snippet=f"HN story with {story.points} points",
-                confidence=None,
+                snippet=result.snippet[:200] if result.snippet else None,
+                confidence=result.score,
             )
         except Exception:
             logger.warning("signal_monitor: failed to create evidence_source for %s", url, exc_info=True)
             continue
+
+        # Compute severity from score
+        score = result.score or 0.0
+        severity = "high" if score > 0.8 else ("medium" if score > 0.5 else "low")
 
         # Create MarketSignal
         try:
@@ -106,10 +118,10 @@ def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
                 workspace_id=workspace_id,
                 signal_type="market_news",
                 title=title,
-                summary=f"HN: {title} ({story.points} pts)",
-                severity="low" if story.points < 100 else ("medium" if story.points < 300 else "high"),
+                summary=result.snippet or title,
+                severity=severity,
                 evidence_source_id=evidence.id,
-                payload_json={"hn_id": story.id, "url": url, "points": story.points},
+                payload_json={"url": url, "source": result.source, "score": result.score, "published_date": result.published_date},
             )
         except Exception:
             logger.warning("signal_monitor: failed to create signal for %s", url, exc_info=True)
@@ -118,14 +130,14 @@ def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
         # Store in vector store for future matching
         vs.add_market_signal_chunk(
             chunk_id=f"signal-{signal.id}",
-            text=f"{title}. {story.points} points. {url}",
+            text=f"{title}. {result.snippet or ''}. {url}",
             metadata={
                 "entity_type": "market_signal_summary",
                 "entity_id": signal.id,
                 "workspace_id": workspace_id,
-                "source_type": "news",
+                "source_type": result.source,
                 "created_at": utc_now_iso(),
-                "confidence": None,
+                "confidence": result.score,
             },
         )
 
@@ -135,6 +147,7 @@ def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
             "title": title,
             "url": url,
             "signal_type": "market_news",
+            "severity": severity,
         })
 
     return {
@@ -142,7 +155,7 @@ def _fetch_and_create_signals(state: SignalMonitorState) -> dict:
         "agent_thoughts": [{
             "agent": "signal_monitor",
             "action": "created_signals",
-            "detail": f"Created {len(signals_created)} new market signals from {len(stories)} HN stories",
+            "detail": f"Created {len(signals_created)} new market signals from {len(all_results)} search results",
             "timestamp": utc_now_iso(),
         }],
     }
@@ -276,6 +289,53 @@ def _link_signals_to_ideas_and_competitors(state: SignalMonitorState) -> dict:
     }
 
 
+def _push_signal_notifications(state: SignalMonitorState) -> dict:
+    """Create market_signal notifications for medium/high severity signals linked to ideas."""
+    from app.db.repo_notifications import NotificationRepository
+    notif_repo = NotificationRepository()
+
+    signals_created = state.get("signals_created", [])
+    links_created = state.get("links_created", [])
+
+    # Set of signal_ids linked to at least one idea
+    linked_signal_ids = {
+        link["entity_id"] for link in links_created
+        if link.get("entity_type") == "signal"
+    }
+
+    notifications_created = 0
+    for sig_info in signals_created:
+        signal_id = sig_info["signal_id"]
+        severity = sig_info.get("severity", "low")
+
+        if severity == "low" or signal_id not in linked_signal_ids:
+            continue
+        if notif_repo.exists_market_signal(signal_id):
+            continue
+
+        notif_repo.create(
+            type="market_signal",
+            title=f"Market Signal: {sig_info['title'][:60]}",
+            body=f"New {severity}-relevance market signal detected that matches your ideas.",
+            metadata={
+                "signal_id": signal_id,
+                "url": sig_info.get("url", ""),
+                "severity": severity,
+                "action_url": "/insights",
+            },
+        )
+        notifications_created += 1
+
+    return {
+        "agent_thoughts": [{
+            "agent": "signal_monitor",
+            "action": "pushed_notifications",
+            "detail": f"Created {notifications_created} market_signal notifications",
+            "timestamp": utc_now_iso(),
+        }],
+    }
+
+
 def _extract_domain(url: str) -> str:
     """Extract the registered domain from a URL (e.g. 'https://devdash.io/launch' -> 'devdash.io')."""
     try:
@@ -298,8 +358,10 @@ def build_signal_monitor_graph():
     graph.add_node("load_ideas", _load_ideas)
     graph.add_node("fetch_and_create_signals", _fetch_and_create_signals)
     graph.add_node("link_signals", _link_signals_to_ideas_and_competitors)
+    graph.add_node("push_notifications", _push_signal_notifications)
     graph.add_edge(START, "load_ideas")
     graph.add_edge("load_ideas", "fetch_and_create_signals")
     graph.add_edge("fetch_and_create_signals", "link_signals")
-    graph.add_edge("link_signals", END)
+    graph.add_edge("link_signals", "push_notifications")
+    graph.add_edge("push_notifications", END)
     return graph.compile()
