@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -121,119 +122,82 @@ export function IdeasDashboard() {
                     : 'border-[#1e1e1e]/10 bg-white hover:border-[#1e1e1e]/20'
                 }`}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setConfirmingId(idea.id)
-                  }}
-                  className="absolute top-3 right-3 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: isActive ? '#ffffff66' : '#1e1e1e44' }}
-                  aria-label="Delete idea"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-
-                {confirmingId === idea.id ? (
-                  <div className="flex flex-col gap-3 p-4">
-                    <p className={`text-sm ${isActive ? 'text-white' : 'text-[#1e1e1e]'}`}>
-                      Delete <span className="font-semibold">{idea.title}</span>?
-                    </p>
-                    <p className={`text-xs ${isActive ? 'text-white/50' : 'text-[#1e1e1e]/50'}`}>
-                      This cannot be undone. All nodes and paths will be removed.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setConfirmingId(null)}
-                        disabled={deleting}
-                        className="flex-1 rounded-lg border border-[#1e1e1e]/20 py-2 text-sm text-[#1e1e1e]/60 transition hover:border-[#1e1e1e]/40 disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setDeleting(true)
-                          try {
-                            await deleteIdea(idea.id)
-                            setConfirmingId(null)
-                          } finally {
-                            setDeleting(false)
-                          }
-                        }}
-                        disabled={deleting}
-                        className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {deleting ? 'Deleting…' : 'Delete'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h2
-                          className={`text-sm font-semibold ${isActive ? 'text-[#b9eb10]' : 'text-[#1e1e1e]'}`}
-                        >
-                          {idea.title}
-                        </h2>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              isActive
-                                ? 'bg-white/15 text-white/70'
-                                : 'bg-[#f5f5f5] text-[#1e1e1e]/50'
-                            }`}
-                          >
-                            {idea.stage}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              idea.status === 'active'
-                                ? isActive
-                                  ? 'bg-[#b9eb10]/20 text-[#b9eb10]'
-                                  : 'bg-[#b9eb10]/15 text-[#4a7300]'
-                                : isActive
-                                  ? 'bg-white/10 text-white/50'
-                                  : 'bg-[#f5f5f5] text-[#1e1e1e]/40'
-                            }`}
-                          >
-                            {idea.status}
-                          </span>
-                        </div>
-                        <p
-                          className={`mt-1.5 text-[11px] ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
-                          title={idea.updated_at}
-                        >
-                          {formatRelativeTime(idea.updated_at)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveIdeaId(idea.id)}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2
+                      className={`text-sm font-semibold ${isActive ? 'text-[#b9eb10]' : 'text-[#1e1e1e]'}`}
+                    >
+                      {idea.title}
+                    </h2>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           isActive
-                            ? 'bg-[#b9eb10] text-[#1e1e1e]'
-                            : 'border border-[#1e1e1e]/15 bg-[#f5f5f5] text-[#1e1e1e]/60 hover:bg-[#ebebeb]'
+                            ? 'bg-white/15 text-white/70'
+                            : 'bg-[#f5f5f5] text-[#1e1e1e]/50'
                         }`}
                       >
-                        {isActive ? 'Active ✓' : 'Set Active'}
-                      </button>
+                        {idea.stage}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          idea.status === 'active'
+                            ? isActive
+                              ? 'bg-[#b9eb10]/20 text-[#b9eb10]'
+                              : 'bg-[#b9eb10]/15 text-[#4a7300]'
+                            : isActive
+                              ? 'bg-white/10 text-white/50'
+                              : 'bg-[#f5f5f5] text-[#1e1e1e]/40'
+                        }`}
+                      >
+                        {idea.status}
+                      </span>
                     </div>
-
-                  </>
-                )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveIdeaId(idea.id)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                      isActive
+                        ? 'bg-[#b9eb10] text-[#1e1e1e]'
+                        : 'border border-[#1e1e1e]/15 bg-[#f5f5f5] text-[#1e1e1e]/60 hover:bg-[#ebebeb]'
+                    }`}
+                  >
+                    {isActive ? 'Active ✓' : 'Set Active'}
+                  </button>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <p
+                    className={`text-[11px] ${isActive ? 'text-white/30' : 'text-[#1e1e1e]/25'}`}
+                    title={idea.updated_at}
+                  >
+                    {formatRelativeTime(idea.updated_at)}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setConfirmingId(idea.id)
+                    }}
+                    className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                    style={{ color: isActive ? '#ffffff66' : '#1e1e1e44' }}
+                    aria-label="Delete idea"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </article>
             )
           })}
@@ -248,6 +212,60 @@ export function IdeasDashboard() {
           ) : null}
         </div>
       </section>
+
+      {/* Delete idea confirmation dialog */}
+      <AnimatePresence>
+        {confirmingId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => !deleting && setConfirmingId(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="mx-4 w-full max-w-sm rounded-xl border border-[#1e1e1e]/10 bg-white p-6 shadow-2xl"
+            >
+              <h3 className="text-base font-semibold text-[#1e1e1e]">Delete this idea?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#1e1e1e]/60">
+                This will permanently delete{' '}
+                <span className="font-semibold text-[#1e1e1e]">
+                  {ideas.find((i) => i.id === confirmingId)?.title}
+                </span>{' '}
+                and all its nodes, paths, and generated content. This action cannot be undone.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setConfirmingId(null)}
+                  disabled={deleting}
+                  className="flex-1 cursor-pointer rounded-lg border border-[#1e1e1e]/15 px-4 py-2.5 text-sm text-[#1e1e1e]/60 transition hover:border-[#1e1e1e]/30 hover:text-[#1e1e1e]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleting(true)
+                    try {
+                      await deleteIdea(confirmingId)
+                      setConfirmingId(null)
+                    } finally {
+                      setDeleting(false)
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex-1 cursor-pointer rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <section className="mt-6">
         <CrossIdeaInsights />
