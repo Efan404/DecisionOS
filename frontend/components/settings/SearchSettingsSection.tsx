@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 
 import { getSearchSettings, patchSearchSettings, testSearchProvider } from '../../lib/api'
 import type {
@@ -49,6 +50,8 @@ function buildProvidersPayload(
 }
 
 export function SearchSettingsSection() {
+  const t = useTranslations('settings')
+  const tCommon = useTranslations('common')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -135,7 +138,7 @@ export function SearchSettingsSection() {
 
   return (
     <section className="rounded-xl border border-[#1e1e1e]/8 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-[#1e1e1e]">Search Provider</h2>
+      <h2 className="text-lg font-semibold text-[#1e1e1e]">{t('searchProvider')}</h2>
       <p className="mt-1 text-sm text-[#1e1e1e]/50">
         Configure the search provider used for market intelligence.
         {settings ? (
@@ -194,7 +197,7 @@ export function SearchSettingsSection() {
               disabled={saving || !settings}
               className="rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? tCommon('saving') : tCommon('save')}
             </button>
             <button
               type="button"
@@ -202,7 +205,7 @@ export function SearchSettingsSection() {
               disabled={testing || !settings}
               className="rounded-xl border border-[#1e1e1e]/15 bg-[#f5f5f5] px-4 py-2 text-sm font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {testing ? 'Testing...' : 'Test Connection'}
+              {testing ? t('testing') : t('testConnection')}
             </button>
           </div>
 

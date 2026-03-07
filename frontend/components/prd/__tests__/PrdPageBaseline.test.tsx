@@ -164,9 +164,9 @@ describe('PrdPage export actions', () => {
 
   test('Export CSV button calls downloadPrdBacklogExport with csv format', async () => {
     render(<PrdPage />)
-    const reqTab = await screen.findByRole('button', { name: /Requirements/ })
+    const reqTab = await screen.findByRole('button', { name: /prd\.tabRequirements/i })
     await userEvent.click(reqTab)
-    const csvButton = await screen.findByRole('button', { name: 'Export CSV' })
+    const csvButton = await screen.findByRole('button', { name: 'prd.backlog.exportCsv' })
     await userEvent.click(csvButton)
     await waitFor(() => {
       expect(downloadPrdBacklogExport).toHaveBeenCalledWith('idea-1', 'csv')
@@ -175,9 +175,9 @@ describe('PrdPage export actions', () => {
 
   test('Export JSON button calls downloadPrdBacklogExport with json format', async () => {
     render(<PrdPage />)
-    const reqTab = await screen.findByRole('button', { name: /Requirements/ })
+    const reqTab = await screen.findByRole('button', { name: /prd\.tabRequirements/i })
     await userEvent.click(reqTab)
-    const jsonButton = await screen.findByRole('button', { name: 'Export JSON' })
+    const jsonButton = await screen.findByRole('button', { name: 'prd.backlog.exportJson' })
     await userEvent.click(jsonButton)
     await waitFor(() => {
       expect(downloadPrdBacklogExport).toHaveBeenCalledWith('idea-1', 'json')

@@ -189,13 +189,15 @@ describe('ScopeFreezePage baseline flow', () => {
     render(<ScopeFreezePage />)
     await screen.findByText('Core workflow')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Freeze Baseline' }))
+    await userEvent.click(screen.getByRole('button', { name: 'scope.freezeBaseline' }))
     await waitFor(() => {
       expect(freezeScope).toHaveBeenCalledWith('idea-1', { version: 7 })
     })
-    expect(await screen.findByRole('button', { name: 'Create New Version' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: 'scope.createNewVersion' })
+    ).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create New Version' }))
+    await userEvent.click(screen.getByRole('button', { name: 'scope.createNewVersion' }))
     await waitFor(() => {
       expect(createScopeNewVersion).toHaveBeenCalledWith('idea-1', { version: 9 })
     })
@@ -231,7 +233,7 @@ describe('ScopeFreezePage baseline flow', () => {
     render(<ScopeFreezePage />)
     await screen.findByText('Core workflow')
 
-    await userEvent.type(screen.getByLabelText('Add item to IN scope'), 'MVP onboarding')
+    await userEvent.type(screen.getByLabelText('scope.addItemIn'), 'MVP onboarding')
     await userEvent.click(screen.getByRole('button', { name: 'Add IN Item' }))
 
     await waitFor(() => {
@@ -404,19 +406,19 @@ describe('ScopeFreezePage baseline flow', () => {
     render(<ScopeFreezePage />)
     await screen.findByText('Core workflow')
 
-    const continueButton = screen.getByRole('button', { name: 'Continue to PRD' })
+    const continueButton = screen.getByRole('button', { name: 'scope.continueToPrd' })
     expect(continueButton).toBeDisabled()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Freeze Baseline' }))
+    await userEvent.click(screen.getByRole('button', { name: 'scope.freezeBaseline' }))
     await waitFor(() => {
       expect(freezeScope).toHaveBeenCalledWith('idea-1', { version: 7 })
     })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Continue to PRD' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'scope.continueToPrd' })).toBeEnabled()
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Continue to PRD' }))
+    await userEvent.click(screen.getByRole('button', { name: 'scope.continueToPrd' }))
     await waitFor(() => {
       expect(loadIdeaDetailMock).toHaveBeenCalled()
       expect(nextNavigationMock.router.push).toHaveBeenCalledWith(

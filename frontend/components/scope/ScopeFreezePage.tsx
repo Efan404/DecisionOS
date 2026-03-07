@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
@@ -30,29 +31,6 @@ import {
   type ScopeOutput,
 } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
-
-const SCOPE_STEPS: { key: string; label: string }[] = [
-  { key: 'received_request', label: 'Receiving request' },
-  { key: 'analyzing_context', label: 'Analyzing confirmed path' },
-  { key: 'saving', label: 'Saving scope items' },
-  { key: 'done', label: 'Scope generated' },
-]
-
-function buildScopeProgressSteps(currentStep: string | null): ProgressStep[] {
-  const currentIndex = SCOPE_STEPS.findIndex((s) => s.key === currentStep)
-  return SCOPE_STEPS.map((s, i) => ({
-    key: s.key,
-    label: s.label,
-    status:
-      currentStep === null
-        ? 'pending'
-        : i < currentIndex
-          ? 'done'
-          : i === currentIndex
-            ? 'active'
-            : 'pending',
-  }))
-}
 
 const normalizeDisplayOrder = (items: ScopeBaselineItem[]): ScopeBaselineItem[] => {
   const grouped: Record<'in' | 'out', ScopeBaselineItem[]> = {
@@ -134,6 +112,8 @@ const toScopeGenerationPayload = (
 }
 
 export function ScopeFreezePage() {
+  const t = useTranslations('scope')
+  const tCommon = useTranslations('common')
   const router = useRouter()
   const pathname = usePathname()
   const context = useDecisionStore((state) => state.context)
@@ -158,6 +138,35 @@ export function ScopeFreezePage() {
   )
   const readonly = Boolean(draft?.readonly)
   const canEnterPrd = Boolean(draft?.baseline.id && draft?.baseline.status === 'frozen')
+
+  const scopeSteps = useMemo(
+    () => [
+      { key: 'received_request', label: t('generating.receiving') },
+      { key: 'analyzing_context', label: t('generating.analyzing') },
+      { key: 'saving', label: t('generating.saving') },
+      { key: 'done', label: t('generating.done') },
+    ],
+    [t]
+  )
+
+  const buildScopeProgressSteps = useCallback(
+    (currentStep: string | null): ProgressStep[] => {
+      const currentIndex = scopeSteps.findIndex((s) => s.key === currentStep)
+      return scopeSteps.map((s, i) => ({
+        key: s.key,
+        label: s.label,
+        status:
+          currentStep === null
+            ? 'pending'
+            : i < currentIndex
+              ? 'done'
+              : i === currentIndex
+                ? 'active'
+                : 'pending',
+      }))
+    },
+    [scopeSteps]
+  )
 
   const syncContextFromServer = useCallback(
     async (fallbackVersion: number): Promise<{ version: number; synced: boolean }> => {
@@ -319,7 +328,7 @@ export function ScopeFreezePage() {
         } catch (error) {
           if (!isNotFoundError(error)) {
             if (!cancelled) {
-              const message = error instanceof Error ? error.message : 'Failed to load scope draft.'
+              const message = error instanceof Error ? error.message : t('errorLoadDraft')
               setErrorMessage(message)
               toast.error(message)
             }
@@ -346,9 +355,7 @@ export function ScopeFreezePage() {
             } catch (baselineError) {
               if (!cancelled) {
                 const message =
-                  baselineError instanceof Error
-                    ? baselineError.message
-                    : 'Failed to load frozen baseline.'
+                  baselineError instanceof Error ? baselineError.message : t('errorLoadBaseline')
                 setErrorMessage(message)
                 toast.error(message)
               }
@@ -388,7 +395,7 @@ export function ScopeFreezePage() {
                   const message =
                     recoverError instanceof Error
                       ? recoverError.message
-                      : 'Failed to recover scope draft after version conflict.'
+                      : t('errorBootstrapRecover')
                   setErrorMessage(message)
                   toast.error(message)
                 }
@@ -397,9 +404,7 @@ export function ScopeFreezePage() {
             } else {
               if (!cancelled) {
                 const message =
-                  bootstrapError instanceof Error
-                    ? bootstrapError.message
-                    : 'Failed to bootstrap scope draft.'
+                  bootstrapError instanceof Error ? bootstrapError.message : t('errorBootstrap')
                 setErrorMessage(message)
                 toast.error(message)
               }
@@ -419,10 +424,7 @@ export function ScopeFreezePage() {
           versionChanged = versionChanged || hydrated.versionChanged
         } catch (hydrateError) {
           if (!cancelled) {
-            const message =
-              hydrateError instanceof Error
-                ? hydrateError.message
-                : 'Failed to initialize scope draft.'
+            const message = hydrateError instanceof Error ? hydrateError.message : t('errorHydrate')
             setErrorMessage(message)
             toast.error(message)
           }
@@ -464,7 +466,7 @@ export function ScopeFreezePage() {
     }
     const currentVersion = ideaVersion ?? activeIdea?.version
     if (!currentVersion) {
-      setErrorMessage('Missing idea version for scope update.')
+      setErrorMessage(t('errorMissingVersion'))
       return
     }
 
@@ -478,7 +480,7 @@ export function ScopeFreezePage() {
       setIdeaVersion(routeIdeaId, envelope.idea_version)
       setLocalIdeaVersion(envelope.idea_version)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update scope draft.'
+      const message = error instanceof Error ? error.message : t('errorUpdateDraft')
       setErrorMessage(message)
       toast.error(message)
       if (error instanceof ApiError && error.status === 409) {
@@ -562,7 +564,7 @@ export function ScopeFreezePage() {
     }
     const currentVersion = ideaVersion ?? activeIdea?.version
     if (!currentVersion) {
-      setErrorMessage('Missing idea version.')
+      setErrorMessage(t('errorMissingVersionFreeze'))
       return
     }
 
@@ -585,9 +587,9 @@ export function ScopeFreezePage() {
       setIdeaVersion(routeIdeaId, envelope.idea_version)
       setLocalIdeaVersion(envelope.idea_version)
       await syncContextFromServer(envelope.idea_version)
-      toast.success('Baseline frozen')
+      toast.success(t('frozen'))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to freeze baseline.'
+      const message = error instanceof Error ? error.message : t('errorFreeze')
       setErrorMessage(message)
       toast.error(message)
     } finally {
@@ -601,7 +603,7 @@ export function ScopeFreezePage() {
     }
     const currentVersion = ideaVersion ?? activeIdea?.version
     if (!currentVersion) {
-      setErrorMessage('Missing idea version.')
+      setErrorMessage(t('errorMissingVersionPrd'))
       return
     }
 
@@ -609,14 +611,14 @@ export function ScopeFreezePage() {
     try {
       const synced = await syncContextFromServer(currentVersion)
       if (!synced.synced) {
-        const message = 'Failed to sync context before opening PRD.'
+        const message = t('errorSyncFailed')
         setErrorMessage(message)
         toast.error(message)
         return
       }
       router.push(buildIdeaStepHref(routeIdeaId, 'prd', { baseline_id: draft.baseline.id }))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to navigate to PRD.'
+      const message = error instanceof Error ? error.message : t('errorSyncFailed')
       setErrorMessage(message)
       toast.error(message)
     } finally {
@@ -630,7 +632,7 @@ export function ScopeFreezePage() {
     }
     const currentVersion = ideaVersion ?? activeIdea?.version
     if (!currentVersion) {
-      setErrorMessage('Missing idea version for new baseline version.')
+      setErrorMessage(t('errorMissingVersionNew'))
       return
     }
 
@@ -653,9 +655,9 @@ export function ScopeFreezePage() {
       setIdeaVersion(routeIdeaId, envelope.idea_version)
       setLocalIdeaVersion(envelope.idea_version)
       await syncContextFromServer(envelope.idea_version)
-      toast.success('New scope baseline version created')
+      toast.success(t('newVersionCreated'))
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create new version.'
+      const message = error instanceof Error ? error.message : t('errorNewVersion')
       setErrorMessage(message)
       toast.error(message)
     } finally {
@@ -666,10 +668,7 @@ export function ScopeFreezePage() {
   if (!canOpen) {
     return (
       <main className="p-6">
-        <GuardPanel
-          title="Missing context for Scope Freeze"
-          description="Confirm one feasibility plan before entering Scope Freeze."
-        />
+        <GuardPanel title={t('guardTitle')} description={t('guardDesc')} />
       </main>
     )
   }
@@ -680,10 +679,8 @@ export function ScopeFreezePage() {
         {/* Page header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">Scope Freeze</h1>
-            <p className="mt-1 text-sm text-[#1e1e1e]/50">
-              Edit draft items in each lane, freeze a baseline snapshot, then continue to PRD.
-            </p>
+            <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">{t('title')}</h1>
+            <p className="mt-1 text-sm text-[#1e1e1e]/50">{t('subtitle')}</p>
           </div>
 
           {/* Baseline status badge */}
@@ -736,7 +733,7 @@ export function ScopeFreezePage() {
               disabled={saving}
               className="w-full rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
-              Create New Version
+              {t('createNewVersion')}
             </button>
           ) : null}
           {!readonly && draft?.baseline.status !== 'frozen' ? (
@@ -749,7 +746,7 @@ export function ScopeFreezePage() {
               disabled={saving || loading || !draft}
               className="w-full rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
-              {saving ? 'Freezing…' : 'Freeze Baseline'}
+              {saving ? t('freezing') : t('freezeBaseline')}
             </button>
           ) : null}
           <button
@@ -760,12 +757,12 @@ export function ScopeFreezePage() {
             disabled={saving || loading || !canEnterPrd}
             className="w-full rounded-xl bg-[#b9eb10] px-4 py-2 text-sm font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
-            Continue to PRD →
+            {t('continueToPrd')}
           </button>
           {saving ? (
             <span className="flex items-center gap-1.5 text-xs text-[#1e1e1e]/40">
               <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#1e1e1e]/20 border-t-[#1e1e1e]/60" />
-              Saving…
+              {tCommon('saving')}
             </span>
           ) : null}
         </div>

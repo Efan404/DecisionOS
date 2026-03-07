@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -18,10 +19,12 @@ import { CircleHelp, Ghost, LogOut, Settings, TrendingUp } from 'lucide-react'
 import { useTour } from '../onboarding/OnboardingProvider'
 import { NotificationBell } from '../notifications/NotificationBell'
 
+type NavKey = 'ideas' | 'ideaCanvas' | 'feasibility' | 'scopeFreeze' | 'prd'
+
 type StepItem = {
   step: 'ideas' | IdeaStep
-  label: string
-  description: string
+  navKey: NavKey
+  descKey: NavKey
   locked: boolean
   done: boolean
 }
@@ -30,14 +33,18 @@ type AppShellProps = Readonly<{
   children: React.ReactNode
 }>
 
-// Step labels only — colors are computed from active/done/locked state
-const STEP_LABELS = [
-  { step: 'ideas', label: 'Ideas', description: 'Workspace ideas' },
-  { step: 'idea-canvas', label: 'Idea Canvas', description: 'DAG path confirm' },
-  { step: 'feasibility', label: 'Feasibility', description: 'Plan generation' },
-  { step: 'scope-freeze', label: 'Scope Freeze', description: 'Boundaries' },
-  { step: 'prd', label: 'PRD', description: 'Output document' },
-] as const
+// Step nav keys — labels resolved via useTranslations('nav') at render time
+const NAV_STEPS = [
+  { step: 'ideas' as const, navKey: 'ideas' as const, descKey: 'ideas' as const },
+  { step: 'idea-canvas' as const, navKey: 'ideaCanvas' as const, descKey: 'ideaCanvas' as const },
+  { step: 'feasibility' as const, navKey: 'feasibility' as const, descKey: 'feasibility' as const },
+  {
+    step: 'scope-freeze' as const,
+    navKey: 'scopeFreeze' as const,
+    descKey: 'scopeFreeze' as const,
+  },
+  { step: 'prd' as const, navKey: 'prd' as const, descKey: 'prd' as const },
+]
 
 const getIsActive = (pathname: string, step: StepItem['step']): boolean => {
   if (step === 'ideas') return pathname === '/' || pathname === '/ideas'
@@ -46,19 +53,36 @@ const getIsActive = (pathname: string, step: StepItem['step']): boolean => {
   return pathname.startsWith(segment)
 }
 
-const getBadgeLabel = (item: StepItem, isHydrated: boolean) => {
-  if (!isHydrated) return 'Syncing'
-  if (item.done) return 'Done'
-  return item.locked ? 'Locked' : 'Open'
+const getBadgeLabel = (
+  item: StepItem,
+  isHydrated: boolean,
+  tCommon: ReturnType<typeof useTranslations<'common'>>
+) => {
+  if (!isHydrated) return tCommon('syncing')
+  if (item.done) return tCommon('done')
+  return item.locked ? tCommon('locked') : tCommon('open')
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const tNav = useTranslations('nav')
+  const tCommon = useTranslations('common')
   const pathname = usePathname()
   const router = useRouter()
   const { startTour } = useTour()
 
   const handleStartTour = () => {
     startTour()
+  }
+
+  const handleSwitchLocale = () => {
+    const currentLocale =
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('NEXT_LOCALE='))
+        ?.split('=')[1] ?? 'en'
+    const nextLocale = currentLocale === 'en' ? 'zh' : 'en'
+    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000`
+    window.location.reload()
   }
   const isLoginRoute = pathname === '/login'
   const [mounted, setMounted] = useState(false)
@@ -121,43 +145,28 @@ export function AppShell({ children }: AppShellProps) {
   const scopeOpen = hydratedContext ? canOpenScope(hydratedContext) : false
   const prdOpen = hydratedContext ? canOpenPrd(hydratedContext) : false
 
-  const steps: StepItem[] = [
-    {
-      step: 'ideas',
-      label: 'Ideas',
-      description: 'Workspace ideas',
-      locked: false,
-      done: Boolean(hydratedContext?.idea_seed),
-    },
-    {
-      step: 'idea-canvas',
-      label: 'Idea Canvas',
-      description: 'DAG path confirm',
-      locked: false,
-      done: Boolean(hydratedContext?.confirmed_dag_path_id),
-    },
-    {
-      step: 'feasibility',
-      label: 'Feasibility',
-      description: 'Plan generation',
-      locked: !feasibilityOpen,
-      done: Boolean(hydratedContext?.selected_plan_id),
-    },
-    {
-      step: 'scope-freeze',
-      label: 'Scope Freeze',
-      description: 'Boundaries',
-      locked: !scopeOpen,
-      done: Boolean(hydratedContext?.scope_frozen),
-    },
-    {
-      step: 'prd',
-      label: 'PRD',
-      description: 'Output document',
-      locked: !prdOpen,
-      done: Boolean(hydratedContext?.scope_frozen && hydratedContext?.prd),
-    },
-  ]
+  const lockedByStep: Record<string, boolean> = {
+    ideas: false,
+    'idea-canvas': false,
+    feasibility: !feasibilityOpen,
+    'scope-freeze': !scopeOpen,
+    prd: !prdOpen,
+  }
+  const doneByStep: Record<string, boolean> = {
+    ideas: Boolean(hydratedContext?.idea_seed),
+    'idea-canvas': Boolean(hydratedContext?.confirmed_dag_path_id),
+    feasibility: Boolean(hydratedContext?.selected_plan_id),
+    'scope-freeze': Boolean(hydratedContext?.scope_frozen),
+    prd: Boolean(hydratedContext?.scope_frozen && hydratedContext?.prd),
+  }
+
+  const steps: StepItem[] = NAV_STEPS.map(({ step, navKey, descKey }) => ({
+    step,
+    navKey,
+    descKey,
+    locked: lockedByStep[step],
+    done: doneByStep[step],
+  }))
 
   const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
   const getStepHref = (step: StepItem['step']): string => {
@@ -182,7 +191,7 @@ export function AppShell({ children }: AppShellProps) {
   // ── Step card renderer ──────────────────────────────────────────────────────
   const renderStepCard = (item: StepItem, index: number) => {
     const isActive = getIsActive(pathname, item.step)
-    const badgeLabel = getBadgeLabel(item, isHydrated)
+    const badgeLabel = getBadgeLabel(item, isHydrated, tCommon)
     const noIdeaSelected = item.step !== 'ideas' && !routeIdeaId
     const disabled = item.locked || noIdeaSelected
 
@@ -233,10 +242,10 @@ export function AppShell({ children }: AppShellProps) {
         {/* Label + description */}
         <div className="mt-2">
           <p className="text-sm leading-tight font-bold" style={{ color: titleColor }}>
-            {item.label}
+            {tNav(item.navKey)}
           </p>
           <p className="mt-0.5 text-[11px]" style={{ color: descColor }}>
-            {item.description}
+            {tNav(`descriptions.${item.descKey}`)}
           </p>
         </div>
 
@@ -313,8 +322,8 @@ export function AppShell({ children }: AppShellProps) {
             <div className="hidden items-center gap-1 sm:flex">
               <Link
                 href="/insights"
-                aria-label="Market Insights"
-                title="Market Insights"
+                aria-label={tNav('marketInsights')}
+                title={tNav('marketInsights')}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
               >
                 <TrendingUp size={14} />
@@ -342,8 +351,8 @@ export function AppShell({ children }: AppShellProps) {
             <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
               <Link
                 href="/settings"
-                aria-label="Settings"
-                title="Settings"
+                aria-label={tNav('settings')}
+                title={tNav('settings')}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
               >
                 <Settings size={14} />
@@ -358,8 +367,8 @@ export function AppShell({ children }: AppShellProps) {
               </Link>
               <button
                 type="button"
-                aria-label="Logout"
-                title="Logout"
+                aria-label={tNav('logout')}
+                title={tNav('logout')}
                 onClick={() => {
                   clearAuthSession()
                   router.replace('/login')
@@ -369,6 +378,15 @@ export function AppShell({ children }: AppShellProps) {
                 <LogOut size={14} />
               </button>
             </div>
+
+            {/* Group 4: Language switcher (desktop only) */}
+            <button
+              type="button"
+              onClick={handleSwitchLocale}
+              className="hidden rounded-lg px-3 py-2 text-left text-xs font-medium text-[#1e1e1e]/40 transition hover:bg-[#e8e8e8] hover:text-[#1e1e1e] sm:block"
+            >
+              {tCommon('switchLang')}
+            </button>
 
             {/* Mobile hamburger */}
             <button
@@ -415,7 +433,7 @@ export function AppShell({ children }: AppShellProps) {
                       isActive ? 'bg-[#1e1e1e] text-[#b9eb10]' : 'text-[#1e1e1e]/30'
                     }`}
                   >
-                    {item.label}
+                    {tNav(item.navKey)}
                   </span>
                 ) : (
                   <Link
@@ -428,7 +446,7 @@ export function AppShell({ children }: AppShellProps) {
                         : 'text-[#1e1e1e]/60 hover:bg-[#f5f5f5]'
                     }`}
                   >
-                    {item.label}
+                    {tNav(item.navKey)}
                   </Link>
                 )}
               </span>
@@ -461,7 +479,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <TrendingUp size={13} />
-                Insights
+                {tNav('marketInsights')}
               </Link>
               <Link
                 href="/settings"
@@ -469,7 +487,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <Settings size={13} />
-                Settings
+                {tNav('settings')}
               </Link>
               <button
                 type="button"
@@ -481,7 +499,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <LogOut size={13} />
-                Logout
+                {tNav('logout')}
               </button>
             </div>
           </nav>

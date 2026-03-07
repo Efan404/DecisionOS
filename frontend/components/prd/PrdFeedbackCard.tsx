@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 import type { PrdFeedbackDimensions, PrdFeedbackLatest } from '../../lib/schemas'
 
@@ -62,6 +63,7 @@ export function PrdFeedbackCard({
   errorMessage = null,
   onSubmit,
 }: PrdFeedbackCardProps) {
+  const t = useTranslations('prd')
   const [expanded, setExpanded] = useState(false)
   const [overall, setOverall] = useState<number>(latest?.rating_overall ?? 4)
   const [dimensions, setDimensions] = useState<PrdFeedbackDimensions>(
@@ -173,7 +175,7 @@ export function PrdFeedbackCard({
             disabled={disabled || submitting}
             className="min-h-11 cursor-pointer rounded-md bg-slate-900 px-4 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:opacity-50"
           >
-            {submitting ? 'Submitting...' : 'Submit Feedback'}
+            {submitting ? t('feedback.submitting') : t('feedback.submit')}
           </button>
         </form>
       ) : null}

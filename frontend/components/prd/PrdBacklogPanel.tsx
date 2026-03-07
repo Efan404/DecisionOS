@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 import type { PrdBacklogItem, PrdSourceRef } from '../../lib/schemas'
 import { HoverCard } from '../common/HoverCard'
@@ -36,6 +37,7 @@ export function PrdBacklogPanel({
   onExportCsv,
   exporting = false,
 }: PrdBacklogPanelProps) {
+  const t = useTranslations('prd')
   const [priorityFilter, setPriorityFilter] = useState<FilterValue>('all')
   const [typeFilter, setTypeFilter] = useState<FilterValue>('all')
   const [sourceFilter, setSourceFilter] = useState<FilterValue>('all')
@@ -53,7 +55,11 @@ export function PrdBacklogPanel({
   }, [items])
 
   const filtered = items.filter((item) => {
-    if (filterByRequirement && selectedRequirementId && item.requirement_id !== selectedRequirementId) {
+    if (
+      filterByRequirement &&
+      selectedRequirementId &&
+      item.requirement_id !== selectedRequirementId
+    ) {
       return false
     }
     if (priorityFilter !== 'all' && item.priority !== priorityFilter) {
@@ -73,7 +79,7 @@ export function PrdBacklogPanel({
       <header className="border-b border-slate-100 px-4 py-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">
-            Backlog
+            {t('backlog.title')}
             <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
               {filtered.length}/{items.length}
             </span>
@@ -96,7 +102,7 @@ export function PrdBacklogPanel({
                 type="button"
                 onClick={() => void onExportJson()}
                 disabled={exporting}
-                aria-label="Export JSON"
+                aria-label={t('backlog.exportJson')}
                 className="cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 JSON
@@ -107,7 +113,7 @@ export function PrdBacklogPanel({
                 type="button"
                 onClick={() => void onExportCsv()}
                 disabled={exporting}
-                aria-label="Export CSV"
+                aria-label={t('backlog.exportCsv')}
                 className="cursor-pointer rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 CSV
@@ -120,7 +126,7 @@ export function PrdBacklogPanel({
       {/* Filters row */}
       <div className="grid gap-2 border-b border-slate-100 px-4 py-3 sm:grid-cols-3">
         <label className="text-[11px] font-medium text-slate-500">
-          Priority
+          {t('backlog.priority')}
           <select
             value={priorityFilter}
             onChange={(event) => setPriorityFilter(event.target.value)}
@@ -184,13 +190,17 @@ export function PrdBacklogPanel({
                     align="left"
                     maxWidth={360}
                     trigger={
-                      <p className="cursor-default text-sm font-medium leading-5 text-slate-900">{item.title}</p>
+                      <p className="cursor-default text-sm leading-5 font-medium text-slate-900">
+                        {item.title}
+                      </p>
                     }
                   >
                     <div className="space-y-1.5">
                       {item.acceptance_criteria.length > 0 ? (
                         <div>
-                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">Acceptance criteria</p>
+                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">
+                            Acceptance criteria
+                          </p>
                           <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
                             {item.acceptance_criteria.map((ac, i) => (
                               <li key={i}>{ac}</li>
@@ -200,7 +210,9 @@ export function PrdBacklogPanel({
                       ) : null}
                       {item.depends_on.length > 0 ? (
                         <div>
-                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">Depends on</p>
+                          <p className="mb-0.5 text-[11px] font-medium text-slate-600">
+                            Depends on
+                          </p>
                           <div className="flex flex-wrap gap-1">
                             {item.depends_on.map((dep) => (
                               <span
@@ -242,14 +254,18 @@ export function PrdBacklogPanel({
                     <HoverCard
                       align="left"
                       trigger={
-                        <span className="cursor-default inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                        <span className="inline-flex cursor-default items-center rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
                           {item.requirement_id}
                         </span>
                       }
                     >
-                      <p className="font-mono text-[11px] font-medium text-slate-600">{item.requirement_id}</p>
+                      <p className="font-mono text-[11px] font-medium text-slate-600">
+                        {item.requirement_id}
+                      </p>
                       {requirementsById?.[item.requirement_id] ? (
-                        <p className="mt-0.5 text-[11px] text-slate-500">{requirementsById[item.requirement_id]}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {requirementsById[item.requirement_id]}
+                        </p>
                       ) : null}
                     </HoverCard>
                   </div>

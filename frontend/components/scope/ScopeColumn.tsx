@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 
@@ -31,11 +32,12 @@ export function ScopeColumn({
   onAdd,
   onDelete,
 }: ScopeColumnProps) {
+  const t = useTranslations('scope')
   const [draft, setDraft] = useState('')
   const [showTooltip, setShowTooltip] = useState(false)
   const sortedItems = useMemo(() => sortByDisplayOrder(items), [items])
   const isInLane = lane === 'in'
-  const labelText = isInLane ? 'Add item to IN scope' : 'Add item to OUT scope'
+  const labelText = isInLane ? t('addItemIn') : t('addItemOut')
   const accentColor = isInLane ? '#b9eb10' : '#1e1e1e'
   const accentBg = isInLane ? 'bg-[#b9eb10] text-[#1e1e1e]' : 'bg-[#1e1e1e] text-white'
   const accentHover = isInLane ? 'hover:bg-[#d4f542]' : 'hover:bg-[#333]'
@@ -102,7 +104,7 @@ export function ScopeColumn({
                 setDraft('')
               }
             }}
-            placeholder="Add an item…"
+            placeholder={t('addItemPlaceholder')}
             className="min-w-0 flex-1 rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-sm text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/20"
           />
           <button
@@ -116,7 +118,7 @@ export function ScopeColumn({
             }}
             className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${accentBg} ${accentHover}`}
           >
-            Add
+            {t('addButton')}
           </button>
         </div>
       )}
@@ -132,9 +134,7 @@ export function ScopeColumn({
             <div
               className={`flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed py-8 transition-colors ${isOver ? 'border-[#b9eb10]/60 bg-[#b9eb10]/5' : 'border-[#1e1e1e]/10'}`}
             >
-              <p className="text-xs text-[#1e1e1e]/30">
-                {readonly ? 'No items.' : 'Drop here or add one above.'}
-              </p>
+              <p className="text-xs text-[#1e1e1e]/30">{readonly ? t('noItems') : t('dropHere')}</p>
             </div>
           )}
         </div>

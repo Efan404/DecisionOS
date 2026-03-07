@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 const SCROLL_THRESHOLD_PX = 40
 
@@ -28,6 +29,7 @@ type Props = {
 }
 
 export function AgentThoughtStream({ thoughts, isActive = false }: Props) {
+  const t = useTranslations('ideas')
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -53,7 +55,7 @@ export function AgentThoughtStream({ thoughts, isActive = false }: Props) {
           </span>
         )}
         <span className="text-xs font-medium tracking-wide text-zinc-400 uppercase">
-          Agent Activity
+          {t('agentActivity')}
         </span>
       </div>
       <div ref={scrollContainerRef} className="max-h-36 space-y-1.5 overflow-y-auto">
@@ -64,7 +66,7 @@ export function AgentThoughtStream({ thoughts, isActive = false }: Props) {
           </div>
         ))}
         {isActive && thoughts.length === 0 && (
-          <p className="text-xs text-zinc-500">Initializing agents...</p>
+          <p className="text-xs text-zinc-500">{t('initializingAgents')}</p>
         )}
         <div ref={bottomRef} />
       </div>

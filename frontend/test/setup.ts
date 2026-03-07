@@ -2,6 +2,16 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
+// Mock next-intl: useTranslations returns "namespace.key" in tests
+vi.mock('next-intl', () => ({
+  useTranslations: (namespace: string) => (key: string, _params?: Record<string, unknown>) =>
+    `${namespace}.${key}`,
+  NextIntlClientProvider: ({ children }: { children: unknown }) => children,
+  getLocale: async () => 'en',
+  getMessages: async () => ({}),
+  getTranslations: async (namespace: string) => (key: string) => `${namespace}.${key}`,
+}))
+
 type MockRouter = {
   push: ReturnType<typeof vi.fn>
   replace: ReturnType<typeof vi.fn>

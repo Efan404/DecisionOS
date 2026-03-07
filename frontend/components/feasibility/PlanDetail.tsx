@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import type { FeasibilityPlan } from '../../lib/schemas'
 
 type PlanDetailProps = {
@@ -17,7 +18,7 @@ function ScoreCard({ label, value, tooltip }: ScoreCardProps) {
     <div className="group relative rounded-lg border border-[#1e1e1e]/10 bg-[#f5f5f5] p-3 text-sm">
       <div className="flex items-center gap-1">
         <span className="text-[11px] font-medium tracking-wide text-[#1e1e1e]/40">{label}</span>
-        <span className="text-[10px] text-[#1e1e1e]/25 cursor-default select-none">?</span>
+        <span className="cursor-default text-[10px] text-[#1e1e1e]/25 select-none">?</span>
       </div>
       <p className="mt-0.5 text-lg font-bold text-[#1e1e1e]">{value.toFixed(1)}</p>
       {/* Hover tooltip */}
@@ -37,6 +38,8 @@ const SCORE_TOOLTIPS = {
 }
 
 export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
+  const t = useTranslations('feasibility')
+
   if (!plan) {
     return (
       <section className="mx-auto w-full max-w-3xl rounded-xl border border-dashed p-6">
@@ -64,17 +67,17 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
         <div className="space-y-4 lg:col-span-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <ScoreCard
-              label="Technical"
+              label={t('plan.techLabel')}
               value={plan.scores.technical_feasibility}
               tooltip={SCORE_TOOLTIPS.technical}
             />
             <ScoreCard
-              label="Market"
+              label={t('plan.marketLabel')}
               value={plan.scores.market_viability}
               tooltip={SCORE_TOOLTIPS.market}
             />
             <ScoreCard
-              label="Risk Control"
+              label={t('plan.riskLabel')}
               value={plan.scores.execution_risk}
               tooltip={SCORE_TOOLTIPS.risk}
             />
@@ -109,7 +112,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
 
           <div className="rounded-lg border border-[#1e1e1e]/10 p-4">
             <h2 className="text-xs font-semibold tracking-wide text-[#1e1e1e]/50">
-              Recommended Positioning
+              {t('plan.positioning')}
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-[#1e1e1e]/70">
               {plan.recommended_positioning}
@@ -169,9 +172,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
                         </a>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-[#1e1e1e]/50">
-                      {c.similarity}
-                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#1e1e1e]/50">{c.similarity}</p>
                   </li>
                 ))}
               </ul>
