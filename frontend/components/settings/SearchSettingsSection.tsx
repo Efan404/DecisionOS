@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { getSearchSettings, patchSearchSettings, testSearchProvider } from '../../lib/api'
 import type {
+  SearchProviderConfig,
   SearchProviderKind,
   SearchSettingsDetail,
   TestSearchProviderResponse,
@@ -14,6 +15,37 @@ const PROVIDER_LABELS: Record<SearchProviderKind, string> = {
   exa: 'Exa',
   tavily: 'Tavily',
   hn_algolia: 'HN Algolia (free, no key needed)',
+}
+
+const PROVIDER_DEFAULTS: Record<SearchProviderKind, { id: string; name: string }> = {
+  exa: { id: 'exa', name: 'Exa' },
+  tavily: { id: 'tavily', name: 'Tavily' },
+  hn_algolia: { id: 'hn_algolia', name: 'HN Algolia' },
+}
+
+/** Build the full providers array with exactly one provider enabled. */
+function buildProvidersPayload(
+  settings: SearchSettingsDetail,
+  activeKind: SearchProviderKind,
+  newApiKey: string
+): SearchProviderConfig[] {
+  const existingByKind = new Map(settings.providers.map((p) => [p.kind, p]))
+  const defaults = PROVIDER_DEFAULTS[activeKind]
+  const activeConfig: SearchProviderConfig = {
+    ...(existingByKind.get(activeKind) ?? {
+      id: defaults.id,
+      name: defaults.name,
+      kind: activeKind,
+      enabled: true,
+    }),
+    kind: activeKind,
+    enabled: true,
+    api_key: newApiKey.trim() || (existingByKind.get(activeKind)?.api_key ?? null),
+  }
+  const others = settings.providers
+    .filter((p) => p.kind !== activeKind)
+    .map((p) => ({ ...p, enabled: false }))
+  return [activeConfig, ...others]
 }
 
 export function SearchSettingsSection() {
@@ -31,8 +63,10 @@ export function SearchSettingsSection() {
       try {
         const data = await getSearchSettings()
         setSettings(data)
-        setProvider(data.provider)
-        // api_key_masked is masked — don't prefill the input
+        // Find the enabled provider; fall back to the first one if none is explicitly enabled.
+        const active = data.providers.find((p) => p.enabled) ?? data.providers[0]
+        if (active) setProvider(active.kind)
+        // api_key is masked on read — don't prefill the input
         setApiKey('')
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load search settings.'
@@ -45,11 +79,11 @@ export function SearchSettingsSection() {
   }, [])
 
   const onSave = async () => {
+    if (!settings) return
     setSaving(true)
     try {
       const updated = await patchSearchSettings({
-        provider,
-        api_key: apiKey.trim() || null,
+        providers: buildProvidersPayload(settings, provider, apiKey),
       })
       setSettings(updated)
       setApiKey('')
@@ -63,14 +97,25 @@ export function SearchSettingsSection() {
   }
 
   const onTestConnection = async () => {
+    if (!settings) return
     setTesting(true)
     setTestResult(null)
     setTestError(null)
     try {
-      const result = await testSearchProvider({
-        provider,
-        api_key: apiKey.trim() || null,
-      })
+      const existingConfig = settings.providers.find((p) => p.kind === provider)
+      const defaults = PROVIDER_DEFAULTS[provider]
+      const providerConfig: SearchProviderConfig = {
+        ...(existingConfig ?? {
+          id: defaults.id,
+          name: defaults.name,
+          kind: provider,
+          enabled: true,
+        }),
+        kind: provider,
+        enabled: true,
+        api_key: apiKey.trim() || (existingConfig?.api_key ?? null),
+      }
+      const result = await testSearchProvider({ provider: providerConfig })
       setTestResult(result)
       if (result.ok) {
         toast.success(
@@ -108,6 +153,7 @@ export function SearchSettingsSection() {
               value={provider}
               onChange={(e) => {
                 setProvider(e.currentTarget.value as SearchProviderKind)
+                setApiKey('')
                 setTestResult(null)
                 setTestError(null)
               }}
@@ -125,9 +171,9 @@ export function SearchSettingsSection() {
             <label className="block text-sm">
               <span className="mb-1 block text-[#1e1e1e]/60">
                 API Key
-                {settings?.api_key_masked ? (
+                {settings?.providers.find((p) => p.kind === provider)?.api_key ? (
                   <span className="ml-2 text-[#1e1e1e]/35">
-                    (current: {settings.api_key_masked})
+                    (current: {settings.providers.find((p) => p.kind === provider)?.api_key})
                   </span>
                 ) : null}
               </span>
@@ -145,7 +191,7 @@ export function SearchSettingsSection() {
             <button
               type="button"
               onClick={() => void onSave()}
-              disabled={saving}
+              disabled={saving || !settings}
               className="rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? 'Saving...' : 'Save'}
@@ -153,7 +199,7 @@ export function SearchSettingsSection() {
             <button
               type="button"
               onClick={() => void onTestConnection()}
-              disabled={testing}
+              disabled={testing || !settings}
               className="rounded-xl border border-[#1e1e1e]/15 bg-[#f5f5f5] px-4 py-2 text-sm font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {testing ? 'Testing...' : 'Test Connection'}
