@@ -30,21 +30,30 @@ function buildFeasibilityProgressSteps(
   currentStep: string | null,
   steps: { key: string; label: string }[]
 ): ProgressStep[] {
-  // plan_1/2/3 are sequential — map all three to a single "waiting" bucket while < plan_3
+  // waiting/plan_1/plan_2 → generating_plans active; plan_3 → generating_plans done
   const normalizedStep =
-    currentStep === 'plan_1' || currentStep === 'plan_2' ? 'waiting' : currentStep
-  const currentIndex = steps.findIndex((s) => s.key === normalizedStep)
+    currentStep === 'waiting' || currentStep === 'plan_1' || currentStep === 'plan_2'
+      ? 'generating_plans'
+      : currentStep === 'plan_3'
+        ? 'generating_plans_done'
+        : currentStep
+  const currentIndex = steps.findIndex(
+    (s) =>
+      s.key === (normalizedStep === 'generating_plans_done' ? 'generating_plans' : normalizedStep)
+  )
   return steps.map((s, i) => ({
     key: s.key,
     label: s.label,
     status:
       currentStep === null
         ? 'pending'
-        : i < currentIndex
+        : normalizedStep === 'generating_plans_done' && s.key === 'generating_plans'
           ? 'done'
-          : i === currentIndex
-            ? 'active'
-            : 'pending',
+          : i < currentIndex
+            ? 'done'
+            : i === currentIndex
+              ? 'active'
+              : 'pending',
   }))
 }
 
@@ -54,10 +63,7 @@ export function FeasibilityPage() {
 
   const FEASIBILITY_STEPS: { key: string; label: string }[] = [
     { key: 'received_request', label: 'Received request' },
-    { key: 'waiting', label: 'Generating 3 plans in parallel' },
-    { key: 'plan_1', label: t('steps.plan_1') },
-    { key: 'plan_2', label: t('steps.plan_2') },
-    { key: 'plan_3', label: t('steps.plan_3') },
+    { key: 'generating_plans', label: t('steps.generating_plans') },
     { key: 'saving', label: 'Saving results' },
   ]
 

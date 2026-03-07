@@ -57,7 +57,8 @@
     "steps": {
       "plan_1": "方案 1 已就绪",
       "plan_2": "方案 2 已就绪",
-      "plan_3": "方案 3 已就绪"
+      "plan_3": "方案 3 已就绪",
+      "generating_plans": "并行生成 3 个方案"
     },
     "plan": {
       "scoreLabel": "综合评分",
