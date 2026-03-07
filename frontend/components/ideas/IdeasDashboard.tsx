@@ -78,6 +78,7 @@ export function IdeasDashboard() {
             className="w-full rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-4 py-2.5 text-sm text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/25"
           />
           <button
+            id="onboarding-new-idea-btn"
             type="submit"
             className="shrink-0 rounded-xl bg-[#1e1e1e] px-5 py-2.5 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333]"
           >
@@ -110,7 +111,7 @@ export function IdeasDashboard() {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div id="onboarding-ideas-list" className="mt-5 grid gap-3 md:grid-cols-2">
           {ideas.map((idea) => {
             const isActive = activeIdeaId === idea.id
             return (
@@ -132,9 +133,7 @@ export function IdeasDashboard() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          isActive
-                            ? 'bg-white/15 text-white/70'
-                            : 'bg-[#f5f5f5] text-[#1e1e1e]/50'
+                          isActive ? 'bg-white/15 text-white/70' : 'bg-[#f5f5f5] text-[#1e1e1e]/50'
                         }`}
                       >
                         {idea.stage}

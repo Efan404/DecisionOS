@@ -63,7 +63,10 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
   const skeletonCount = Math.max(0, loadingSlots - plans.length)
 
   return (
-    <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <section
+      id="onboarding-feasibility-cards"
+      className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+    >
       {plans.map((plan) => {
         const selected = selectedPlanId === plan.id
 

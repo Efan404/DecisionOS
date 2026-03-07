@@ -480,9 +480,7 @@ export function ScopeFreezePage() {
     const nextItems = [...untouched, ...reindexed]
 
     // Optimistic update: apply reorder to UI immediately before API call
-    setDraft((prev) =>
-      prev ? { ...prev, items: normalizeDisplayOrder(nextItems) } : prev
-    )
+    setDraft((prev) => (prev ? { ...prev, items: normalizeDisplayOrder(nextItems) } : prev))
     await applyDraftItems(nextItems)
   }
 
@@ -658,6 +656,7 @@ export function ScopeFreezePage() {
             </button>
           ) : (
             <button
+              id="onboarding-freeze-btn"
               type="button"
               onClick={handleFreeze}
               disabled={saving || loading || !draft}

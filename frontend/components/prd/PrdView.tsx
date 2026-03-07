@@ -161,7 +161,9 @@ function OpenInCursorButton({ markdown }: { markdown: string }) {
     let prdContent = markdown
     if (instruction.length + prdContent.length > maxPromptLength) {
       const available = maxPromptLength - instruction.length - 100
-      prdContent = prdContent.slice(0, available) + '\n\n[... PRD truncated due to URL length limit. Full content has been copied to clipboard.]'
+      prdContent =
+        prdContent.slice(0, available) +
+        '\n\n[... PRD truncated due to URL length limit. Full content has been copied to clipboard.]'
       // Copy full content to clipboard as fallback for truncated PRDs
       navigator.clipboard.writeText(markdown).catch(() => {})
     }
@@ -276,7 +278,11 @@ export function PrdView({
   const [feedbackDismissed, setFeedbackDismissed] = useState(false)
 
   const showFeedbackBubble =
-    !loading && !feedbackDismissed && !feedbackLatest && Boolean(output) && Boolean(onSubmitFeedback)
+    !loading &&
+    !feedbackDismissed &&
+    !feedbackLatest &&
+    Boolean(output) &&
+    Boolean(onSubmitFeedback)
 
   const selectedRequirementId = output?.requirements.some(
     (item) => item.id === selectedRequirementIdInput
@@ -286,7 +292,9 @@ export function PrdView({
 
   const requirementsById = useMemo(
     () =>
-      Object.fromEntries((output?.requirements ?? []).map((item) => [item.id, item.title] as const)),
+      Object.fromEntries(
+        (output?.requirements ?? []).map((item) => [item.id, item.title] as const)
+      ),
     [output]
   )
 
@@ -301,7 +309,7 @@ export function PrdView({
     : []
 
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-4 px-6 py-5">
+    <section id="onboarding-prd-content" className="mx-auto w-full max-w-7xl space-y-4 px-6 py-5">
       {/* Page header */}
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold tracking-tight text-slate-900">PRD</h1>
@@ -314,14 +322,14 @@ export function PrdView({
               </span>
             }
           >
-            <p className="mb-1 font-mono text-[11px] text-slate-600 break-all">{baselineId}</p>
+            <p className="mb-1 font-mono text-[11px] break-all text-slate-600">{baselineId}</p>
             {bundle ? (
               <div className="mt-1.5 space-y-1 border-t border-slate-100 pt-1.5">
                 <p className="text-[11px] text-slate-500">
                   <span className="font-medium text-slate-600">Generated:</span>{' '}
                   {bundle.generated_at}
                 </p>
-                <p className="text-[11px] text-slate-500 break-all">
+                <p className="text-[11px] break-all text-slate-500">
                   <span className="font-medium text-slate-600">Fingerprint:</span>{' '}
                   {bundle.context_fingerprint}
                 </p>
@@ -379,11 +387,7 @@ export function PrdView({
       </header>
 
       {/* Status banner */}
-      <StatusBanner
-        errorMessage={errorMessage}
-        hasStaleOutput={hasStaleOutput}
-        onRetry={onRetry}
-      />
+      <StatusBanner errorMessage={errorMessage} hasStaleOutput={hasStaleOutput} onRetry={onRetry} />
 
       {/* Main content */}
       {output ? (
@@ -447,7 +451,9 @@ export function PrdView({
                           >
                             {item.acceptance_criteria.length > 0 ? (
                               <div className="mb-1.5">
-                                <p className="mb-1 text-[11px] font-medium text-slate-600">Acceptance criteria</p>
+                                <p className="mb-1 text-[11px] font-medium text-slate-600">
+                                  Acceptance criteria
+                                </p>
                                 <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
                                   {item.acceptance_criteria.map((ac, i) => (
                                     <li key={i}>{ac}</li>
@@ -509,10 +515,14 @@ export function PrdView({
                         return (
                           <div className="space-y-1.5">
                             <p className="text-xs font-semibold text-slate-800">{req.title}</p>
-                            <p className="text-[11px] leading-relaxed text-slate-500">{req.description}</p>
+                            <p className="text-[11px] leading-relaxed text-slate-500">
+                              {req.description}
+                            </p>
                             {req.acceptance_criteria.length > 0 ? (
                               <div>
-                                <p className="mb-0.5 text-[11px] font-medium text-slate-600">Acceptance criteria</p>
+                                <p className="mb-0.5 text-[11px] font-medium text-slate-600">
+                                  Acceptance criteria
+                                </p>
                                 <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
                                   {req.acceptance_criteria.map((ac, i) => (
                                     <li key={i}>{ac}</li>
@@ -565,7 +575,6 @@ export function PrdView({
               ))}
             </ul>
           ) : null}
-
         </div>
       ) : (
         /* Empty state — loading spinner or placeholder */

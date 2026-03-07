@@ -287,6 +287,7 @@ export function FeasibilityPage() {
           </p>
         </div>
         <button
+          id="onboarding-confirm-plan-btn"
           type="button"
           onClick={() => {
             void handleGenerate()

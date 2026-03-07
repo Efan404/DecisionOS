@@ -172,7 +172,7 @@ export function AISettingsPage() {
           <p className="mt-4 text-sm text-[#1e1e1e]/40">Loading AI settings...</p>
         ) : (
           <>
-            <div className="mt-6 space-y-4">
+            <div id="onboarding-ai-provider" className="mt-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold tracking-[0.15em] text-[#1e1e1e]/50 uppercase">
                   Providers
