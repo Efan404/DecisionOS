@@ -93,6 +93,8 @@ def build_single_plan_prompt(
         "  - scores: object with keys technical_feasibility, market_viability, execution_risk (each float 0-10)\n"
         "  - reasoning: object with keys technical_feasibility, market_viability, execution_risk (each a short string)\n"
         "  - recommended_positioning: one sentence on go-to-market positioning\n"
+        "  - competitors: array of 2-4 objects, each with name (product name), url (homepage URL or null), "
+        "similarity (one sentence on what makes this competitor similar or relevant)\n"
         "Return a single JSON object representing this plan (not wrapped in an array or 'plans' key)."
     )
 

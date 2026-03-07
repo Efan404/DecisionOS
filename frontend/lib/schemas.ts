@@ -52,6 +52,12 @@ export const reasoningBreakdownSchema = z.object({
   execution_risk: z.string().min(1),
 })
 
+export const competitorSchema = z.object({
+  name: z.string().min(1),
+  url: z.string().nullable().optional(),
+  similarity: z.string().min(1),
+})
+
 export const feasibilityPlanSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -60,6 +66,7 @@ export const feasibilityPlanSchema = z.object({
   scores: scoreBreakdownSchema,
   reasoning: reasoningBreakdownSchema,
   recommended_positioning: z.string().min(1),
+  competitors: z.array(competitorSchema).default([]),
 })
 
 export const confirmedPathNodeSchema = z.object({
@@ -384,6 +391,7 @@ export type Direction = z.infer<typeof directionSchema>
 export type OpportunityInput = z.infer<typeof opportunityInputSchema>
 export type OpportunityOutput = z.infer<typeof opportunityOutputSchema>
 export type PathOption = z.infer<typeof pathOptionSchema>
+export type Competitor = z.infer<typeof competitorSchema>
 export type FeasibilityScores = z.infer<typeof scoreBreakdownSchema>
 export type FeasibilityReasoning = z.infer<typeof reasoningBreakdownSchema>
 export type FeasibilityPlan = z.infer<typeof feasibilityPlanSchema>

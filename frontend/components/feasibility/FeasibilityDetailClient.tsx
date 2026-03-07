@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -27,6 +28,7 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
   const setPlan = useDecisionStore((state) => state.plan)
   const replaceContext = useDecisionStore((state) => state.replaceContext)
   const plan = context.feasibility?.plans.find((item) => item.id === planId) ?? null
+  const [confirming, setConfirming] = useState(false)
 
   if (!context.feasibility) {
     return (
@@ -46,61 +48,54 @@ export function FeasibilityDetailClient({ planId }: FeasibilityDetailClientProps
     )
   }
 
-  return (
-    <section>
-      <PlanDetail plan={plan} />
-      <div className="mx-auto mt-4 flex w-full max-w-3xl justify-end">
-        <button
-          type="button"
-          onClick={async () => {
-            setPlan(plan.id)
-            const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
-            if (!routeIdeaId) {
-              router.push('/ideas')
-              return
-            }
-            if (!activeIdea) {
-              toast.error('Missing active idea context')
-              return
-            }
+  const handleConfirm = async () => {
+    setConfirming(true)
+    const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
+    try {
+      setPlan(plan.id)
+      if (!routeIdeaId) {
+        router.push('/ideas')
+        return
+      }
+      if (!activeIdea) {
+        toast.error('Missing active idea context')
+        return
+      }
 
-            try {
-              const detail = await patchIdeaContext(routeIdeaId, {
-                version: activeIdea.version,
-                context: {
-                  ...context,
-                  selected_plan_id: plan.id,
-                },
-              })
-              setIdeaVersion(routeIdeaId, detail.version)
-              replaceContext(detail.context)
-              toast.success('Plan confirmed')
-              router.push(buildIdeaStepHref(routeIdeaId, 'scope-freeze'))
-            } catch (error) {
-              if (
-                error instanceof ApiError &&
-                error.status === 409 &&
-                error.code === 'IDEA_VERSION_CONFLICT'
-              ) {
-                const latest = await loadIdeaDetail(routeIdeaId)
-                if (latest) {
-                  replaceContext(latest.context)
-                  setIdeaVersion(routeIdeaId, latest.version)
-                }
-                toast.error('Idea changed in another session. Reloaded latest data.')
-                return
-              }
+      const detail = await patchIdeaContext(routeIdeaId, {
+        version: activeIdea.version,
+        context: {
+          ...context,
+          selected_plan_id: plan.id,
+        },
+      })
+      setIdeaVersion(routeIdeaId, detail.version)
+      replaceContext(detail.context)
+      toast.success('Plan confirmed')
+      router.push(buildIdeaStepHref(routeIdeaId, 'scope-freeze'))
+    } catch (error) {
+      if (
+        routeIdeaId &&
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.code === 'IDEA_VERSION_CONFLICT'
+      ) {
+        const latest = await loadIdeaDetail(routeIdeaId)
+        if (latest) {
+          replaceContext(latest.context)
+          setIdeaVersion(routeIdeaId, latest.version)
+        }
+        toast.error('Idea changed in another session. Reloaded latest data.')
+        return
+      }
 
-              const message =
-                error instanceof Error ? error.message : 'Failed to confirm this plan.'
-              toast.error(message)
-            }
-          }}
-          className="rounded-md border border-black bg-black px-4 py-2 text-sm font-medium text-white"
-        >
-          Confirm This Plan
-        </button>
-      </div>
-    </section>
-  )
+      const message =
+        error instanceof Error ? error.message : 'Failed to confirm this plan.'
+      toast.error(message)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  return <PlanDetail plan={plan} onConfirm={() => void handleConfirm()} confirming={confirming} />
 }

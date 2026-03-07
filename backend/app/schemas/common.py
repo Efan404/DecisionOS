@@ -30,3 +30,9 @@ class ReasoningBreakdown(BaseModel):
     technical_feasibility: str
     market_viability: str
     execution_risk: str
+
+
+class Competitor(BaseModel):
+    name: str
+    url: str | None = None
+    similarity: str

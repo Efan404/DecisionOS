@@ -131,7 +131,12 @@ def _insert_idea_1(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 8.2,
                     "scores": {"technical_feasibility": 8.5, "market_viability": 8.0, "execution_risk": 8.0},
                     "reasoning": {"technical_feasibility": "Standard web stack + OpenAI API for recipe generation. Grocery API integrations (Instacart, Kroger) are well-documented.", "market_viability": "Growing health-tech market. Competitors like Mealime validate demand but lack AI personalization.", "execution_risk": "Solo developer can ship MVP in 8 weeks. Recipe database seeding is the main risk."},
-                    "recommended_positioning": "AI-first personal nutritionist for busy health-conscious professionals"
+                    "recommended_positioning": "AI-first personal nutritionist for busy health-conscious professionals",
+                    "competitors": [
+                        {"name": "Mealime", "url": "https://www.mealime.com", "similarity": "Meal planning app with grocery lists, but lacks AI-driven personalization"},
+                        {"name": "Eat This Much", "url": "https://www.eatthismuch.com", "similarity": "Auto-generates meal plans based on nutrition goals, closest direct competitor"},
+                        {"name": "Whisk", "url": "https://whisk.com", "similarity": "Recipe aggregator with smart grocery lists, acquired by Samsung for food-tech platform"},
+                    ]
                 },
                 {
                     "id": "plan2", "name": "VC-Funded Growth",
@@ -139,7 +144,12 @@ def _insert_idea_1(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 7.0,
                     "scores": {"technical_feasibility": 6.5, "market_viability": 8.0, "execution_risk": 6.5},
                     "reasoning": {"technical_feasibility": "Computer vision for fridge scanning adds significant complexity. Native apps require larger team.", "market_viability": "B2B wellness is a validated market with enterprise budgets. High potential but longer sales cycles.", "execution_risk": "Requires 3-4 person team minimum. Fundraising takes 3-6 months before building."},
-                    "recommended_positioning": "Enterprise wellness platform with AI-powered meal planning"
+                    "recommended_positioning": "Enterprise wellness platform with AI-powered meal planning",
+                    "competitors": [
+                        {"name": "Noom", "url": "https://www.noom.com", "similarity": "Health coaching platform with meal tracking; validates enterprise wellness market"},
+                        {"name": "Lifesum", "url": "https://lifesum.com", "similarity": "Diet and nutrition app with meal plans, strong mobile presence"},
+                        {"name": "PlateJoy", "url": "https://www.platejoy.com", "similarity": "Personalized meal planning with grocery delivery, closest to the VC-funded vision"},
+                    ]
                 },
                 {
                     "id": "plan3", "name": "Platform / Ecosystem",
@@ -147,7 +157,12 @@ def _insert_idea_1(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 6.5,
                     "scores": {"technical_feasibility": 7.0, "market_viability": 6.5, "execution_risk": 6.0},
                     "reasoning": {"technical_feasibility": "API-first is architecturally clean but requires robust documentation and rate limiting from day one.", "market_viability": "B2B API market is smaller and requires enterprise sales capability.", "execution_risk": "Long sales cycles, heavy documentation burden, and chicken-and-egg problem for the marketplace."},
-                    "recommended_positioning": "Recipe intelligence API for health & wellness platforms"
+                    "recommended_positioning": "Recipe intelligence API for health & wellness platforms",
+                    "competitors": [
+                        {"name": "Spoonacular API", "url": "https://spoonacular.com/food-api", "similarity": "Recipe and nutrition API used by fitness apps — direct competitor in the API space"},
+                        {"name": "Edamam", "url": "https://www.edamam.com", "similarity": "Nutrition analysis and recipe search API licensed to health platforms"},
+                        {"name": "Yummly", "url": "https://www.yummly.com", "similarity": "Recipe platform with taste profile engine, acquired by Whirlpool for appliance integration"},
+                    ]
                 }
             ]
         },
@@ -252,7 +267,12 @@ def _insert_idea_2(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 7.5,
                     "scores": {"technical_feasibility": 8.0, "market_viability": 7.0, "execution_risk": 7.5},
                     "reasoning": {"technical_feasibility": "Web scraping is straightforward but fragile. Event APIs exist for major platforms.", "market_viability": "Local event discovery is validated but highly competitive. Differentiation through AI ranking.", "execution_risk": "Data sourcing is the main challenge — scraping may break and API limits apply."},
-                    "recommended_positioning": "AI-curated local event discovery for community enthusiasts"
+                    "recommended_positioning": "AI-curated local event discovery for community enthusiasts",
+                    "competitors": [
+                        {"name": "Eventbrite", "url": "https://www.eventbrite.com", "similarity": "Dominant event platform but focused on ticketed events, weak on free community events"},
+                        {"name": "Meetup", "url": "https://www.meetup.com", "similarity": "Group-based event discovery with recurring meetups, lacks AI-powered personalization"},
+                        {"name": "Luma", "url": "https://lu.ma", "similarity": "Modern event hosting and discovery, strong in tech community but limited local coverage"},
+                    ]
                 },
                 {
                     "id": "plan2", "name": "VC-Funded Social Platform",
@@ -260,7 +280,12 @@ def _insert_idea_2(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 6.5,
                     "scores": {"technical_feasibility": 6.0, "market_viability": 7.5, "execution_risk": 6.0},
                     "reasoning": {"technical_feasibility": "Social features add complexity. Real-time feeds require infrastructure investment.", "market_viability": "Social events is a validated concept but requires network effects to work.", "execution_risk": "High burn rate, cold start problem, and competition from existing social platforms."},
-                    "recommended_positioning": "Social event planning platform for friend groups"
+                    "recommended_positioning": "Social event planning platform for friend groups",
+                    "competitors": [
+                        {"name": "Partiful", "url": "https://partiful.com", "similarity": "Social event invitations with friend feeds, strong word-of-mouth growth"},
+                        {"name": "IRL", "url": null, "similarity": "Social events app focused on friend group activities, raised $170M but pivoted"},
+                        {"name": "Facebook Events", "url": "https://www.facebook.com/events", "similarity": "Largest social event platform with friend activity, but declining engagement among younger users"},
+                    ]
                 },
                 {
                     "id": "plan3", "name": "B2B Event Analytics",
@@ -268,7 +293,12 @@ def _insert_idea_2(conn: sqlite3.Connection, now: str) -> None:
                     "score_overall": 6.0,
                     "scores": {"technical_feasibility": 7.0, "market_viability": 5.5, "execution_risk": 5.5},
                     "reasoning": {"technical_feasibility": "Analytics pipeline is well-understood. Dashboard building is standard.", "market_viability": "Niche B2B market with long sales cycles. Tourism boards have budget but slow procurement.", "execution_risk": "Enterprise sales cycle is 6-12 months. Requires sales team, not just product."},
-                    "recommended_positioning": "Event intelligence platform for cities and venues"
+                    "recommended_positioning": "Event intelligence platform for cities and venues",
+                    "competitors": [
+                        {"name": "PredictHQ", "url": "https://www.predicthq.com", "similarity": "Event intelligence API for demand forecasting, serves enterprise customers"},
+                        {"name": "Foursquare", "url": "https://foursquare.com", "similarity": "Location intelligence with venue data and foot traffic analytics"},
+                        {"name": "Placer.ai", "url": "https://www.placer.ai", "similarity": "Foot traffic analytics for retail and venues, validates B2B location intelligence market"},
+                    ]
                 }
             ]
         },

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from app.schemas.common import ReasoningBreakdown, ScoreBreakdown
+from app.schemas.common import Competitor, ReasoningBreakdown, ScoreBreakdown
 
 
 class ConfirmedDAGContextInput(BaseModel):
@@ -24,6 +24,7 @@ class Plan(BaseModel):
     scores: ScoreBreakdown
     reasoning: ReasoningBreakdown
     recommended_positioning: str
+    competitors: list[Competitor] = Field(default_factory=list)
 
 
 class FeasibilityOutput(BaseModel):
