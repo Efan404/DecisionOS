@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useTranslations } from 'next-intl'
 
 import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -23,6 +24,8 @@ function formatRelativeTime(isoString: string): string {
 }
 
 export function IdeasDashboard() {
+  const t = useTranslations('ideas')
+  const tCommon = useTranslations('common')
   const ideas = useIdeasStore((state) => state.ideas)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
   const loading = useIdeasStore((state) => state.loading)
@@ -56,17 +59,15 @@ export function IdeasDashboard() {
       <section className="rounded-2xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-[#1e1e1e]">Ideas</h1>
-            <p className="mt-1 text-sm text-[#1e1e1e]/50">
-              Manage multiple ideas in one workspace and continue each flow independently.
-            </p>
+            <h1 className="text-2xl font-semibold text-[#1e1e1e]">{t('title')}</h1>
+            <p className="mt-1 text-sm text-[#1e1e1e]/50">{t('subtitle')}</p>
           </div>
           <button
             type="button"
             onClick={() => void loadIdeas()}
             className="rounded-lg border border-[#1e1e1e]/15 bg-white px-3 py-2 text-sm font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5]"
           >
-            Refresh
+            {t('refresh')}
           </button>
         </div>
 
@@ -82,7 +83,7 @@ export function IdeasDashboard() {
             type="submit"
             className="shrink-0 rounded-xl bg-[#1e1e1e] px-5 py-2.5 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333]"
           >
-            New Idea
+            {t('newIdea')}
           </button>
         </form>
 
@@ -162,7 +163,7 @@ export function IdeasDashboard() {
                         : 'border border-[#1e1e1e]/15 bg-[#f5f5f5] text-[#1e1e1e]/60 hover:bg-[#ebebeb]'
                     }`}
                   >
-                    {isActive ? 'Active ✓' : 'Set Active'}
+                    {isActive ? t('activeCheck') : t('setActive')}
                   </button>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
@@ -179,7 +180,7 @@ export function IdeasDashboard() {
                     }}
                     className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100"
                     style={{ color: isActive ? '#ffffff66' : '#1e1e1e44' }}
-                    aria-label="Delete idea"
+                    aria-label={t('deleteIdea')}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -229,13 +230,12 @@ export function IdeasDashboard() {
               onClick={(e) => e.stopPropagation()}
               className="mx-4 w-full max-w-sm rounded-xl border border-[#1e1e1e]/10 bg-white p-6 shadow-2xl"
             >
-              <h3 className="text-base font-semibold text-[#1e1e1e]">Delete this idea?</h3>
+              <h3 className="text-base font-semibold text-[#1e1e1e]">{t('deleteTitle')}</h3>
               <p className="mt-2 text-sm leading-relaxed text-[#1e1e1e]/60">
-                This will permanently delete{' '}
-                <span className="font-semibold text-[#1e1e1e]">
-                  {ideas.find((i) => i.id === confirmingId)?.title}
-                </span>{' '}
-                and all its nodes, paths, and generated content. This action cannot be undone.
+                {t.rich('deleteBody', {
+                  title: ideas.find((i) => i.id === confirmingId)?.title ?? '',
+                  b: (chunks) => <span className="font-semibold text-[#1e1e1e]">{chunks}</span>,
+                })}
               </p>
               <div className="mt-5 flex gap-3">
                 <button
@@ -243,7 +243,7 @@ export function IdeasDashboard() {
                   disabled={deleting}
                   className="flex-1 cursor-pointer rounded-lg border border-[#1e1e1e]/15 px-4 py-2.5 text-sm text-[#1e1e1e]/60 transition hover:border-[#1e1e1e]/30 hover:text-[#1e1e1e]"
                 >
-                  Cancel
+                  {tCommon('cancel')}
                 </button>
                 <button
                   onClick={async () => {
@@ -258,7 +258,7 @@ export function IdeasDashboard() {
                   disabled={deleting}
                   className="flex-1 cursor-pointer rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {deleting ? 'Deleting…' : 'Delete'}
+                  {deleting ? t('deleting') : t('delete')}
                 </button>
               </div>
             </motion.div>
