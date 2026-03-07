@@ -1,6 +1,25 @@
 import { stream, type ServerSentEventMessage } from 'fetch-event-stream'
 
 import { buildApiUrl, withAuthHeaders } from './api'
+
+/**
+ * For SSE streams, bypass the Next.js rewrite proxy and connect directly to the backend.
+ * Next.js proxies buffer the response body, which prevents incremental SSE events from
+ * reaching the browser until the stream closes. Direct connection fixes this.
+ *
+ * NEXT_PUBLIC_API_SSE_URL defaults to http://127.0.0.1:8000 for local dev.
+ * In production / Docker, set this env var to the backend's public URL.
+ */
+const buildSseUrl = (path: string): string => {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  const base =
+    (typeof window !== 'undefined' &&
+      (process.env.NEXT_PUBLIC_API_SSE_URL || 'http://127.0.0.1:8000')) ||
+    (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000')
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+}
 import { clearAuthSession } from './auth'
 
 type SseEvent<T = unknown> = {
@@ -82,7 +101,7 @@ export const streamPost = async <
   signal?: AbortSignal
 ): Promise<void> => {
   try {
-    const eventStream = await stream(buildApiUrl(path), {
+    const eventStream = await stream(buildSseUrl(path), {
       method: 'POST',
       headers: withAuthHeaders({
         'Content-Type': 'application/json',
