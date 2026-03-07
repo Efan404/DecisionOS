@@ -129,6 +129,82 @@ function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) 
   )
 }
 
+// Cursor logo icon
+function CursorIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+      fillRule="evenodd"
+      viewBox="0 0 24 24"
+    >
+      <path d="M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z" />
+    </svg>
+  )
+}
+
+// Open-in-Cursor button — sends PRD content directly to Cursor Composer via deeplink
+function OpenInCursorButton({ markdown }: { markdown: string }) {
+  const [state, setState] = useState<'idle' | 'opening'>('idle')
+
+  const handleOpen = useCallback(() => {
+    // Build the prompt: instruction + full PRD content.
+    // Cursor deeplink limit is ~8000 chars for the URL. If the PRD exceeds that,
+    // we truncate and add a note. Most PRDs fit within this limit.
+    const instruction =
+      'Below is a PRD exported from DecisionOS. ' +
+      'Please create a file called `docs/prd.md` with this content, ' +
+      'then review it and suggest implementation tasks.\n\n---\n\n'
+
+    const maxPromptLength = 7500
+    let prdContent = markdown
+    if (instruction.length + prdContent.length > maxPromptLength) {
+      const available = maxPromptLength - instruction.length - 100
+      prdContent = prdContent.slice(0, available) + '\n\n[... PRD truncated due to URL length limit. Full content has been copied to clipboard.]'
+      // Copy full content to clipboard as fallback for truncated PRDs
+      navigator.clipboard.writeText(markdown).catch(() => {})
+    }
+
+    const prompt = encodeURIComponent(instruction + prdContent)
+    const deeplink = `cursor://anysphere.cursor-deeplink/prompt?text=${prompt}`
+
+    setState('opening')
+    setTimeout(() => setState('idle'), 3000)
+
+    window.open(deeplink, '_self')
+  }, [markdown])
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400"
+    >
+      {state === 'opening' ? (
+        <>
+          <svg
+            aria-hidden="true"
+            className="h-3.5 w-3.5 text-emerald-500"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l3.5 3.5L13 4.5" />
+          </svg>
+          Opening Cursor...
+        </>
+      ) : (
+        <>
+          <CursorIcon className="h-3.5 w-3.5" />
+          Open in Cursor
+        </>
+      )}
+    </button>
+  )
+}
+
 // PRD document panel — rendered markdown + raw toggle + copy
 function MarkdownPanel({ markdown }: { markdown: string }) {
   const [showRaw, setShowRaw] = useState(false)
@@ -157,7 +233,10 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
             Raw
           </button>
         </div>
-        <CopyButton text={markdown} label="Copy Markdown" />
+        <div className="flex items-center gap-2">
+          <CopyButton text={markdown} label="Copy Markdown" />
+          <OpenInCursorButton markdown={markdown} />
+        </div>
       </div>
 
       {/* content */}
