@@ -108,7 +108,7 @@ async def _stream_insight(idea_id: str):
         metadata={
             "idea_id": idea_id,
             "insight_id": record.id,
-            "action_url": f"/insights?idea_id={idea_id}",
+            "action_url": f"/insights?idea={idea_id}",
         },
     )
 

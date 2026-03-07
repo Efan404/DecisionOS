@@ -137,6 +137,10 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
             }),
         )
         logger.info("scheduler.signal_monitor.done")
+        # Collect fresh market_signal notifications for email dispatch
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+        for record in _notif_repo.list_recent_by_type("market_signal", since=cutoff):
+            created_notifications.append(record)
     except Exception:
         logger.warning("scheduler.signal_monitor.failed", exc_info=True)
 
