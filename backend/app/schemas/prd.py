@@ -164,3 +164,9 @@ class PRDBacklogExportJson(BaseModel):
     exported_at: str = Field(min_length=1)
     item_count: int = Field(ge=0)
     items: list[PRDBacklogItem] = Field(default_factory=list)
+
+
+class PrdPptOutput(BaseModel):
+    title: str = Field(min_length=1)
+    markdown: str = Field(min_length=1)
+    generation_meta: PRDGenerationMeta
