@@ -29,6 +29,10 @@ class VectorStore:
             name="decision_patterns",
             metadata={"hnsw:space": "cosine"},
         )
+        self._market_evidence = self._client.get_or_create_collection(
+            name="market_evidence",
+            metadata={"hnsw:space": "cosine"},
+        )
 
     # ---- idea summaries ----
 
@@ -119,6 +123,64 @@ class VectorStore:
         distances = results.get("distances", [[]])[0]
         for pid, doc, dist in zip(ids, documents, distances):
             out.append({"pattern_id": pid, "description": doc, "distance": dist})
+        return out
+
+    # ---- market evidence ----
+
+    def add_competitor_chunk(
+        self, chunk_id: str, text: str, metadata: dict
+    ) -> None:
+        self._market_evidence.upsert(
+            ids=[chunk_id],
+            documents=[text],
+            metadatas=[metadata],
+        )
+
+    def add_market_signal_chunk(
+        self, chunk_id: str, text: str, metadata: dict
+    ) -> None:
+        self._market_evidence.upsert(
+            ids=[chunk_id],
+            documents=[text],
+            metadatas=[metadata],
+        )
+
+    def add_evidence_insight_chunk(
+        self, chunk_id: str, text: str, metadata: dict
+    ) -> None:
+        self._market_evidence.upsert(
+            ids=[chunk_id],
+            documents=[text],
+            metadatas=[metadata],
+        )
+
+    def search_market_evidence(
+        self,
+        query: str,
+        n_results: int = 5,
+        filters: dict | None = None,
+    ) -> list[dict]:
+        count = self._market_evidence.count()
+        if count == 0:
+            return []
+        fetch_n = min(n_results, count)
+        kwargs: dict = {"query_texts": [query], "n_results": fetch_n}
+        if filters is not None:
+            kwargs["where"] = filters
+        results = self._market_evidence.query(**kwargs)
+
+        out: list[dict] = []
+        ids = results.get("ids", [[]])[0]
+        documents = results.get("documents", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        for chunk_id, doc, dist, meta in zip(ids, documents, distances, metadatas):
+            out.append({
+                "chunk_id": chunk_id,
+                "text": doc,
+                "metadata": meta,
+                "distance": dist,
+            })
         return out
 
 
