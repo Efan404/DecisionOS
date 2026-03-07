@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { type ProgressStep, GenerationProgress } from '../common/GenerationProgress'
@@ -25,21 +26,15 @@ const isAbortError = (error: unknown): boolean => {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
-const FEASIBILITY_STEPS: { key: string; label: string }[] = [
-  { key: 'received_request', label: 'Received request' },
-  { key: 'waiting', label: 'Generating 3 plans in parallel' },
-  { key: 'plan_1', label: 'Plan 1 ready' },
-  { key: 'plan_2', label: 'Plan 2 ready' },
-  { key: 'plan_3', label: 'Plan 3 ready' },
-  { key: 'saving', label: 'Saving results' },
-]
-
-function buildFeasibilityProgressSteps(currentStep: string | null): ProgressStep[] {
+function buildFeasibilityProgressSteps(
+  currentStep: string | null,
+  steps: { key: string; label: string }[]
+): ProgressStep[] {
   // plan_1/2/3 are sequential — map all three to a single "waiting" bucket while < plan_3
   const normalizedStep =
     currentStep === 'plan_1' || currentStep === 'plan_2' ? 'waiting' : currentStep
-  const currentIndex = FEASIBILITY_STEPS.findIndex((s) => s.key === normalizedStep)
-  return FEASIBILITY_STEPS.map((s, i) => ({
+  const currentIndex = steps.findIndex((s) => s.key === normalizedStep)
+  return steps.map((s, i) => ({
     key: s.key,
     label: s.label,
     status:
@@ -54,6 +49,18 @@ function buildFeasibilityProgressSteps(currentStep: string | null): ProgressStep
 }
 
 export function FeasibilityPage() {
+  const t = useTranslations('feasibility')
+  const tCommon = useTranslations('common')
+
+  const FEASIBILITY_STEPS: { key: string; label: string }[] = [
+    { key: 'received_request', label: 'Received request' },
+    { key: 'waiting', label: 'Generating 3 plans in parallel' },
+    { key: 'plan_1', label: t('steps.plan_1') },
+    { key: 'plan_2', label: t('steps.plan_2') },
+    { key: 'plan_3', label: t('steps.plan_3') },
+    { key: 'saving', label: 'Saving results' },
+  ]
+
   const context = useDecisionStore((state) => state.context)
   const setFeasibility = useDecisionStore((state) => state.feasibility)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
@@ -107,12 +114,12 @@ export function FeasibilityPage() {
           setIdeaVersion(activeIdeaId, freshIdea.version)
         }
         if (!latestPath) {
-          throw new Error('No confirmed DAG path found. Please confirm a path in Idea Canvas.')
+          throw new Error(t('errorNoPath'))
         }
 
         const next = buildConfirmedPathContext(latestPath)
         if (!next) {
-          throw new Error('Confirmed path payload is invalid. Re-confirm the DAG path.')
+          throw new Error(t('errorInvalidPath'))
         }
 
         if (!cancelled && mountedRef.current) {
@@ -120,8 +127,7 @@ export function FeasibilityPage() {
         }
       } catch (error) {
         if (!cancelled && mountedRef.current) {
-          const message =
-            error instanceof Error ? error.message : 'Failed to load confirmed DAG path.'
+          const message = error instanceof Error ? error.message : t('errorLoadPath')
           setErrorMessage(message)
           setConfirmedPathContext(null)
         }
@@ -136,11 +142,11 @@ export function FeasibilityPage() {
 
   const handleGenerate = async () => {
     if (!canOpen || !confirmedPathContext) {
-      setErrorMessage('Confirm one DAG path in Idea Canvas before generating Feasibility.')
+      setErrorMessage(t('errorNoDagPath'))
       return
     }
     if (!activeIdeaId || !activeIdea) {
-      setErrorMessage('Missing active idea context')
+      setErrorMessage(t('errorMissingIdea'))
       return
     }
     if (loading) {
@@ -153,7 +159,7 @@ export function FeasibilityPage() {
       activeIdea.title?.trim() ||
       confirmedPathContext.confirmed_node_content.trim()
     if (!resolvedIdeaSeed) {
-      setErrorMessage('Missing idea seed context')
+      setErrorMessage(t('errorMissingIdeaSeed'))
       return
     }
 
@@ -288,10 +294,7 @@ export function FeasibilityPage() {
   if (!canOpen) {
     return (
       <main className="p-6">
-        <GuardPanel
-          title="Missing context for Feasibility"
-          description="Confirm one DAG path in Idea Canvas before entering Feasibility."
-        />
+        <GuardPanel title={t('guardTitle')} description={t('guardDesc')} />
       </main>
     )
   }
@@ -304,10 +307,8 @@ export function FeasibilityPage() {
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">Feasibility</h1>
-          <p className="mt-0.5 text-sm text-[#1e1e1e]/50">
-            Generate and compare feasibility plans for your idea.
-          </p>
+          <h1 className="text-xl font-bold tracking-tight text-[#1e1e1e]">{t('title')}</h1>
+          <p className="mt-0.5 text-sm text-[#1e1e1e]/50">{t('subtitle')}</p>
         </div>
         <button
           id="onboarding-confirm-plan-btn"
@@ -318,19 +319,23 @@ export function FeasibilityPage() {
           disabled={loading || !confirmedPathContext}
           className="shrink-0 rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? 'Generating…' : plans.length ? 'Regenerate Plans' : 'Generate Plans'}
+          {loading
+            ? tCommon('generating')
+            : plans.length
+              ? t('regeneratePlans')
+              : t('generatePlans')}
         </button>
       </div>
 
       {/* Context card */}
       <div className="mt-4 rounded-xl border border-[#1e1e1e]/8 bg-[#f5f5f5] px-4 py-3">
         <p className="text-xs font-medium tracking-wide text-[#1e1e1e]/40 uppercase">
-          Confirmed Node
+          {t('confirmedNode')}
         </p>
         <p className="mt-1 text-sm text-[#1e1e1e]/80">
           {confirmedPathContext?.confirmed_node_content ??
             context.confirmed_dag_node_content ??
-            'Loading…'}
+            t('loadingNode')}
         </p>
       </div>
 
@@ -338,7 +343,7 @@ export function FeasibilityPage() {
       {loading ? (
         <div className="mt-4">
           <GenerationProgress
-            steps={buildFeasibilityProgressSteps(progressStep)}
+            steps={buildFeasibilityProgressSteps(progressStep, FEASIBILITY_STEPS)}
             isActive={loading}
           />
         </div>
@@ -351,9 +356,7 @@ export function FeasibilityPage() {
       ) : null}
       {showEmptyState ? (
         <section className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-10 text-center">
-          <p className="text-sm text-[#1e1e1e]/40">
-            Click &ldquo;Generate Plans&rdquo; to analyze feasibility.
-          </p>
+          <p className="text-sm text-[#1e1e1e]/40">{t('clickToGenerate')}</p>
         </section>
       ) : (
         <div className="mt-4">

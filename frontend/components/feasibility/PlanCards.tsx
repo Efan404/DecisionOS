@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 import { buildIdeaFeasibilityDetailHref, resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -53,6 +54,7 @@ const scoreBarColor = (score: number) => {
 }
 
 export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }: PlanCardsProps) {
+  const t = useTranslations('feasibility')
   const pathname = usePathname()
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
   const buildDetailHref = (planId: string): string => {
@@ -105,9 +107,9 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                 ].join(' ')}
               >
                 {[
-                  { label: 'Tech', score: plan.scores.technical_feasibility },
-                  { label: 'Market', score: plan.scores.market_viability },
-                  { label: 'Risk', score: plan.scores.execution_risk },
+                  { label: t('plan.techLabel'), score: plan.scores.technical_feasibility },
+                  { label: t('plan.marketLabel'), score: plan.scores.market_viability },
+                  { label: t('plan.riskLabel'), score: plan.scores.execution_risk },
                 ].map(({ label, score }) => (
                   <div key={label} className="mb-2 last:mb-0">
                     <div className="mb-1 flex items-center justify-between">
@@ -135,7 +137,7 @@ export function PlanCards({ plans, selectedPlanId, onSelect, loadingSlots = 0 }:
                   className="rounded-md border border-current/30 px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 hover:bg-current/10 focus-visible:ring-2 focus-visible:ring-[#b9eb10] focus-visible:ring-offset-2 focus-visible:outline-none"
                   onClick={() => onSelect(plan.id)}
                 >
-                  Select
+                  {t('plan.selectPlan')}
                 </button>
               </div>
             ) : null}
