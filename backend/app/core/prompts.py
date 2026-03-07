@@ -332,3 +332,21 @@ def build_prd_plan_prompt(*, in_scope_count: int, out_scope_count: int, idea_see
         "- Keep it lean — fewer, more impactful items beat long lists\n\n"
         'Return ONLY JSON: {"n_requirements": <int>, "n_backlog": <int>, "rationale": "<1 sentence>"}'
     )
+
+
+def build_prd_ppt_prompt(*, prd_markdown: str) -> str:
+    """Generate AiPPT-compatible markdown script from PRD markdown."""
+    return (
+        "You are an expert PM creating a presentation script for AiPPT. "
+        "Given the PRD below, generate a concise PPT script.\n\n"
+        "Output rules:\n"
+        "- 8-12 slides total.\n"
+        "- Use Markdown with '---' as slide separator.\n"
+        "- First slide: title slide with product name and tagline.\n"
+        "- Cover: Problem, Target Users, Solution Overview, Key Features (IN scope), "
+        "Out of Scope, Technical Approach, Success Metrics, Risks & Mitigations, Timeline/Milestones.\n"
+        "- Each slide: 1 heading + 3-5 bullet points, presentation-ready.\n"
+        "- All content MUST be in Chinese.\n\n"
+        f"prd_markdown={prd_markdown!r}\n\n"
+        'Return ONLY valid JSON: {"title": "<product name>", "markdown": "<full slide script>"}'
+    )
