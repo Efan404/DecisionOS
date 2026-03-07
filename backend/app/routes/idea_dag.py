@@ -113,6 +113,23 @@ async def get_node(idea_id: str, node_id: str) -> IdeaNodeOut:
     return IdeaNodeOut(**node.__dict__)
 
 
+@router.delete("/nodes/{node_id}", status_code=204)
+async def delete_node(idea_id: str, node_id: str) -> None:
+    _require_idea(idea_id)
+    node = repo_dag.get_node(node_id)
+    if node is None or node.idea_id != idea_id:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NODE_NOT_FOUND", "message": "Node not found"},
+        )
+    if node.parent_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "CANNOT_DELETE_ROOT", "message": "Cannot delete the root node"},
+        )
+    repo_dag.delete_node_and_descendants(node_id, idea_id)
+
+
 @router.post(
     "/nodes/{node_id}/expand/user",
     response_model=list[IdeaNodeOut],

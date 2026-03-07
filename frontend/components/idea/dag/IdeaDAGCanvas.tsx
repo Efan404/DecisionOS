@@ -20,6 +20,7 @@ import {
   listNodes,
   createRootNode,
   expandUserNode,
+  deleteNode,
   confirmPath,
   buildConfirmedPathContext,
   getLatestPath,
@@ -61,6 +62,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     expandingNodeId,
     setNodes,
     addNodes,
+    removeNode,
     selectNode,
     setConfirmedPath,
     setExpandingNode,
@@ -230,6 +232,17 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
     router.push(`/ideas/${ideaId}/feasibility`)
   }
 
+  const handleDeleteNode = async (nodeId: string) => {
+    try {
+      await deleteNode(ideaId, nodeId)
+      removeNode(nodeId)
+      toast.success('Node deleted')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete node'
+      toast.error(message)
+    }
+  }
+
   const selectedNode = dagNodes.find((n) => n.id === selectedNodeId) ?? null
 
   return (
@@ -277,6 +290,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
           onExpandAI={handleExpandAI}
           onExpandUser={handleExpandUser}
           onConfirmPath={handleConfirmPath}
+          onDeleteNode={handleDeleteNode}
           isConfirmed={sessionConfirmed}
           loading={expandingNodeId !== null}
         />
@@ -302,6 +316,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
             onExpandAI={handleExpandAI}
             onExpandUser={handleExpandUser}
             onConfirmPath={handleConfirmPath}
+            onDeleteNode={handleDeleteNode}
             isConfirmed={sessionConfirmed}
             loading={expandingNodeId !== null}
           />

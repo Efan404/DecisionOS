@@ -106,6 +106,31 @@ def get_node(node_id: str) -> IdeaNode | None:
     return _row_to_node(row)
 
 
+def delete_node_and_descendants(node_id: str, idea_id: str) -> int:
+    """Delete a node and all its descendants. Returns count of deleted nodes."""
+    with db_session() as conn:
+        # Collect node and all descendants via recursive walk
+        to_delete = [node_id]
+        queue = [node_id]
+        while queue:
+            parent = queue.pop(0)
+            children = conn.execute(
+                "SELECT id FROM idea_nodes WHERE parent_id = ? AND idea_id = ?",
+                (parent, idea_id),
+            ).fetchall()
+            for child in children:
+                child_id = str(child["id"])
+                to_delete.append(child_id)
+                queue.append(child_id)
+
+        placeholders = ",".join("?" * len(to_delete))
+        conn.execute(
+            f"DELETE FROM idea_nodes WHERE id IN ({placeholders}) AND idea_id = ?",
+            (*to_delete, idea_id),
+        )
+        return len(to_delete)
+
+
 def create_path(
     idea_id: str,
     node_chain: list[str],

@@ -1,4 +1,4 @@
-import { ApiError, jsonGet, jsonPost } from './api'
+import { ApiError, jsonDelete, jsonGet, jsonPost } from './api'
 import type { ConfirmedPathContext, ConfirmedPathNode } from './schemas'
 
 export interface IdeaNode {
@@ -76,6 +76,10 @@ export async function expandUserNode(
     `/ideas/${ideaId}/nodes/${nodeId}/expand/user`,
     { description }
   )
+}
+
+export async function deleteNode(ideaId: string, nodeId: string): Promise<void> {
+  await jsonDelete(`/ideas/${ideaId}/nodes/${nodeId}`)
 }
 
 export async function confirmPath(ideaId: string, nodeChain: string[]): Promise<IdeaPath> {
