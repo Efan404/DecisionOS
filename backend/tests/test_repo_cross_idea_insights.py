@@ -225,14 +225,17 @@ def test_list_for_idea():
 
 def test_list_recent_for_workspace():
     from app.db.repo_cross_idea_insights import CrossIdeaInsightRepository
-    import time
+    import uuid
 
     repo = CrossIdeaInsightRepository()
-    # Create 3 insights
+    # Use 'default' workspace (FK exists after initialize_database).
+    # Seed demo data may also insert into 'default', so we do NOT assert exact count.
+    # Instead we verify the insights we created are present and ordering is correct.
+    ws = "default"
     ideas = [_create_idea(f"Idea W{i}") for i in range(4)]
 
     repo.create_or_update_insight(
-        workspace_id="default",
+        workspace_id=ws,
         idea_a_id=ideas[0],
         idea_b_id=ideas[1],
         insight_type="shared_audience",
@@ -246,7 +249,7 @@ def test_list_recent_for_workspace():
     )
 
     repo.create_or_update_insight(
-        workspace_id="default",
+        workspace_id=ws,
         idea_a_id=ideas[2],
         idea_b_id=ideas[3],
         insight_type="merge_candidate",
@@ -260,7 +263,7 @@ def test_list_recent_for_workspace():
     )
 
     repo.create_or_update_insight(
-        workspace_id="default",
+        workspace_id=ws,
         idea_a_id=ideas[0],
         idea_b_id=ideas[2],
         insight_type="evidence_overlap",
@@ -273,15 +276,20 @@ def test_list_recent_for_workspace():
         fingerprint="fp-w3",
     )
 
-    # All 3 returned when limit is high
-    all_results = repo.list_recent_for_workspace("default", limit=20)
-    assert len(all_results) == 3
+    all_results = repo.list_recent_for_workspace(ws, limit=50)
+    summaries = [r.summary for r in all_results]
 
-    # Most recent first (Third should be first since created last)
-    assert all_results[0].summary == "Third"
+    # All 3 test records must be present (other seed rows may also be present)
+    assert "First" in summaries
+    assert "Second" in summaries
+    assert "Third" in summaries
 
-    # Limit works
-    limited = repo.list_recent_for_workspace("default", limit=2)
+    # Most recent first — Third was inserted last so must appear before First/Second
+    assert summaries.index("Third") < summaries.index("First")
+    assert summaries.index("Third") < summaries.index("Second")
+
+    # Limit works (returns at most limit rows)
+    limited = repo.list_recent_for_workspace(ws, limit=2)
     assert len(limited) == 2
 
     # Different workspace returns nothing
