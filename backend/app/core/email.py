@@ -36,13 +36,15 @@ def send_notification_email(*, to: str, notification: NotificationRecord) -> boo
     safe_body = html.escape(notification.body)
     safe_type = html.escape(notification.type)
 
+    frontend_base = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
+
     # Extract action_url from metadata
     action_button = ""
     try:
         meta = json.loads(notification.metadata_json)
         action_url = meta.get("action_url", "")
         if action_url:
-            full_url = f"http://localhost:3000{action_url}"
+            full_url = f"{frontend_base}{action_url}"
             safe_url = html.escape(full_url)
             action_button = (
                 f'<p><a href="{safe_url}" style="display:inline-block;background:#b9eb10;'
@@ -62,7 +64,7 @@ def send_notification_email(*, to: str, notification: NotificationRecord) -> boo
 <p style="color:#888;font-size:12px;">
   Notification type: {safe_type}<br>
   You can manage your notification preferences in your
-  <a href="http://localhost:3000/profile">Profile settings</a>.
+  <a href="{frontend_base}/profile">Profile settings</a>.
 </p>
 </body></html>
 """
