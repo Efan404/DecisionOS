@@ -322,8 +322,8 @@ export function AppShell({ children }: AppShellProps) {
             <div className="hidden items-center gap-1 sm:flex">
               <Link
                 href="/insights"
-                aria-label="Market Insights"
-                title="Market Insights"
+                aria-label={tNav('marketInsights')}
+                title={tNav('marketInsights')}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
               >
                 <TrendingUp size={14} />
@@ -351,8 +351,8 @@ export function AppShell({ children }: AppShellProps) {
             <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
               <Link
                 href="/settings"
-                aria-label="Settings"
-                title="Settings"
+                aria-label={tNav('settings')}
+                title={tNav('settings')}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
               >
                 <Settings size={14} />
@@ -367,8 +367,8 @@ export function AppShell({ children }: AppShellProps) {
               </Link>
               <button
                 type="button"
-                aria-label="Logout"
-                title="Logout"
+                aria-label={tNav('logout')}
+                title={tNav('logout')}
                 onClick={() => {
                   clearAuthSession()
                   router.replace('/login')
@@ -479,7 +479,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <TrendingUp size={13} />
-                Insights
+                {tNav('marketInsights')}
               </Link>
               <Link
                 href="/settings"
@@ -487,7 +487,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <Settings size={13} />
-                Settings
+                {tNav('settings')}
               </Link>
               <button
                 type="button"
@@ -499,7 +499,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
               >
                 <LogOut size={13} />
-                Logout
+                {tNav('logout')}
               </button>
             </div>
           </nav>
