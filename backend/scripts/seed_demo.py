@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
 
 from app.agents.memory.seed_data import seed_vector_store
 

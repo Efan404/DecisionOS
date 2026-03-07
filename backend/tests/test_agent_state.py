@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 import tempfile
 
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
 
 from app.agents.checkpointer import get_checkpointer
 from app.agents.state import AgentThought, DecisionOSState

@@ -58,29 +58,8 @@ def _parse_int(raw: str | None, *, default: int, minimum: int) -> int:
     return value if value >= minimum else default
 
 
-class ConfigurationError(Exception):
-    """Raised when a required configuration is missing or invalid."""
-
-    pass
-
-
-def _require_env(name: str) -> str:
-    """Require an environment variable to be set."""
-    value = os.getenv(name, "").strip()
-    if not value:
-        raise ConfigurationError(
-            f"Required environment variable '{name}' is not set. "
-            f"Please set it before starting the application."
-        )
-    return value
-
-
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    # Admin credentials are required - must be set via environment variables
-    seed_admin_username = _require_env("DECISIONOS_SEED_ADMIN_USERNAME")
-    seed_admin_password = _require_env("DECISIONOS_SEED_ADMIN_PASSWORD")
-
     return Settings(
         app_name="DecisionOS API",
         cors_origins=_parse_cors_origins(os.getenv("DECISIONOS_CORS_ORIGINS")),
@@ -96,8 +75,8 @@ def get_settings() -> Settings:
             default=43200,
             minimum=300,
         ),
-        seed_admin_username=seed_admin_username,
-        seed_admin_password=seed_admin_password,
+        seed_admin_username=os.getenv("DECISIONOS_SEED_ADMIN_USERNAME", "admin").strip() or "admin",
+        seed_admin_password=os.getenv("DECISIONOS_SEED_ADMIN_PASSWORD", "admin").strip() or "admin",
         seed_test_username=os.getenv("DECISIONOS_SEED_TEST_USERNAME", "test").strip() or "test",
         seed_test_password=os.getenv("DECISIONOS_SEED_TEST_PASSWORD", "test").strip() or "test",
         rate_limit_login_max_requests=_parse_int(

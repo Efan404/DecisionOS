@@ -10,8 +10,6 @@ from __future__ import annotations
 import os
 import tempfile
 
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "admin")
 os.environ.setdefault("DECISIONOS_CHROMA_PATH", "")  # force in-memory ChromaDB
 
 from unittest.mock import patch, MagicMock

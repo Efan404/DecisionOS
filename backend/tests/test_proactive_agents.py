@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_USERNAME", "admin")
-os.environ.setdefault("DECISIONOS_SEED_ADMIN_PASSWORD", "AIHackathon20250225!")
 os.environ.setdefault("DECISIONOS_CHROMA_PATH", "")  # force in-memory ChromaDB in tests
 
 from unittest.mock import patch
