@@ -73,9 +73,11 @@ export function SearchSettingsSection() {
       })
       setTestResult(result)
       if (result.ok) {
-        toast.success(`Connection OK — ${result.result_count} results found.`)
+        toast.success(
+          `Connection OK — ${result.sample_results.length} results found (${result.latency_ms}ms).`
+        )
       } else {
-        toast.error(result.error ?? 'Connection test failed.')
+        toast.error(result.message ?? 'Connection test failed.')
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Connection test failed.'
@@ -160,12 +162,13 @@ export function SearchSettingsSection() {
 
           {testResult !== null && testResult.ok && (
             <p className="text-sm text-green-700">
-              Connection OK &mdash; {testResult.result_count} results found
+              Connection OK &mdash; {testResult.sample_results.length} results found (
+              {testResult.latency_ms}ms)
             </p>
           )}
           {testResult !== null && !testResult.ok && (
             <p className="text-sm text-red-600">
-              Error: {testResult.error ?? 'Connection test failed.'}
+              Error: {testResult.message ?? 'Connection test failed.'}
             </p>
           )}
           {testError !== null && <p className="text-sm text-red-600">Error: {testError}</p>}

@@ -451,34 +451,35 @@ export type AuthLoginResponse = z.infer<typeof authLoginResponseSchema>
 export type SearchProviderKind = 'exa' | 'tavily' | 'hn_algolia'
 
 export interface SearchProviderConfig {
-  provider: SearchProviderKind
-  api_key_masked?: string | null
+  id: string
+  name: string
+  kind: SearchProviderKind
+  enabled: boolean
+  api_key?: string | null // masked on read
+  max_results?: number
+  timeout_seconds?: number
 }
 
 export interface SearchSettingsDetail {
   id: string
-  provider: SearchProviderKind
-  api_key_masked?: string | null
+  providers: SearchProviderConfig[]
   created_at: string
   updated_at: string
 }
 
 export interface SearchSettingsPatch {
-  provider?: SearchProviderKind
-  api_key?: string | null
+  providers: SearchProviderConfig[]
 }
 
 export interface TestSearchProviderRequest {
-  provider: SearchProviderKind
-  api_key?: string | null
-  query?: string | null
+  provider: SearchProviderConfig
 }
 
 export interface TestSearchProviderResponse {
   ok: boolean
-  result_count: number
-  sample_titles: string[]
-  error?: string | null
+  latency_ms: number
+  message: string
+  sample_results: Record<string, unknown>[]
 }
 
 export interface MarketInsightRecord {
