@@ -7,19 +7,13 @@ services:
       LLM_MODE: ${LLM_MODE:-mock}
       DECISIONOS_DB_PATH: ${DECISIONOS_DB_PATH:-/data/decisionos.db}
       DECISIONOS_SECRET_KEY: ${DECISIONOS_SECRET_KEY:-decisionos-dev-secret-change-me}
-      DECISIONOS_CORS_ORIGINS: ${DECISIONOS_CORS_ORIGINS:-http://localhost:3000}
-      DECISIONOS_SEED_ADMIN_USERNAME: ${DECISIONOS_SEED_ADMIN_USERNAME:-admin}
-      DECISIONOS_SEED_ADMIN_PASSWORD: ${DECISIONOS_SEED_ADMIN_PASSWORD:-admin}
+      DECISIONOS_CORS_ORIGINS: ${DECISIONOS_CORS_ORIGINS:-http://localhost:3000,http://web:3000}
+      DECISIONOS_SEED_ADMIN_USERNAME: ${DECISIONOS_SEED_ADMIN_USERNAME:-mock}
+      DECISIONOS_SEED_ADMIN_PASSWORD: ${DECISIONOS_SEED_ADMIN_PASSWORD:-mock}
     volumes:
       - decisionos_data:/data
     expose:
       - "8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     restart: unless-stopped
 
   web:
@@ -31,10 +25,9 @@ services:
     environment:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
     depends_on:
-      api:
-        condition: service_healthy
+      - api
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "${WEB_PORT:-19888}:3000"
     restart: unless-stopped
 
 volumes:
