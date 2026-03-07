@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { type ProgressStep, GenerationProgress } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
 import { PlanCards } from './PlanCards'
@@ -72,7 +71,6 @@ export function FeasibilityPage() {
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(false)
   const canOpen = canRunFeasibility(context)
-  const { thoughts, addThought, reset } = useAgentThoughts()
 
   useEffect(() => {
     mountedRef.current = true
@@ -171,7 +169,6 @@ export function FeasibilityPage() {
     setPlans([])
     setProgressStep(null)
     setLoading(true)
-    reset()
 
     let streamedDonePayload: unknown = null
 
@@ -220,7 +217,6 @@ export function FeasibilityPage() {
             onDone: (data) => {
               streamedDonePayload = data
             },
-            onAgentThought: addThought,
           },
           controller.signal
         )
@@ -353,13 +349,6 @@ export function FeasibilityPage() {
           <p className="text-sm text-red-700">{errorMessage}</p>
         </div>
       ) : null}
-      <div className="mt-4">
-        <AgentThoughtStream thoughts={thoughts} isActive={loading} />
-      </div>
-
-      {/* Market Evidence */}
-      <div className="mt-4"></div>
-
       {showEmptyState ? (
         <section className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-10 text-center">
           <p className="text-sm text-[#1e1e1e]/40">
