@@ -105,7 +105,7 @@ export function PlanDetail({ plan, onConfirm, confirming }: PlanDetailProps) {
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-[#1e1e1e]/10 bg-[#f5f5f5] p-4">
             <h3 className="text-sm font-semibold text-[#1e1e1e]">Similar Products</h3>
-            {plan.competitors.length === 0 ? (
+            {!plan.competitors?.length ? (
               <p className="mt-3 text-xs text-[#1e1e1e]/40">
                 No competitor data available for this plan.
               </p>
