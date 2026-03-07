@@ -273,4 +273,41 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_idea_evidence_link_idea
     ON idea_evidence_link(idea_id, entity_type, entity_id);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS cross_idea_insight (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspace(id),
+        idea_a_id TEXT NOT NULL REFERENCES idea(id) ON DELETE CASCADE,
+        idea_b_id TEXT NOT NULL REFERENCES idea(id) ON DELETE CASCADE,
+        insight_type TEXT NOT NULL CHECK (insight_type IN (
+            'execution_reuse', 'merge_candidate', 'positioning_conflict',
+            'shared_audience', 'shared_capability', 'evidence_overlap'
+        )),
+        summary TEXT NOT NULL,
+        why_it_matters TEXT NOT NULL,
+        recommended_action TEXT NOT NULL CHECK (recommended_action IN (
+            'review', 'compare_feasibility', 'reuse_scope',
+            'reuse_prd_requirements', 'merge_ideas', 'keep_separate'
+        )),
+        confidence REAL,
+        similarity_score REAL,
+        evidence_json TEXT,
+        fingerprint TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (idea_a_id < idea_b_id)
+    );
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cross_idea_insight_dedup
+    ON cross_idea_insight(idea_a_id, idea_b_id, fingerprint);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_cross_idea_insight_idea_a
+    ON cross_idea_insight(idea_a_id, updated_at DESC);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_cross_idea_insight_idea_b
+    ON cross_idea_insight(idea_b_id, updated_at DESC);
+    """,
 )
