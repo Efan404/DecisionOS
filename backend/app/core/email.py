@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import smtplib
@@ -35,11 +36,28 @@ def send_notification_email(*, to: str, notification: NotificationRecord) -> boo
     safe_body = html.escape(notification.body)
     safe_type = html.escape(notification.type)
 
+    # Extract action_url from metadata
+    action_button = ""
+    try:
+        meta = json.loads(notification.metadata_json)
+        action_url = meta.get("action_url", "")
+        if action_url:
+            full_url = f"http://localhost:3000{action_url}"
+            safe_url = html.escape(full_url)
+            action_button = (
+                f'<p><a href="{safe_url}" style="display:inline-block;background:#b9eb10;'
+                f'color:#1e1e1e;font-weight:bold;padding:10px 20px;border-radius:8px;'
+                f'text-decoration:none;font-family:sans-serif;">View Insight \u2192</a></p>'
+            )
+    except Exception:
+        action_button = ""
+
     subject = f"[DecisionOS] {notification.title}"
     body_html = f"""
 <html><body>
 <h2>{safe_title}</h2>
 <p>{safe_body}</p>
+{action_button}
 <hr>
 <p style="color:#888;font-size:12px;">
   Notification type: {safe_type}<br>
