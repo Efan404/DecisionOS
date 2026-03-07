@@ -359,8 +359,19 @@ export function ScopeFreezePage() {
           }
 
           try {
+            // Sync context from server before bootstrapping so context.scope is fresh.
+            const synced = await syncContextFromServer(workingVersion)
+            if (synced.synced) {
+              workingVersion = synced.version
+            }
+            const freshContext = useDecisionStore.getState().context
+            const scopeItems =
+              freshContext.scope && scopeHasContent(freshContext.scope)
+                ? toDraftItemsFromScopeOutput(freshContext.scope)
+                : undefined
             const envelope = await bootstrapScopeDraft(routeIdeaId, {
-              version: activeIdea.version,
+              version: workingVersion,
+              items: scopeItems,
             })
             loadedDraft = envelope.data
             workingVersion = envelope.idea_version

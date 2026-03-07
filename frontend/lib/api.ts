@@ -13,6 +13,7 @@ import type {
   PatchIdeaRequest,
   ScopeBaselineOut,
   ScopeBaselineResponse,
+  ScopeBootstrapRequest,
   ScopeDraftResponse,
   ScopeDraftUpdateRequest,
   ScopeInput,
@@ -264,10 +265,10 @@ export const getScopeDraft = async (ideaId: string): Promise<ScopeDraftResponse>
 
 export const bootstrapScopeDraft = async (
   ideaId: string,
-  payload: ScopeVersionedRequest
+  payload: ScopeBootstrapRequest
 ): Promise<AgentEnvelope & { data: ScopeDraftResponse }> => {
   const envelope = await jsonPost<
-    ScopeVersionedRequest,
+    ScopeBootstrapRequest,
     AgentEnvelope & { data: ScopeBaselineOut }
   >(`/ideas/${ideaId}/scope/draft/bootstrap`, payload)
   return {

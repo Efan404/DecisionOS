@@ -64,6 +64,7 @@ export function FeasibilityPage() {
   const [plans, setPlans] = useState<FeasibilityPlan[]>(context.feasibility?.plans ?? [])
   const [loading, setLoading] = useState(false)
   const [progressStep, setProgressStep] = useState<string | null>(null)
+  const [progressPct, setProgressPct] = useState<number | undefined>(undefined)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [confirmedPathContext, setConfirmedPathContext] = useState<ConfirmedPathContext | null>(
     null
@@ -168,6 +169,7 @@ export function FeasibilityPage() {
     setErrorMessage(null)
     setPlans([])
     setProgressStep(null)
+    setProgressPct(undefined)
     setLoading(true)
 
     let streamedDonePayload: unknown = null
@@ -181,13 +183,11 @@ export function FeasibilityPage() {
           { ...payload, version: activeIdea.version },
           {
             onProgress: (data) => {
-              if (
-                mountedRef.current &&
-                typeof data === 'object' &&
-                data !== null &&
-                'step' in data
-              ) {
-                setProgressStep((data as { step: string }).step)
+              if (mountedRef.current && typeof data === 'object' && data !== null) {
+                if ('step' in data) setProgressStep((data as { step: string }).step)
+                if ('pct' in data && typeof (data as { pct: unknown }).pct === 'number') {
+                  setProgressPct((data as { pct: number }).pct)
+                }
               }
             },
             onPartial: (data) => {
@@ -340,6 +340,7 @@ export function FeasibilityPage() {
           <GenerationProgress
             steps={buildFeasibilityProgressSteps(progressStep)}
             isActive={loading}
+            pct={progressPct}
           />
         </div>
       ) : null}

@@ -175,6 +175,12 @@ export const scopeVersionedRequestSchema = z.object({
   version: z.number().int().nonnegative(),
 })
 
+export const scopeBootstrapRequestSchema = z.object({
+  version: z.number().int().nonnegative(),
+  items: z.array(z.object({ lane: z.enum(['in', 'out']), content: z.string() })).optional(),
+})
+export type ScopeBootstrapRequest = z.infer<typeof scopeBootstrapRequestSchema>
+
 export const prdSourceRefSchema = z.enum(['step2', 'step3', 'step4'])
 export const prdBacklogTypeSchema = z.enum(['epic', 'story', 'task'])
 
