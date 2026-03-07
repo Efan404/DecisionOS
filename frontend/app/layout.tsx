@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages, getLocale } from 'next-intl/server'
 
 import './globals.css'
 import { AppShell } from '../components/layout/AppShell'
@@ -20,15 +22,20 @@ type RootLayoutProps = Readonly<{
   children: React.ReactNode
 }>
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const locale = await getLocale()
+  const messages = await getMessages()
+
   return (
-    <html lang="zh-CN">
+    <html lang={locale}>
       <body className="min-h-screen bg-[#f5f5f5] text-[#1e1e1e] antialiased">
-        <StoreHydration />
-        <ToasterProvider />
-        <OnboardingProvider>
-          <AppShell>{children}</AppShell>
-        </OnboardingProvider>
+        <NextIntlClientProvider messages={messages}>
+          <StoreHydration />
+          <ToasterProvider />
+          <OnboardingProvider>
+            <AppShell>{children}</AppShell>
+          </OnboardingProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )
