@@ -159,9 +159,49 @@
       "saving": "Saving to database"
     }
   },
-  "settings": {},
-  "insights": {},
-  "profile": {},
-  "ideas": {},
-  "notifications": {}
+  "settings": {
+    "title": "Settings",
+    "aiProvider": "AI Provider",
+    "searchProvider": "Search Provider",
+    "testConnection": "Test Connection",
+    "testing": "Testing…",
+    "saveSettings": "Save Settings",
+    "saved": "Saved",
+    "modelLabel": "Model",
+    "apiKeyLabel": "API Key",
+    "connected": "Connected",
+    "notConfigured": "Not configured",
+    "results": "{count} results"
+  },
+  "insights": {
+    "title": "Insights",
+    "crossIdea": "Cross-Idea Insights",
+    "patterns": "Decision Patterns",
+    "noInsights": "No insights yet.",
+    "noPatterns": "No patterns learned yet.",
+    "loading": "Loading insights…",
+    "triggerAnalysis": "Trigger Analysis",
+    "analysisRunning": "Running…"
+  },
+  "profile": {
+    "title": "Profile",
+    "userPatterns": "Your Decision Patterns",
+    "noPatterns": "No patterns yet.",
+    "loading": "Loading profile…"
+  },
+  "ideas": {
+    "title": "Ideas",
+    "newIdea": "New Idea",
+    "noIdeas": "No ideas yet. Create one to get started.",
+    "agentActivity": "Agent Activity",
+    "initializingAgents": "Initializing agents…",
+    "loadingDag": "Loading idea path…",
+    "confirmPath": "Confirm Path"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications.",
+    "markRead": "Mark as read",
+    "loading": "Loading…"
+  }
 }

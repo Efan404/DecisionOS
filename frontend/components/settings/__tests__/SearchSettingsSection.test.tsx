@@ -35,13 +35,13 @@ describe('SearchSettingsSection', () => {
 
   it('shows Test Connection button', async () => {
     render(<SearchSettingsSection />)
-    await waitFor(() => expect(screen.getByText('Test Connection')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('settings.testConnection')).toBeInTheDocument())
   })
 
   it('shows success message after test connection', async () => {
     render(<SearchSettingsSection />)
-    await waitFor(() => screen.getByText('Test Connection'))
-    fireEvent.click(screen.getByText('Test Connection'))
+    await waitFor(() => screen.getByText('settings.testConnection'))
+    fireEvent.click(screen.getByText('settings.testConnection'))
     await waitFor(() => expect(screen.getByText(/3 results/)).toBeInTheDocument())
   })
 })

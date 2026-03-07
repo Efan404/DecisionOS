@@ -14,6 +14,6 @@ describe('ScopeFreezePage smoke', () => {
     })
 
     render(<ScopeFreezePage />)
-    expect(screen.getByText('Missing context for Scope Freeze')).toBeInTheDocument()
+    expect(screen.getByText('scope.guardTitle')).toBeInTheDocument()
   })
 })

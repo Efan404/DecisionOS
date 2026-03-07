@@ -159,9 +159,49 @@
       "saving": "保存到数据库"
     }
   },
-  "settings": {},
-  "insights": {},
-  "profile": {},
-  "ideas": {},
-  "notifications": {}
+  "settings": {
+    "title": "设置",
+    "aiProvider": "AI 供应商",
+    "searchProvider": "搜索供应商",
+    "testConnection": "测试连接",
+    "testing": "测试中…",
+    "saveSettings": "保存设置",
+    "saved": "已保存",
+    "modelLabel": "模型",
+    "apiKeyLabel": "API 密钥",
+    "connected": "已连接",
+    "notConfigured": "未配置",
+    "results": "{count} 个结果"
+  },
+  "insights": {
+    "title": "洞察",
+    "crossIdea": "跨想法洞察",
+    "patterns": "决策规律",
+    "noInsights": "暂无洞察。",
+    "noPatterns": "尚未学习到规律。",
+    "loading": "加载洞察中…",
+    "triggerAnalysis": "触发分析",
+    "analysisRunning": "运行中…"
+  },
+  "profile": {
+    "title": "个人资料",
+    "userPatterns": "您的决策规律",
+    "noPatterns": "暂无规律。",
+    "loading": "加载中…"
+  },
+  "ideas": {
+    "title": "想法",
+    "newIdea": "新建想法",
+    "noIdeas": "暂无想法，创建一个开始吧。",
+    "agentActivity": "代理活动",
+    "initializingAgents": "正在初始化代理…",
+    "loadingDag": "加载想法路径…",
+    "confirmPath": "确认路径"
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "暂无通知。",
+    "markRead": "标为已读",
+    "loading": "加载中…"
+  }
 }
