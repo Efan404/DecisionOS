@@ -139,6 +139,7 @@ async def list_idea_insights(idea_id: str) -> dict:
         "insights": [
             {
                 "id": r.id,
+                "idea_id": r.idea_id,
                 "summary": r.summary,
                 "decision_impact": r.decision_impact,
                 "recommended_actions": r.recommended_actions,
