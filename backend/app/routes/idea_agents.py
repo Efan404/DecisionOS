@@ -25,6 +25,7 @@ from app.schemas.prd import (
     PrdBaselineMeta,
     PrdBundle,
     PrdContextPack,
+    PrdPptOutput,
     PrdPlanBrief,
     PrdStep2Path,
     PrdStep3Feasibility,
@@ -38,6 +39,8 @@ from app.schemas.ideas import (
     OpportunityIdeaRequest,
     PRDAgentResponse,
     PRDIdeaRequest,
+    PRDPptAgentResponse,
+    PRDPptIdeaRequest,
     ScopeAgentResponse,
     ScopeIdeaRequest,
 )
@@ -244,6 +247,42 @@ async def post_prd(idea_id: str, payload: PRDIdeaRequest) -> PRDAgentResponse:
         raise
     _logger.info("agent.prd.done idea_id=%s idea_version=%s", idea_id, idea_version)
     return PRDAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
+
+
+@router.post("/prd/ppt", response_model=PRDPptAgentResponse)
+async def post_prd_ppt(idea_id: str, payload: PRDPptIdeaRequest) -> PRDPptAgentResponse:
+    _logger.info("agent.prd.ppt.start idea_id=%s version=%s", idea_id, payload.version)
+    idea = _repo.get_idea(idea_id)
+    if idea is None:
+        raise HTTPException(status_code=404, detail={"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+    if idea.status == "archived":
+        raise HTTPException(status_code=409, detail={"code": "IDEA_ARCHIVED", "message": "Idea is archived"})
+
+    context = parse_context_strict(idea.context)
+    prd_output = context.prd_bundle.output if context.prd_bundle is not None else context.prd
+    if prd_output is None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "PRD_REQUIRED", "message": "Generate PRD before generating PPT"},
+        )
+
+    try:
+        ppt_output = llm.generate_prd_ppt(prd=prd_output)
+    except Exception as exc:
+        _raise_if_no_provider(exc)
+        raise HTTPException(
+            status_code=502,
+            detail={"code": "PPT_GENERATION_FAILED", "message": "PPT generation failed. Please retry."},
+        ) from exc
+
+    result = _repo.apply_agent_update(
+        idea_id,
+        version=payload.version,
+        mutate_context=lambda current: _apply_prd_ppt(current, ppt_output),
+    )
+    idea_version = _unwrap_update(result)
+    _logger.info("agent.prd.ppt.done idea_id=%s idea_version=%s", idea_id, idea_version)
+    return PRDPptAgentResponse(idea_id=idea_id, idea_version=idea_version, data=ppt_output)
 
 
 @router.post("/opportunity/stream")
@@ -762,6 +801,7 @@ def _apply_opportunity(
     context.prd = None
     context.prd_bundle = None
     context.prd_feedback_latest = None
+    context.prd_ppt = None
     return context
 
 
@@ -782,6 +822,7 @@ def _apply_feasibility(
     context.prd = None
     context.prd_bundle = None
     context.prd_feedback_latest = None
+    context.prd_ppt = None
     return context
 
 
@@ -801,6 +842,7 @@ def _apply_scope(
     context.prd = None
     context.prd_bundle = None
     context.prd_feedback_latest = None
+    context.prd_ppt = None
     return context
 
 
@@ -825,6 +867,15 @@ def _apply_prd(
     context.prd = bundle.output
     context.prd_bundle = bundle
     context.prd_feedback_latest = None
+    context.prd_ppt = None
+    return context
+
+
+def _apply_prd_ppt(
+    context: DecisionContext,
+    output: PrdPptOutput,
+) -> DecisionContext:
+    context.prd_ppt = output
     return context
 
 

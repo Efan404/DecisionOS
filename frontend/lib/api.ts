@@ -18,6 +18,7 @@ import type {
   ScopeVersionedRequest,
   PrdFeedbackLatest,
   PrdFeedbackRequest,
+  PrdPpt,
   TestAIProviderRequest,
   TestAIProviderResponse,
 } from './schemas'
@@ -355,6 +356,16 @@ export const postPrdFeedback = async (
 ): Promise<AgentEnvelope & { data: PrdFeedbackLatest }> => {
   return await jsonPost<PrdFeedbackRequest, AgentEnvelope & { data: PrdFeedbackLatest }>(
     `/ideas/${ideaId}/prd/feedback`,
+    payload
+  )
+}
+
+export const postPrdPpt = async (
+  ideaId: string,
+  payload: { version: number }
+): Promise<AgentEnvelope & { data: PrdPpt }> => {
+  return await jsonPost<{ version: number }, AgentEnvelope & { data: PrdPpt }>(
+    `/ideas/${ideaId}/agents/prd/ppt`,
     payload
   )
 }

@@ -149,3 +149,9 @@ class PrdFeedbackLatest(BaseModel):
     rating_overall: int = Field(ge=1, le=5)
     rating_dimensions: PrdFeedbackDimensions
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class PrdPptOutput(BaseModel):
+    title: str = Field(min_length=1)
+    markdown: str = Field(min_length=1)
+    generation_meta: PRDGenerationMeta

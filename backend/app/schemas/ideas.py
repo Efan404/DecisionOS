@@ -11,6 +11,7 @@ from app.schemas.prd import (
     PrdBundle,
     PrdFeedbackDimensions,
     PrdFeedbackLatest,
+    PrdPptOutput,
 )
 from app.schemas.scope import ScopeInput, ScopeOutput
 
@@ -35,6 +36,7 @@ class DecisionContext(BaseModel):
     prd: PRDOutput | None = None
     prd_bundle: PrdBundle | None = None
     prd_feedback_latest: PrdFeedbackLatest | None = None
+    prd_ppt: PrdPptOutput | None = None
     confirmed_dag_path_id: str | None = None
     confirmed_dag_node_id: str | None = Field(default=None, min_length=1)
     confirmed_dag_node_content: str | None = Field(default=None, min_length=1)
@@ -109,6 +111,10 @@ class PRDIdeaRequest(BaseModel):
     baseline_id: str = Field(min_length=1)
 
 
+class PRDPptIdeaRequest(BaseModel):
+    version: int = Field(ge=1)
+
+
 class PRDFeedbackRequest(BaseModel):
     version: int = Field(ge=1)
     baseline_id: str = Field(min_length=1)
@@ -139,6 +145,12 @@ class PRDAgentResponse(BaseModel):
     idea_id: str
     idea_version: int
     data: PRDOutput
+
+
+class PRDPptAgentResponse(BaseModel):
+    idea_id: str
+    idea_version: int
+    data: PrdPptOutput
 
 
 class PRDFeedbackResponse(BaseModel):

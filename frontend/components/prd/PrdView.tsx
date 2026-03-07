@@ -39,6 +39,8 @@ type PrdViewProps = {
   feedbackSubmitting?: boolean
   feedbackError?: string | null
   streamPartials?: PrdStreamPartials | null
+  onGeneratePpt?: () => Promise<void>
+  pptSubmitting?: boolean
 }
 
 // Status banner — one state at a time: loading > error > idle
@@ -222,6 +224,8 @@ export function PrdView({
   feedbackSubmitting = false,
   feedbackError = null,
   streamPartials = null,
+  onGeneratePpt,
+  pptSubmitting = false,
 }: PrdViewProps) {
   const output = prd ?? bundle?.output
   // DISABLED: requirement selection state (used by Requirements tab and Backlog panel)
@@ -284,34 +288,52 @@ export function PrdView({
           </span>
         ) : null}
         {onRetry ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={loading}
-            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <span
-                aria-hidden="true"
-                className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
-              />
-            ) : (
-              <svg
-                aria-hidden="true"
-                className="h-3 w-3"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="ml-auto flex items-center gap-2">
+            {output && onGeneratePpt ? (
+              <button
+                type="button"
+                onClick={() => void onGeneratePpt()}
+                disabled={loading || pptSubmitting}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8" />
-                <path d="M2.5 2.5v3.5H6" />
-              </svg>
-            )}
-            {output ? 'Regenerate' : 'Generate'}
-          </button>
+                {pptSubmitting ? (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700"
+                  />
+                ) : null}
+                生成 AiPPT 脚本
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={loading}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+                />
+              ) : (
+                <svg
+                  aria-hidden="true"
+                  className="h-3 w-3"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8" />
+                  <path d="M2.5 2.5v3.5H6" />
+                </svg>
+              )}
+              {output ? 'Regenerate' : 'Generate'}
+            </button>
+          </div>
         ) : null}
       </header>
 

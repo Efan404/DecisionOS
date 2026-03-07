@@ -267,3 +267,20 @@ def build_prd_backlog_prompt(
         f"requirement_ids={json.dumps(requirement_ids)}\n"
         "Return JSON: {\"backlog\": {\"items\": [...]}}"
     )
+
+
+def build_prd_ppt_prompt(*, prd_markdown: str, sections: list[dict[str, str]]) -> str:
+    return (
+        "You are an expert solution architect using AiPPT (https://github.com/veasion/AiPPT). "
+        "Given the PRD below, generate a concise PPT script that can be pasted into AiPPT.\n\n"
+        "Output rules:\n"
+        "- Keep 8-12 slides.\n"
+        "- Use Markdown with clear slide separators '---'.\n"
+        "- First slide must be title slide.\n"
+        "- Cover: problem, target users, solution, scope, milestones, risks, metrics.\n"
+        "- Keep each slide concise and presentation-ready.\n"
+        "- All content MUST be in Chinese.\n\n"
+        f"prd_markdown={prd_markdown!r}\n"
+        f"sections={json.dumps(sections, ensure_ascii=False)}\n"
+        'Return JSON: {"title": "...", "markdown": "..."}'
+    )

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
-import { ApiError, postPrdFeedback } from '../../lib/api'
+import { ApiError, postPrdFeedback, postPrdPpt } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -39,6 +39,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [isRegenerate, setIsRegenerate] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
+  const [pptSubmitting, setPptSubmitting] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
   const [streamPartials, setStreamPartials] = useState<PrdStreamPartials>({
@@ -229,6 +230,40 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     }
   }
 
+  const handleGeneratePpt = async () => {
+    if (!activeIdeaId || !activeIdea) {
+      return
+    }
+    setPptSubmitting(true)
+    try {
+      const response = await postPrdPpt(activeIdeaId, { version: activeIdea.version })
+      setIdeaVersion(activeIdeaId, response.idea_version)
+      const detail = await loadIdeaDetail(activeIdeaId)
+      if (detail) {
+        replaceContext(detail.context)
+      }
+      const markdown = response.data.markdown
+      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
+      const href = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = href
+      anchor.download = `decisionos-prd-ppt-${activeIdeaId.slice(0, 8)}.md`
+      anchor.click()
+      URL.revokeObjectURL(href)
+      toast.success('PPT 脚本已生成并下载，可直接粘贴到 AiPPT。')
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? `${error.code ?? 'REQUEST_FAILED'}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : 'Failed to generate PPT script.'
+      toast.error(message)
+    } finally {
+      setPptSubmitting(false)
+    }
+  }
+
   if (!canOpen) {
     return (
       <main>
@@ -258,6 +293,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         feedbackSubmitting={feedbackSubmitting}
         feedbackError={feedbackError}
         streamPartials={loading ? streamPartials : null}
+        onGeneratePpt={handleGeneratePpt}
+        pptSubmitting={pptSubmitting}
       />
     </main>
   )

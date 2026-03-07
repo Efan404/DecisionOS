@@ -14,6 +14,8 @@ from app.schemas.prd import (
     PRDRequirementsOutput,
     PRDMarkdownOutput,
     PRDBacklogOutput,
+    PrdPptOutput,
+    PRDGenerationMeta,
 )
 from app.schemas.scope import ScopeInput, ScopeOutput
 
@@ -149,6 +151,28 @@ def generate_prd_backlog(
             context=context, requirement_ids=requirement_ids
         ),
         schema_model=PRDBacklogOutput,
+    )
+
+
+def generate_prd_ppt(*, prd: PRDOutput) -> PrdPptOutput:
+    payload = ai_gateway.generate_structured(
+        task="prd",
+        user_prompt=prompts.build_prd_ppt_prompt(
+            prd_markdown=prd.markdown,
+            sections=[section.model_dump() for section in prd.sections],
+        ),
+        schema_model=PrdPptOutput,
+    )
+    return PrdPptOutput(
+        title=payload.title,
+        markdown=payload.markdown,
+        generation_meta=PRDGenerationMeta(
+            provider_id=prd.generation_meta.provider_id,
+            model=prd.generation_meta.model,
+            confirmed_path_id=prd.generation_meta.confirmed_path_id,
+            selected_plan_id=prd.generation_meta.selected_plan_id,
+            baseline_id=prd.generation_meta.baseline_id,
+        ),
     )
 
 
