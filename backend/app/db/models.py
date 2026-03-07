@@ -310,4 +310,42 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     CREATE INDEX IF NOT EXISTS idx_cross_idea_insight_idea_b
     ON cross_idea_insight(idea_b_id, updated_at DESC);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS search_settings (
+        id TEXT PRIMARY KEY,
+        config_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS market_insight (
+        id TEXT PRIMARY KEY,
+        idea_id TEXT NOT NULL REFERENCES idea(id) ON DELETE CASCADE,
+        summary TEXT NOT NULL,
+        decision_impact TEXT NOT NULL,
+        recommended_actions TEXT NOT NULL DEFAULT '[]',
+        signal_count INTEGER NOT NULL DEFAULT 0,
+        generated_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_market_insight_idea
+    ON market_insight(idea_id, generated_at DESC);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS notification_v2 (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL DEFAULT 'default',
+        type TEXT NOT NULL CHECK (type IN (
+            'news_match', 'cross_idea_insight', 'pattern_learned',
+            'market_signal', 'market_insight'
+        )),
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        read_at TEXT,
+        created_at TEXT NOT NULL
+    );
+    """,
 )

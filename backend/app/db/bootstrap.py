@@ -13,6 +13,32 @@ DEFAULT_WORKSPACE_NAME = "Default Workspace"
 _auth_repo = AuthRepository()
 
 
+def _migrate_notification_types(conn: sqlite3.Connection) -> None:
+    """Migrate notification table to include market_signal and market_insight types.
+
+    SQLite cannot ALTER CHECK constraints. We recreate the table.
+    Guard: if notification_v2 doesn't exist, migration already ran — skip.
+    """
+    v2_exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='notification_v2'"
+    ).fetchone()
+    if v2_exists is None:
+        return  # already migrated
+
+    old_exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='notification'"
+    ).fetchone()
+    if old_exists is not None:
+        conn.execute(
+            "INSERT OR IGNORE INTO notification_v2 "
+            "SELECT * FROM notification WHERE type IN "
+            "('news_match', 'cross_idea_insight', 'pattern_learned')"
+        )
+        conn.execute("DROP TABLE notification")
+
+    conn.execute("ALTER TABLE notification_v2 RENAME TO notification")
+
+
 def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
     return any(row["name"] == column for row in rows)
@@ -31,6 +57,7 @@ def initialize_database() -> None:
                     if _column_exists(connection, table_name, col_name):
                         continue
             connection.execute(statement)
+        _migrate_notification_types(connection)
         ensure_default_workspace(connection)
         ensure_default_ai_settings(connection)
         _auth_repo.ensure_seed_users(connection)
