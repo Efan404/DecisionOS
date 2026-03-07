@@ -36,6 +36,8 @@ type PrdViewProps = {
   onExportJson?: () => Promise<void> | void
   onExportCsv?: () => Promise<void> | void
   exporting?: boolean
+  onGeneratePpt?: () => Promise<void>
+  pptSubmitting?: boolean
 }
 
 // Status banner — one state at a time: loading > error > idle
@@ -278,6 +280,8 @@ export function PrdView({
   onExportJson,
   onExportCsv,
   exporting = false,
+  onGeneratePpt,
+  pptSubmitting = false,
 }: PrdViewProps) {
   const t = useTranslations('prd')
   const output = prd ?? bundle?.output
@@ -362,34 +366,52 @@ export function PrdView({
           </span>
         ) : null}
         {onRetry ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={loading}
-            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <span
-                aria-hidden="true"
-                className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
-              />
-            ) : (
-              <svg
-                aria-hidden="true"
-                className="h-3 w-3"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="ml-auto flex items-center gap-2">
+            {output && onGeneratePpt ? (
+              <button
+                type="button"
+                onClick={() => void onGeneratePpt()}
+                disabled={loading || pptSubmitting}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors duration-150 hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8" />
-                <path d="M2.5 2.5v3.5H6" />
-              </svg>
-            )}
-            {output ? t('regenerate') : t('generate')}
-          </button>
+                {pptSubmitting ? (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700"
+                  />
+                ) : null}
+                {pptSubmitting ? t('generatingPpt') : t('generatePpt')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={loading}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-150 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+                />
+              ) : (
+                <svg
+                  aria-hidden="true"
+                  className="h-3 w-3"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M13.5 2.5A6.5 6.5 0 1 1 2.5 8" />
+                  <path d="M2.5 2.5v3.5H6" />
+                </svg>
+              )}
+              {output ? t('regenerate') : t('generate')}
+            </button>
+          </div>
         ) : null}
       </header>
 

@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { type ProgressStep } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
-import { ApiError, downloadPrdBacklogExport, postPrdFeedback } from '../../lib/api'
+import { ApiError, downloadPrdBacklogExport, postPrdFeedback, postPrdPpt } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -74,6 +74,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
   const [exporting, setExporting] = useState(false)
+  const [pptSubmitting, setPptSubmitting] = useState(false)
   const [localPrdOutput, setLocalPrdOutput] = useState<
     import('../../lib/schemas').PrdBundle | null
   >(null)
@@ -292,6 +293,35 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     }
   }
 
+  const handleGeneratePpt = async () => {
+    if (!activeIdeaId || !activeIdea) return
+    setPptSubmitting(true)
+    try {
+      const response = await postPrdPpt(activeIdeaId, { version: activeIdea.version })
+      setIdeaVersionRef.current(activeIdeaId, response.idea_version)
+      const detail = await loadIdeaDetailRef.current(activeIdeaId)
+      if (detail) replaceContextRef.current(detail.context)
+      const blob = new Blob([response.data.markdown], { type: 'text/markdown;charset=utf-8' })
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = `prd-ppt-${activeIdeaId.slice(0, 8)}.md`
+      a.click()
+      URL.revokeObjectURL(href)
+      toast.success(t('pptSuccess'))
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? `${error.code ?? 'PPT_FAILED'}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : t('pptError')
+      toast.error(message)
+    } finally {
+      setPptSubmitting(false)
+    }
+  }
+
   if (!canOpen) {
     return (
       <main>
@@ -320,6 +350,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         onExportJson={() => handleExport('json')}
         onExportCsv={() => handleExport('csv')}
         exporting={exporting}
+        onGeneratePpt={handleGeneratePpt}
+        pptSubmitting={pptSubmitting}
       />
     </main>
   )
