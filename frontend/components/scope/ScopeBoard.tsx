@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   DndContext,
   DragOverlay,
@@ -35,6 +36,7 @@ export function ScopeBoard({
   onDeleteItem,
   onReorderItems,
 }: ScopeBoardProps) {
+  const t = useTranslations('scope')
   const [activeItem, setActiveItem] = useState<ScopeBaselineItem | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -100,8 +102,8 @@ export function ScopeBoard({
       <section id="onboarding-scope-board" className="relative mx-auto w-full max-w-5xl p-6">
         <div className="grid gap-4 md:grid-cols-2">
           <ScopeColumn
-            title="IN Scope"
-            tooltip="MUST HAVE — features that are core to the MVP and required for launch."
+            title={t('inLane')}
+            tooltip={t('inLaneTooltip')}
             lane="in"
             items={inItems}
             readonly={readonly}
@@ -109,8 +111,8 @@ export function ScopeBoard({
             onDelete={onDeleteItem}
           />
           <ScopeColumn
-            title="OUT Scope"
-            tooltip="NOT HAVE — features intentionally excluded from this release."
+            title={t('outLane')}
+            tooltip={t('outLaneTooltip')}
             lane="out"
             items={outItems}
             readonly={readonly}
@@ -154,7 +156,7 @@ export function ScopeBoard({
                 />
               </svg>
               <span className="text-xs font-semibold tracking-wide text-[#1e1e1e]/70 uppercase">
-                Scope Locked
+                {t('scopeLocked')}
               </span>
             </div>
           </div>
