@@ -14,8 +14,10 @@ import {
   getAuthSessionServerSnapshot,
   subscribeAuthSession,
 } from '../../lib/auth'
-import { Ghost, LogOut, Settings } from 'lucide-react'
+import { CircleHelp, Ghost, LogOut, Settings } from 'lucide-react'
+import { useOnborda } from 'onborda'
 import { NotificationBell } from '../notifications/NotificationBell'
+import { useOnboarding } from '../onboarding/useOnboarding'
 
 type StepItem = {
   step: 'ideas' | IdeaStep
@@ -54,6 +56,13 @@ const getBadgeLabel = (item: StepItem, isHydrated: boolean) => {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { startOnborda } = useOnborda()
+  const { resetTour } = useOnboarding()
+
+  const handleStartTour = () => {
+    resetTour()
+    startOnborda('main')
+  }
   const isLoginRoute = pathname === '/login'
   const [mounted, setMounted] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -305,6 +314,18 @@ export function AppShell({ children }: AppShellProps) {
           <div className="flex items-center gap-2">
             {/* Notification bell — standalone so badge has room */}
             <NotificationBell />
+
+            {/* Help / tour trigger */}
+            <button
+              id="onboarding-help-btn"
+              type="button"
+              onClick={handleStartTour}
+              aria-label="Start guided tour"
+              title="Guided tour"
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/45 transition hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+            >
+              <CircleHelp size={14} />
+            </button>
 
             {/* Grouped toolbar pill: Settings | Profile | Logout */}
             <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
