@@ -512,11 +512,13 @@ export const testSearchProvider = async (
 }
 
 export const listMarketInsightsForIdea = async (ideaId: string): Promise<MarketInsightRecord[]> => {
-  return await jsonGet<MarketInsightRecord[]>(`/ideas/${ideaId}/insights`)
+  const res = await jsonGet<{ insights: MarketInsightRecord[] }>(`/ideas/${ideaId}/insights`)
+  return res.insights ?? []
 }
 
 export const listAllMarketInsights = async (): Promise<MarketInsightRecord[]> => {
-  return await jsonGet<MarketInsightRecord[]>('/insights/market-insights')
+  const res = await jsonGet<{ insights: MarketInsightRecord[] }>('/insights/market-insights')
+  return res.insights ?? []
 }
 
 type MarketInsightStreamCallbacks = {
