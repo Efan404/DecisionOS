@@ -9,6 +9,7 @@ This document covers the AI agent architecture, memory system, and proactive int
 - [LangGraph Agent Architecture](#langgraph-agent-architecture)
 - [Per-Idea Workflow Graphs](#per-idea-workflow-graphs)
 - [Proactive Background Agents](#proactive-background-agents)
+- [Market Evidence Layer](#market-evidence-layer)
 - [Memory & Vector Store](#memory--vector-store)
 - [Notification System](#notification-system)
 - [SSE Streaming Protocol](#sse-streaming-protocol)
@@ -179,6 +180,74 @@ START → load_history → extract_patterns → END
 
 ---
 
+## Market Evidence Layer
+
+The market evidence layer fuses structured competitor knowledge, dynamic news/signals, and internal semantic retrieval so that feasibility and PRD generation can reference external market context.
+
+### New Entities
+
+| Entity | Purpose |
+|--------|---------|
+| `competitor` | Stable product/company identity, workspace-scoped. Status: `candidate`, `tracked`, or `archived`. |
+| `competitor_snapshot` | Versioned structured card (`summary_json`) extracted at a point in time. Latest snapshot powers the current CompetitorCard. Up to 5 snapshots retained per competitor. |
+| `evidence_source` | Raw supporting source (website, pricing page, docs, news, community, review). Carries provenance URL, snippet, and confidence. |
+| `market_signal` | Dynamic event derived from news or source changes. Types: `competitor_update`, `market_news`, `community_buzz`, `pricing_change`. Severity: `low`, `medium`, `high`. |
+| `idea_evidence_link` | Normalized join between an idea and an evidence entity (`competitor`, `signal`, or `insight`). Stores link reason and relevance score. |
+
+### Evidence Chunk Taxonomy
+
+ChromaDB stores chunks derived from SQLite records. Each chunk carries typed metadata (`entity_type`, `entity_id`, `workspace_id`, `idea_id`, `source_type`, `created_at`, `confidence`).
+
+| Chunk Type | Source |
+|-----------|--------|
+| `competitor_positioning` | CompetitorSnapshot summary |
+| `competitor_features` | CompetitorSnapshot product details |
+| `competitor_pricing` | CompetitorSnapshot business/pricing |
+| `competitor_reviews` | EvidenceSource (review type) |
+| `market_signal_summary` | MarketSignal title + summary |
+| `evidence_insight` | Synthesized insight from competitors + signals |
+
+### Signal Monitor
+
+`signal_monitor.py` runs alongside the legacy `news_monitor.py`. It extends news collection into idea-aware market monitoring:
+
+1. Fetches HN stories via the existing Algolia adapter
+2. Creates `MarketSignal` records in SQLite
+3. Links signals to ideas by vector similarity (cosine distance threshold)
+4. Links signals to competitors by URL domain matching against `competitor.canonical_url`
+5. Emits notifications only when a signal is decision-relevant (high severity, affects linked competitor, or clusters into a trend)
+
+The legacy news monitor remains as a fallback until signal monitor parity is validated.
+
+### Retrieval Injection Points
+
+Evidence is injected into two generation stages:
+
+| Stage | Behavior |
+|-------|----------|
+| **Feasibility** | Retrieves 3-5 relevant competitor/signal chunks to sharpen differentiation and risk assessment |
+| **PRD** | Retrieves 3-5 relevant competitor/signal chunks to inform requirements, scope edges, and backlog wording |
+
+Hard cap: evidence context is budgeted at approximately 800 tokens. If over budget, falls back to top-2 entries with trimmed summaries. Absence of evidence does not block generation.
+
+### Service Layer
+
+`MarketEvidenceService` (`backend/app/services/market_evidence_service.py`) is a thin orchestration layer for:
+
+- **Repo composition** — coordinates writes across competitor, snapshot, signal, and link repositories
+- **Vector-store mirroring** — ensures ChromaDB chunks are written after SQLite persistence
+- **Side effects** — triggers notifications when signals meet push criteria
+
+It does not replace route handlers or LangGraph nodes. It centralizes business flows that must be reusable from API routes, schedulers, and rebuild commands.
+
+Key methods: `upsert_competitor_card()`, `record_market_signal()`, `link_evidence_to_idea()`, `build_and_store_insight()`, `rebuild_market_chunks_for_competitor()`.
+
+### Canonical Rule
+
+SQLite is the source of truth for all structured market data. ChromaDB is a disposable semantic cache that can be rebuilt from SQLite at any time via `rebuild_market_chunks_for_competitor()`.
+
+---
+
 ## Memory & Vector Store
 
 ### Architecture
@@ -187,9 +256,14 @@ START → load_history → extract_patterns → END
 SQLite (source of truth)          ChromaDB (semantic cache)
 ├── idea table (context_json)     ├── idea_summaries collection
 ├── decision_events               ├── news_items collection
-├── user_preferences              └── decision_patterns collection
-├── notification
-└── agent_trace (schema only)
+├── user_preferences              ├── decision_patterns collection
+├── notification                  └── market_evidence collection
+├── agent_trace (schema only)
+├── competitor
+├── competitor_snapshot
+├── evidence_source
+├── market_signal
+└── idea_evidence_link
 ```
 
 **SQLite** is the canonical source for all structured data. **ChromaDB** provides semantic similarity search and is non-critical — the app starts fine without it.
@@ -201,6 +275,7 @@ SQLite (source of truth)          ChromaDB (semantic cache)
 | `idea_summaries` | Stores idea text for cross-idea matching | `add_idea_summary()`, `search_similar_ideas()` |
 | `news_items` | Stores HN stories for news-to-idea matching | `add_news_item()`, `match_news_to_ideas()` |
 | `decision_patterns` | Stores strategy patterns for context enrichment | `add_decision_pattern()`, `search_patterns()` |
+| `market_evidence` | Stores competitor, signal, and insight chunks for evidence retrieval | `add_competitor_chunk()`, `add_market_signal_chunk()`, `add_evidence_insight_chunk()`, `search_market_evidence()` |
 
 All collections use cosine similarity. Vector store is a thread-safe singleton (`get_vector_store()`).
 

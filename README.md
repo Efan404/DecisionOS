@@ -294,6 +294,22 @@ http://localhost:8000/docs
 
 This provides interactive OpenAPI/Swagger documentation with all endpoints, request/response schemas, and authentication requirements.
 
+### Market Evidence Operations
+
+DecisionOS includes a market evidence layer that tracks competitors and market signals per idea. These endpoints require authentication.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/ideas/{idea_id}/evidence/competitors/discover` | Trigger competitor discovery for an idea |
+| `GET` | `/ideas/{idea_id}/evidence/competitors` | List competitors linked to an idea (with latest snapshots) |
+| `GET` | `/ideas/{idea_id}/evidence/signals` | List market signals linked to an idea |
+| `POST` | `/ideas/{idea_id}/evidence/insights/sync` | Trigger one-shot insight synthesis for an idea |
+| `POST` | `/insights/signal-monitor/trigger` | Manually trigger the signal monitor (cross-idea) |
+
+**Rebuild vector chunks from SQLite:**
+
+If the ChromaDB cache is deleted or corrupted, competitor/signal chunks can be rebuilt programmatically via `MarketEvidenceService.rebuild_market_chunks_for_competitor(competitor_id)`. This reads canonical data from SQLite and re-indexes it into the vector store.
+
 ## Development
 
 ### Frontend
