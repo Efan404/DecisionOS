@@ -60,19 +60,25 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
     except Exception:
         logger.warning("scheduler.news_monitor.failed", exc_info=True)
 
-    # -- Cross-idea analyzer --------------------------------------------------
+    # -- Cross-idea analyzer (V2) ---------------------------------------------
     try:
         graph = build_cross_idea_graph()
         result = await loop.run_in_executor(
             None,
             partial(graph.invoke, {
-                "user_id": "default",
+                "workspace_id": "default",
                 "idea_summaries": [],
                 "insights": [],
                 "agent_thoughts": [],
             }),
         )
+        # Only create notifications for high-value insight types with sufficient confidence
+        _high_value_types = {"merge_candidate", "positioning_conflict", "execution_reuse"}
         for insight in result.get("insights", []):
+            insight_type = insight.get("insight_type", "")
+            confidence = insight.get("confidence") or 0.0
+            if insight_type not in _high_value_types or confidence < 0.7:
+                continue
             idea_a_id = insight.get("idea_a_id", "")
             idea_b_id = insight.get("idea_b_id", "")
             # Deduplicate: sorted pair so (a,b) == (b,a)
@@ -81,7 +87,7 @@ async def run_proactive_agents(trigger_type: str = "scheduled") -> None:
             record = _notif_repo.create(
                 type="cross_idea_insight",
                 title="Related ideas detected",
-                body=insight.get("analysis", "These ideas share common themes."),
+                body=insight.get("summary", "These ideas share common themes."),
                 metadata=insight,
             )
             created_notifications.append(record)

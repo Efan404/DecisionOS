@@ -62,7 +62,7 @@ async def trigger_cross_idea_analysis():
     loop = asyncio.get_event_loop()
     graph = build_cross_idea_graph()
     result = await loop.run_in_executor(None, partial(graph.invoke, {
-        "user_id": "default",
+        "workspace_id": "default",
         "idea_summaries": [],
         "insights": [],
         "agent_thoughts": [],
@@ -79,7 +79,7 @@ async def trigger_cross_idea_analysis():
         record = _notif_repo.create(
             type="cross_idea_insight",
             title=f"Related ideas: {idea_a_id[:8]} <-> {idea_b_id[:8]}",
-            body=insight.get("analysis", "These ideas share common themes."),
+            body=insight.get("summary", "These ideas share common themes."),
             metadata=insight,
         )
         created.append(record.id)
@@ -151,17 +151,46 @@ async def trigger_signal_monitor():
 
 @router.get("/cross-idea")
 async def get_cross_idea_insights():
-    """Return existing cross-idea insights from notification table (no LLM call)."""
+    """Return cross-idea insights from both notification table and structured insight table."""
     import json as _json
     from app.db.repo_ideas import IdeaRepository
+    from app.db.repo_cross_idea_insights import CrossIdeaInsightRepository
+
     _idea_repo = IdeaRepository()
+    _insight_repo = CrossIdeaInsightRepository()
 
     # Build id->title lookup
     all_ideas, _ = _idea_repo.list_ideas(statuses=["draft", "active", "frozen"], limit=100)
     title_map = {idea.id: idea.title for idea in all_ideas}
 
-    records = _notif_repo.list_by_type("cross_idea_insight")
+    # Track seen pairs to avoid duplicates between the two sources
+    seen_pairs: set[frozenset[str]] = set()
     insights = []
+
+    # Source 1: V2 structured insights from cross_idea_insight table
+    try:
+        structured = _insight_repo.list_recent_for_workspace("default")
+        for rec in structured:
+            pair = frozenset({rec.idea_a_id, rec.idea_b_id})
+            seen_pairs.add(pair)
+            insights.append({
+                "idea_a_id": rec.idea_a_id,
+                "idea_b_id": rec.idea_b_id,
+                "idea_a_title": title_map.get(rec.idea_a_id, ""),
+                "idea_b_title": title_map.get(rec.idea_b_id, ""),
+                "insight_type": rec.insight_type,
+                "summary": rec.summary,
+                "why_it_matters": rec.why_it_matters,
+                "recommended_action": rec.recommended_action,
+                "confidence": rec.confidence,
+                "similarity_score": rec.similarity_score,
+                "analysis": rec.summary,  # backward compat
+            })
+    except Exception:
+        _logger.warning("get_cross_idea_insights: failed to read structured insights", exc_info=True)
+
+    # Source 2: Legacy notification-based insights
+    records = _notif_repo.list_by_type("cross_idea_insight")
     for r in records:
         try:
             meta = _json.loads(r.metadata_json) if r.metadata_json else {}
@@ -169,12 +198,16 @@ async def get_cross_idea_insights():
             meta = {}
         idea_a_id = meta.get("idea_a_id", "")
         idea_b_id = meta.get("idea_b_id", "")
+        pair = frozenset({idea_a_id, idea_b_id})
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
         insights.append({
             "idea_a_id": idea_a_id,
             "idea_b_id": idea_b_id,
             "idea_a_title": title_map.get(idea_a_id, ""),
             "idea_b_title": title_map.get(idea_b_id, ""),
-            "analysis": meta.get("analysis") or r.body,
+            "analysis": meta.get("analysis") or meta.get("summary") or r.body,
         })
     return {"insights": insights}
 

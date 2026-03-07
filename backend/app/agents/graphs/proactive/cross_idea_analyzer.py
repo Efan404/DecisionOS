@@ -1,140 +1,149 @@
 from __future__ import annotations
 
+import logging
 import operator
 from typing import TypedDict, Annotated
 
 from langgraph.graph import StateGraph, START, END
 
-from app.core import ai_gateway
 from app.core.time import utc_now_iso
-from app.agents.memory.vector_store import get_vector_store
+from app.db.repo_ideas import IdeaRepository
 
-import json as _json
-
-SIMILARITY_THRESHOLD = 0.40  # cosine distance: lower = more similar
-
-
-def _extract_plain_text(raw: str) -> str:
-    """Extract plain text from LLM response that may be JSON-wrapped.
-
-    Free-tier LLMs often return {"explanation": "..."} instead of plain text.
-    """
-    text = raw.strip()
-    if text.startswith("{"):
-        try:
-            obj = _json.loads(text)
-            # Try common keys the LLM might use
-            for key in ("explanation", "text", "analysis", "insight", "node_text", "response"):
-                if key in obj and isinstance(obj[key], str):
-                    return obj[key].strip()
-            # Fallback: join all string values
-            strings = [v.strip() for v in obj.values() if isinstance(v, str) and v.strip()]
-            if strings:
-                return " ".join(strings)
-        except (_json.JSONDecodeError, AttributeError):
-            pass
-    return text
+logger = logging.getLogger(__name__)
 
 
 class CrossIdeaState(TypedDict):
-    user_id: str
+    workspace_id: str
     idea_summaries: list[dict]
-    insights: list[dict]
+    insights: list[dict]  # V2 structured insights
     agent_thoughts: Annotated[list[dict], operator.add]
 
 
-def _load_ideas(state: CrossIdeaState) -> dict[str, object]:
-    """Load all ideas from the vector store."""
+def _get_insights_service():
+    """Try to import and instantiate the orchestration service.
+
+    Returns the service instance or raises ImportError / Exception if
+    the service module does not exist yet.
+    """
+    from app.services.cross_idea_insights_service import CrossIdeaInsightsService
+    from app.agents.memory.vector_store import get_vector_store
+    from app.db.repo_cross_idea_insights import CrossIdeaInsightRepository
+    from app.db.repo_market_signals import MarketSignalRepository
+    from app.services.cross_idea_candidate_service import CrossIdeaCandidateService
+
     vs = get_vector_store()
-    data = vs._ideas.get(include=["documents", "metadatas"])
-    ids = data.get("ids") or []
-    docs = data.get("documents") or []
+    signal_repo = MarketSignalRepository()
+    candidate_service = CrossIdeaCandidateService(
+        vector_store=vs,
+        signal_repo=signal_repo,
+    )
+    return CrossIdeaInsightsService(
+        insight_repo=CrossIdeaInsightRepository(),
+        candidate_service=candidate_service,
+        idea_repo=IdeaRepository(),
+        signal_repo=signal_repo,
+        vector_store=vs,
+    )
+
+
+def _load_ideas(state: CrossIdeaState) -> dict[str, object]:
+    """Load recently updated ideas from the database."""
+    idea_repo = IdeaRepository()
+    ideas, _ = idea_repo.list_ideas(
+        statuses=["draft", "active", "frozen"],
+        limit=20,
+    )
 
     summaries = [
-        {"idea_id": id_, "summary": doc}
-        for id_, doc in zip(ids, docs)
-        if doc and doc.strip()
+        {
+            "idea_id": idea.id,
+            "summary": idea.idea_seed or idea.title,
+        }
+        for idea in ideas
     ]
     thought = {
         "agent": "idea_loader",
         "action": "loaded_ideas",
-        "detail": f"Loaded {len(summaries)} idea summaries from vector store",
+        "detail": f"Loaded {len(summaries)} idea summaries from database",
         "timestamp": utc_now_iso(),
     }
     return {"idea_summaries": summaries, "agent_thoughts": [thought]}
 
 
-def _find_similar_pairs(state: CrossIdeaState) -> dict[str, object]:
-    """Find pairs of ideas with high vector similarity."""
+def _analyze_ideas(state: CrossIdeaState) -> dict[str, object]:
+    """Analyze ideas using the V2 orchestration service.
+
+    Falls back gracefully if the service is unavailable (not yet implemented)
+    or if any call raises an exception.
+    """
     summaries = state.get("idea_summaries", [])
+    workspace_id = state.get("workspace_id", "default")
+
     if len(summaries) < 2:
         return {
             "insights": [],
             "agent_thoughts": [{
-                "agent": "similarity_finder",
+                "agent": "cross_idea_analyzer",
                 "action": "insufficient_ideas",
                 "detail": f"Only {len(summaries)} ideas -- need >=2 for cross-analysis",
                 "timestamp": utc_now_iso(),
             }],
         }
 
-    vs = get_vector_store()
-    insights = []
+    # Try to get the orchestration service
+    try:
+        service = _get_insights_service()
+    except Exception:
+        logger.warning(
+            "cross_idea_analyzer: orchestration service unavailable, returning empty insights",
+            exc_info=True,
+        )
+        return {
+            "insights": [],
+            "agent_thoughts": [{
+                "agent": "cross_idea_analyzer",
+                "action": "service_unavailable",
+                "detail": "CrossIdeaInsightsService not available; skipping analysis",
+                "timestamp": utc_now_iso(),
+            }],
+        }
+
+    insights: list[dict] = []
     seen_pairs: set[frozenset[str]] = set()
 
     for entry in summaries:
-        idea_a_id = entry["idea_id"]
-        summary_a = entry["summary"]
-
-        # Search for similar ideas (exclude self)
-        count = vs._ideas.count()
-        if count < 2:
+        idea_id = entry["idea_id"]
+        try:
+            records = service.analyze_anchor_idea(idea_id, workspace_id)
+        except Exception:
+            logger.warning(
+                "cross_idea_analyzer: failed to analyze idea %s",
+                idea_id,
+                exc_info=True,
+            )
             continue
-        results = vs._ideas.query(
-            query_texts=[summary_a],
-            n_results=min(3, count),
-        )
-        ids = results.get("ids", [[]])[0]
-        distances = results.get("distances", [[]])[0]
 
-        for idea_b_id, dist in zip(ids, distances):
-            if idea_b_id == idea_a_id:
-                continue
-            pair = frozenset({idea_a_id, idea_b_id})
+        for rec in records:
+            pair = frozenset({rec.idea_a_id, rec.idea_b_id})
             if pair in seen_pairs:
                 continue
-            if dist < SIMILARITY_THRESHOLD:
-                seen_pairs.add(pair)
-                summary_b = next(
-                    (s["summary"] for s in summaries if s["idea_id"] == idea_b_id),
-                    idea_b_id,
-                )
-                # Use LLM to generate a specific insight about the relationship
-                try:
-                    analysis = ai_gateway.generate_text(
-                        task="opportunity",
-                        user_prompt=(
-                            f"Two product ideas appear related:\n"
-                            f"Idea A: {summary_a[:150]}\n"
-                            f"Idea B: {summary_b[:150]}\n\n"
-                            "In 1-2 sentences, explain the strategic overlap or synergy. "
-                            "Be specific -- mention actual product features, not generic statements."
-                        ),
-                    )
-                except Exception:
-                    analysis = f"Ideas share a similarity score of {round(1 - dist, 2):.0%}."
-
-                insights.append({
-                    "idea_a_id": idea_a_id,
-                    "idea_b_id": idea_b_id,
-                    "similarity_distance": round(dist, 3),
-                    "analysis": _extract_plain_text(analysis),
-                })
+            seen_pairs.add(pair)
+            insights.append({
+                "id": rec.id,
+                "idea_a_id": rec.idea_a_id,
+                "idea_b_id": rec.idea_b_id,
+                "insight_type": rec.insight_type,
+                "summary": rec.summary,
+                "why_it_matters": rec.why_it_matters,
+                "recommended_action": rec.recommended_action,
+                "confidence": rec.confidence,
+                "similarity_score": rec.similarity_score,
+            })
 
     thought = {
-        "agent": "similarity_finder",
-        "action": "found_pairs",
-        "detail": f"Found {len(insights)} cross-idea relationships above threshold",
+        "agent": "cross_idea_analyzer",
+        "action": "analysis_complete",
+        "detail": f"Produced {len(insights)} structured cross-idea insights",
         "timestamp": utc_now_iso(),
     }
     return {"insights": insights, "agent_thoughts": [thought]}
@@ -143,8 +152,8 @@ def _find_similar_pairs(state: CrossIdeaState) -> dict[str, object]:
 def build_cross_idea_graph():
     graph = StateGraph(CrossIdeaState)
     graph.add_node("load_ideas", _load_ideas)
-    graph.add_node("find_similar_pairs", _find_similar_pairs)
+    graph.add_node("analyze_ideas", _analyze_ideas)
     graph.add_edge(START, "load_ideas")
-    graph.add_edge("load_ideas", "find_similar_pairs")
-    graph.add_edge("find_similar_pairs", END)
+    graph.add_edge("load_ideas", "analyze_ideas")
+    graph.add_edge("analyze_ideas", END)
     return graph.compile()
