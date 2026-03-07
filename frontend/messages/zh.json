@@ -229,5 +229,14 @@
     "empty": "暂无通知。",
     "markRead": "标为已读",
     "loading": "加载中…"
+  },
+  "login": {
+    "welcomeBack": "欢迎回来",
+    "signInContinue": "登录工作区以继续使用。",
+    "testAccountHint": "测试账号已填写 — 用户名 <user>mock</user>，密码 <pass>mock</pass>，直接点击登录。",
+    "username": "用户名",
+    "password": "密码",
+    "signIn": "登录 →",
+    "signingIn": "登录中…"
   }
 }

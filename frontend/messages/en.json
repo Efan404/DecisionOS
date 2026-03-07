@@ -229,5 +229,14 @@
     "empty": "No notifications.",
     "markRead": "Mark as read",
     "loading": "Loading…"
+  },
+  "login": {
+    "welcomeBack": "Welcome back",
+    "signInContinue": "Sign in to your workspace to continue.",
+    "testAccountHint": "Test account pre-filled — username <user>mock</user>, password <pass>mock</pass>. Just click Sign in.",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign in →",
+    "signingIn": "Signing in…"
   }
 }

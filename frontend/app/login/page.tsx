@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { useTranslations } from 'next-intl'
+
 import { login } from '../../lib/api'
 import { clearAuthSession, getAuthSession, setAuthSession } from '../../lib/auth'
 
@@ -19,9 +21,10 @@ const AMBIENT_DOTS = [
 ]
 
 export default function LoginPage() {
+  const t = useTranslations('login')
   const router = useRouter()
-  const [username, setUsername] = useState('test')
-  const [password, setPassword] = useState('test')
+  const [username, setUsername] = useState('mock')
+  const [password, setPassword] = useState('mock')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -82,18 +85,24 @@ export default function LoginPage() {
           <p className="text-xs font-bold tracking-[0.25em] text-[#1e1e1e]/40 uppercase">
             DecisionOS
           </p>
-          <h1 className="mt-8 text-3xl leading-tight font-bold text-[#1e1e1e]">Welcome back</h1>
-          <p className="mt-2 text-sm text-[#1e1e1e]/50">Sign in to your workspace to continue.</p>
+          <h1 className="mt-8 text-3xl leading-tight font-bold text-[#1e1e1e]">
+            {t('welcomeBack')}
+          </h1>
+          <p className="mt-2 text-sm text-[#1e1e1e]/50">{t('signInContinue')}</p>
           <div className="mt-4 rounded-lg border border-[#b9eb10]/40 bg-[#b9eb10]/10 px-3 py-2 text-xs text-[#1e1e1e]/60">
-            Test account pre-filled — username{' '}
-            <span className="font-mono font-medium text-[#1e1e1e]/80">test</span>, password{' '}
-            <span className="font-mono font-medium text-[#1e1e1e]/80">test</span>. Just click Sign
-            in.
+            {t.rich('testAccountHint', {
+              user: (chunks) => (
+                <span className="font-mono font-medium text-[#1e1e1e]/80">{chunks}</span>
+              ),
+              pass: (chunks) => (
+                <span className="font-mono font-medium text-[#1e1e1e]/80">{chunks}</span>
+              ),
+            })}
           </div>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
             <label className="block space-y-1.5 text-sm">
-              <span className="font-medium text-[#1e1e1e]/70">Username</span>
+              <span className="font-medium text-[#1e1e1e]/70">{t('username')}</span>
               <input
                 className="w-full rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-4 py-3 text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/25"
                 value={username}
@@ -104,7 +113,7 @@ export default function LoginPage() {
               />
             </label>
             <label className="block space-y-1.5 text-sm">
-              <span className="font-medium text-[#1e1e1e]/70">Password</span>
+              <span className="font-medium text-[#1e1e1e]/70">{t('password')}</span>
               <input
                 type="password"
                 className="w-full rounded-xl border border-[#1e1e1e]/12 bg-[#f5f5f5] px-4 py-3 text-[#1e1e1e] transition outline-none placeholder:text-[#1e1e1e]/30 focus:border-[#b9eb10] focus:ring-2 focus:ring-[#b9eb10]/25"
@@ -125,7 +134,7 @@ export default function LoginPage() {
               disabled={submitting}
               className="w-full rounded-xl bg-[#1e1e1e] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? 'Signing in...' : 'Sign in →'}
+              {submitting ? t('signingIn') : t('signIn')}
             </button>
           </form>
         </div>
