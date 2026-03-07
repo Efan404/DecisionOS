@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 
 import { getAiSettings, patchAiSettings, testAiProvider } from '../../lib/api'
 import type { AIProviderConfig, AIProviderKind } from '../../lib/schemas'
@@ -19,6 +20,8 @@ const DEFAULT_PROVIDER: AIProviderConfig = {
 }
 
 export function AISettingsPage() {
+  const t = useTranslations('settings')
+  const tCommon = useTranslations('common')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [providers, setProviders] = useState<AIProviderConfig[]>([])
@@ -158,7 +161,7 @@ export function AISettingsPage() {
       <section className="rounded-2xl border border-[#1e1e1e]/10 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-[#1e1e1e]">AI Settings</h1>
+            <h1 className="text-2xl font-semibold text-[#1e1e1e]">{t('aiSettings')}</h1>
             <p className="mt-1 text-sm text-[#1e1e1e]/50">
               Configure your AI provider. Exactly one provider can be active at a time.
             </p>
@@ -182,7 +185,7 @@ export function AISettingsPage() {
                   onClick={addProvider}
                   className="rounded-xl border border-[#1e1e1e]/15 bg-white px-3 py-2 text-sm font-medium text-[#1e1e1e]/70 transition hover:bg-[#f5f5f5]"
                 >
-                  Add Provider
+                  {t('addProvider')}
                 </button>
               </div>
 
@@ -244,54 +247,54 @@ export function AISettingsPage() {
                               color: isActive ? '#ffffff' : '#1e1e1e99',
                             }}
                           >
-                            {testingIds[testKey] ? 'Testing...' : 'Test'}
+                            {testingIds[testKey] ? t('testing') : t('test')}
                           </button>
                           <button
                             type="button"
                             onClick={() => removeProvider(index)}
                             className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-100"
                           >
-                            Remove
+                            {t('remove')}
                           </button>
                         </div>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-2">
                         {[
-                          { label: 'Provider ID', key: 'id', type: 'text', value: provider.id },
+                          { label: t('providerId'), key: 'id', type: 'text', value: provider.id },
                           {
-                            label: 'Display Name',
+                            label: t('displayName'),
                             key: 'name',
                             type: 'text',
                             value: provider.name,
                           },
                           {
-                            label: 'Base URL',
+                            label: t('baseUrl'),
                             key: 'base_url',
                             type: 'text',
                             value: provider.base_url,
                             placeholder: 'https://api.openai.com/v1',
                           },
                           {
-                            label: 'API Key (optional)',
+                            label: t('apiKeyOptional'),
                             key: 'api_key',
                             type: 'password',
                             value: provider.api_key ?? '',
                           },
                           {
-                            label: 'Model (optional)',
+                            label: t('modelOptional'),
                             key: 'model',
                             type: 'text',
                             value: provider.model ?? '',
                           },
                           {
-                            label: 'Timeout Seconds',
+                            label: t('timeoutSeconds'),
                             key: 'timeout_seconds',
                             type: 'number',
                             value: provider.timeout_seconds,
                           },
                           {
-                            label: 'Temperature',
+                            label: t('temperature'),
                             key: 'temperature',
                             type: 'number',
                             value: provider.temperature,
@@ -354,7 +357,7 @@ export function AISettingsPage() {
                             className="mb-1 block"
                             style={{ color: isActive ? '#ffffff88' : '#1e1e1e66' }}
                           >
-                            Provider Kind
+                            {t('providerKind')}
                           </span>
                           <select
                             value={provider.kind}
@@ -397,7 +400,7 @@ export function AISettingsPage() {
                 disabled={saving}
                 className="rounded-xl bg-[#1e1e1e] px-5 py-2.5 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? 'Saving...' : 'Save AI Settings'}
+                {saving ? tCommon('saving') : t('saveAiSettings')}
               </button>
             </div>
           </>
