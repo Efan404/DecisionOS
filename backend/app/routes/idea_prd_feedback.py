@@ -13,7 +13,7 @@ router = APIRouter(prefix="/ideas/{idea_id}/prd", tags=["idea-prd-feedback"])
 _repo = IdeaRepository()
 
 
-@dataclass(frozen=True)
+@dataclass
 class _FeedbackStateError(Exception):
     code: str
     message: str
