@@ -35,7 +35,7 @@ export function ScopeBoard({
   )
 
   return (
-    <section className="relative mx-auto w-full max-w-5xl p-6">
+    <section id="onboarding-scope-board" className="relative mx-auto w-full max-w-5xl p-6">
       <div className="grid gap-4 md:grid-cols-2">
         <ScopeColumn
           title="IN Scope"

@@ -188,7 +188,8 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
         }
       )
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to expand node. Please try again.'
+      const message =
+        err instanceof Error ? err.message : 'Failed to expand node. Please try again.'
       toast.error(message)
     } finally {
       setExpandingNode(null)
@@ -246,7 +247,7 @@ export function IdeaDAGCanvas({ ideaId }: Props) {
   const selectedNode = dagNodes.find((n) => n.id === selectedNodeId) ?? null
 
   return (
-    <div className="flex h-full w-full bg-[#0F172A]">
+    <div id="onboarding-dag-canvas" className="flex h-full w-full bg-[#0F172A]">
       <div className="relative flex-1">
         <ReactFlow
           nodes={rfNodes}

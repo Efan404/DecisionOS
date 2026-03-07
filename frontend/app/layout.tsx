@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 import { AppShell } from '../components/layout/AppShell'
+import { OnboardingProvider } from '../components/onboarding/OnboardingProvider'
 import { StoreHydration } from '../components/providers/StoreHydration'
 import { ToasterProvider } from '../components/providers/ToasterProvider'
 
@@ -25,7 +26,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className="min-h-screen bg-[#f5f5f5] text-[#1e1e1e] antialiased">
         <StoreHydration />
         <ToasterProvider />
-        <AppShell>{children}</AppShell>
+        <OnboardingProvider>
+          <AppShell>{children}</AppShell>
+        </OnboardingProvider>
       </body>
     </html>
   )
