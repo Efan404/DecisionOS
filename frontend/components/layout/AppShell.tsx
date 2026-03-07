@@ -15,9 +15,8 @@ import {
   subscribeAuthSession,
 } from '../../lib/auth'
 import { CircleHelp, Ghost, LogOut, Settings, TrendingUp } from 'lucide-react'
-import { useOnborda } from 'onborda'
+import { useTour } from '../onboarding/OnboardingProvider'
 import { NotificationBell } from '../notifications/NotificationBell'
-import { useOnboarding } from '../onboarding/useOnboarding'
 
 type StepItem = {
   step: 'ideas' | IdeaStep
@@ -56,12 +55,10 @@ const getBadgeLabel = (item: StepItem, isHydrated: boolean) => {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { startOnborda } = useOnborda()
-  const { resetTour } = useOnboarding()
+  const { startTour } = useTour()
 
   const handleStartTour = () => {
-    resetTour()
-    startOnborda('main')
+    startTour()
   }
   const isLoginRoute = pathname === '/login'
   const [mounted, setMounted] = useState(false)
@@ -283,7 +280,7 @@ export function AppShell({ children }: AppShellProps) {
       </a>
 
       {/* ── Top navbar ─────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 right-0 left-0 z-30 border-b border-[#1e1e1e]/8 bg-white/95 backdrop-blur-md">
+      <header className="border-b border-[#1e1e1e]/8 bg-white shadow-sm">
         <div className="mx-auto flex w-full max-w-[1480px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           {/* Brand */}
           <div className="flex items-center gap-3">
@@ -310,12 +307,26 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right: Bell  +  [Settings | User | Logout] grouped pill */}
+          {/* Right controls */}
           <div className="flex items-center gap-2">
-            {/* Notification bell — standalone so badge has room */}
-            <NotificationBell />
+            {/* Group 1: Insights + Notifications (related intel) */}
+            <div className="hidden items-center gap-1 sm:flex">
+              <Link
+                href="/insights"
+                aria-label="Market Insights"
+                title="Market Insights"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#1e1e1e]/12 bg-white text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+              >
+                <TrendingUp size={14} />
+              </Link>
+              <NotificationBell />
+            </div>
+            {/* Mobile: bell only */}
+            <div className="sm:hidden">
+              <NotificationBell />
+            </div>
 
-            {/* Help / tour trigger */}
+            {/* Group 2: Help / tour trigger — standalone */}
             <button
               id="onboarding-help-btn"
               type="button"
@@ -327,16 +338,8 @@ export function AppShell({ children }: AppShellProps) {
               <CircleHelp size={14} />
             </button>
 
-            {/* Grouped toolbar pill: Settings | Profile | Logout */}
+            {/* Group 3: Settings | Profile | Logout */}
             <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
-              <Link
-                href="/insights"
-                aria-label="Market Insights"
-                title="Market Insights"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
-              >
-                <TrendingUp size={14} />
-              </Link>
               <Link
                 href="/settings"
                 aria-label="Settings"
@@ -397,7 +400,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Mobile horizontal scrollable step strip */}
         <nav
           aria-label="Workflow steps"
-          className="flex overflow-x-auto border-t border-[#1e1e1e]/6 bg-white/95 px-3 py-2 md:hidden"
+          className="flex overflow-x-auto border-t border-[#1e1e1e]/6 bg-white px-3 py-2 md:hidden"
         >
           {steps.map((item) => {
             const isActive = getIsActive(pathname, item.step)
@@ -438,7 +441,7 @@ export function AppShell({ children }: AppShellProps) {
           <nav
             ref={navRef}
             aria-label="Workflow steps"
-            className="border-t border-[#1e1e1e]/6 bg-white/95 backdrop-blur-md md:hidden"
+            className="border-t border-[#1e1e1e]/6 bg-white md:hidden"
           >
             <ul className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
               {steps.map((item, index) => renderStepCard(item, index))}
@@ -486,8 +489,7 @@ export function AppShell({ children }: AppShellProps) {
       </header>
 
       {/* ── Main content ───────────────────────────────────────────────────── */}
-      {/* pt accounts for navbar (≈52px) + step strip (≈40px mobile) or step cards (≈116px desktop) */}
-      <div className="mx-auto w-full max-w-[1480px] px-4 pt-[100px] pb-8 sm:px-6 md:pt-[196px] lg:px-8">
+      <div className="mx-auto w-full max-w-[1480px] px-4 pt-6 pb-8 sm:px-6 lg:px-8">
         <section
           id="main-content"
           tabIndex={-1}

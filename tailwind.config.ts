@@ -4,7 +4,7 @@ const config: Config = {
   content: [
     './frontend/app/**/*.{js,ts,jsx,tsx,mdx}',
     './frontend/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './node_modules/onborda/dist/**/*.{js,ts,jsx,tsx}',
+    './node_modules/nextstepjs/dist/**/*.{js,ts,jsx,tsx}',
   ],
 }
 

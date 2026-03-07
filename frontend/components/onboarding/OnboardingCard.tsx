@@ -1,6 +1,6 @@
 'use client'
 
-import type { CardComponentProps } from 'onborda'
+import type { CardComponentProps } from 'nextstepjs'
 
 export function OnboardingCard({
   step,
@@ -18,7 +18,7 @@ export function OnboardingCard({
       className="relative w-72 rounded-2xl p-5 shadow-2xl"
       style={{ background: '#1e1e1e', border: '1.5px solid #b9eb1044' }}
     >
-      {/* Arrow pointer rendered by onborda */}
+      {/* Arrow pointer rendered by nextstepjs */}
       {arrow}
 
       {/* Step counter */}

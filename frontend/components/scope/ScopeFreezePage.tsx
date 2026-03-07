@@ -15,7 +15,9 @@ import {
   getScopeDraft,
   patchScopeDraft,
   postIdeaScopedAgent,
+  streamScopeAgent,
 } from '../../lib/api'
+import { type ProgressStep, GenerationProgress } from '../common/GenerationProgress'
 import { canOpenScope } from '../../lib/guards'
 import { buildIdeaStepHref, resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -28,6 +30,29 @@ import {
   type ScopeOutput,
 } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
+
+const SCOPE_STEPS: { key: string; label: string }[] = [
+  { key: 'received_request', label: 'Receiving request' },
+  { key: 'analyzing_context', label: 'Analyzing confirmed path' },
+  { key: 'saving', label: 'Saving scope items' },
+  { key: 'done', label: 'Scope generated' },
+]
+
+function buildScopeProgressSteps(currentStep: string | null): ProgressStep[] {
+  const currentIndex = SCOPE_STEPS.findIndex((s) => s.key === currentStep)
+  return SCOPE_STEPS.map((s, i) => ({
+    key: s.key,
+    label: s.label,
+    status:
+      currentStep === null
+        ? 'pending'
+        : i < currentIndex
+          ? 'done'
+          : i === currentIndex
+            ? 'active'
+            : 'pending',
+  }))
+}
 
 const normalizeDisplayOrder = (items: ScopeBaselineItem[]): ScopeBaselineItem[] => {
   const grouped: Record<'in' | 'out', ScopeBaselineItem[]> = {
@@ -121,6 +146,8 @@ export function ScopeFreezePage() {
   const [ideaVersion, setLocalIdeaVersion] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [scopeGenerating, setScopeGenerating] = useState(false)
+  const [scopeProgressStep, setScopeProgressStep] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [loadedIdeaId, setLoadedIdeaId] = useState<string | null>(null)
   const canOpen = canOpenScope(context)
@@ -169,25 +196,59 @@ export function ScopeFreezePage() {
           return { draft: currentDraft, version: workingVersion, versionChanged }
         }
 
+        setScopeGenerating(true)
+        setScopeProgressStep(null)
+        let scopeDonePayload: { idea_id: string; idea_version: number; data: ScopeOutput } | null =
+          null
         try {
-          const envelope = await postIdeaScopedAgent<ScopeInput & { version: number }, ScopeOutput>(
-            ideaId,
-            'scope',
-            payload
-          )
-          sourceScope = envelope.data
-          workingVersion = envelope.idea_version
-          versionChanged = true
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 409) {
-            const synced = await syncContextFromServer(workingVersion)
-            return {
-              draft: currentDraft,
-              version: synced.version,
-              versionChanged: synced.version !== startVersion,
+          await streamScopeAgent(ideaId, payload, {
+            onProgress: (data) => {
+              if (typeof data === 'object' && data !== null && 'step' in data) {
+                setScopeProgressStep((data as { step: string }).step)
+              }
+            },
+            onDone: (data) => {
+              scopeDonePayload = data as {
+                idea_id: string
+                idea_version: number
+                data: ScopeOutput
+              }
+            },
+          })
+        } catch {
+          // SSE failed — fall back to REST
+          setScopeGenerating(false)
+          setScopeProgressStep(null)
+          try {
+            const envelope = await postIdeaScopedAgent<
+              ScopeInput & { version: number },
+              ScopeOutput
+            >(ideaId, 'scope', payload)
+            sourceScope = envelope.data
+            workingVersion = envelope.idea_version
+            versionChanged = true
+          } catch (restError) {
+            if (restError instanceof ApiError && restError.status === 409) {
+              const synced = await syncContextFromServer(workingVersion)
+              return {
+                draft: currentDraft,
+                version: synced.version,
+                versionChanged: synced.version !== startVersion,
+              }
             }
+            throw restError
           }
-          throw error
+        }
+        setScopeGenerating(false)
+        setScopeProgressStep(null)
+        if (scopeDonePayload) {
+          sourceScope = (
+            scopeDonePayload as { idea_id: string; idea_version: number; data: ScopeOutput }
+          ).data
+          workingVersion = (
+            scopeDonePayload as { idea_id: string; idea_version: number; data: ScopeOutput }
+          ).idea_version
+          versionChanged = true
         }
       }
 
@@ -217,7 +278,7 @@ export function ScopeFreezePage() {
         throw error
       }
     },
-    [context, syncContextFromServer]
+    [context, syncContextFromServer, setScopeGenerating, setScopeProgressStep]
   )
 
   useEffect(() => {
@@ -485,12 +546,12 @@ export function ScopeFreezePage() {
   }
 
   const handleFreeze = async () => {
-    if (!routeIdeaId || !draft || draft.readonly) {
+    if (!routeIdeaId || !draft || draft.readonly || draft.baseline.status === 'frozen') {
       return
     }
     const currentVersion = ideaVersion ?? activeIdea?.version
     if (!currentVersion) {
-      setErrorMessage('Missing idea version for freeze.')
+      setErrorMessage('Missing idea version.')
       return
     }
 
@@ -502,7 +563,6 @@ export function ScopeFreezePage() {
         envelope = await freezeScope(routeIdeaId, { version: versionToUse })
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
-          // Version drifted (e.g. concurrent scope/agents call) — re-sync and retry once
           const synced = await syncContextFromServer(versionToUse)
           versionToUse = synced.version
           envelope = await freezeScope(routeIdeaId, { version: versionToUse })
@@ -517,6 +577,35 @@ export function ScopeFreezePage() {
       toast.success('Baseline frozen')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to freeze baseline.'
+      setErrorMessage(message)
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleContinueToPrd = async () => {
+    if (!routeIdeaId || !draft || !canEnterPrd) {
+      return
+    }
+    const currentVersion = ideaVersion ?? activeIdea?.version
+    if (!currentVersion) {
+      setErrorMessage('Missing idea version.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const synced = await syncContextFromServer(currentVersion)
+      if (!synced.synced) {
+        const message = 'Failed to sync context before opening PRD.'
+        setErrorMessage(message)
+        toast.error(message)
+        return
+      }
+      router.push(buildIdeaStepHref(routeIdeaId, 'prd', { baseline_id: draft.baseline.id }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to navigate to PRD.'
       setErrorMessage(message)
       toast.error(message)
     } finally {
@@ -563,31 +652,6 @@ export function ScopeFreezePage() {
     }
   }
 
-  const handleContinueToPrd = async () => {
-    if (!routeIdeaId || !draft?.baseline.id || draft.baseline.status !== 'frozen') {
-      return
-    }
-    const currentVersion = ideaVersion ?? activeIdea?.version
-    if (!currentVersion) {
-      setErrorMessage('Missing idea version for PRD navigation.')
-      return
-    }
-
-    setSaving(true)
-    try {
-      const synced = await syncContextFromServer(currentVersion)
-      if (!synced.synced) {
-        const message = 'Failed to sync latest scope context before opening PRD.'
-        setErrorMessage(message)
-        toast.error(message)
-        return
-      }
-      router.push(buildIdeaStepHref(routeIdeaId, 'prd', { baseline_id: draft.baseline.id }))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   if (!canOpen) {
     return (
       <main className="p-6">
@@ -628,11 +692,20 @@ export function ScopeFreezePage() {
           ) : null}
         </div>
 
-        {/* Loading skeleton */}
-        {loading && !draft ? (
-          <div className="mt-4 space-y-2">
-            <div className="h-4 w-48 animate-pulse rounded-md bg-[#f0f0f0]" />
-            <div className="h-4 w-32 animate-pulse rounded-md bg-[#f0f0f0]" />
+        {/* Loading / generation progress */}
+        {(loading && !draft) || scopeGenerating ? (
+          <div className="mt-4">
+            {scopeGenerating ? (
+              <GenerationProgress
+                steps={buildScopeProgressSteps(scopeProgressStep)}
+                isActive={scopeGenerating}
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="h-4 w-48 animate-pulse rounded-md bg-[#f0f0f0]" />
+                <div className="h-4 w-32 animate-pulse rounded-md bg-[#f0f0f0]" />
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -654,26 +727,31 @@ export function ScopeFreezePage() {
             >
               Create New Version
             </button>
-          ) : (
+          ) : null}
+          {!readonly && draft?.baseline.status !== 'frozen' ? (
             <button
-              id="onboarding-freeze-btn"
+              id="onboarding-scope-board"
               type="button"
-              onClick={handleFreeze}
+              onClick={() => {
+                void handleFreeze()
+              }}
               disabled={saving || loading || !draft}
-              className="w-full rounded-xl bg-[#1e1e1e] px-4 py-2 text-sm font-bold text-[#b9eb10] transition hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              className="w-full rounded-xl border border-[#1e1e1e]/15 bg-white px-4 py-2 text-sm font-medium text-[#1e1e1e]/80 transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {saving ? 'Freezing…' : 'Freeze Baseline'}
             </button>
-          )}
+          ) : null}
           <button
             type="button"
-            onClick={handleContinueToPrd}
-            disabled={!canEnterPrd || saving}
+            onClick={() => {
+              void handleContinueToPrd()
+            }}
+            disabled={saving || loading || !canEnterPrd}
             className="w-full rounded-xl bg-[#b9eb10] px-4 py-2 text-sm font-bold text-[#1e1e1e] transition hover:bg-[#d4f542] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             Continue to PRD →
           </button>
-          {saving && !readonly ? (
+          {saving ? (
             <span className="flex items-center gap-1.5 text-xs text-[#1e1e1e]/40">
               <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#1e1e1e]/20 border-t-[#1e1e1e]/60" />
               Saving…
@@ -688,7 +766,7 @@ export function ScopeFreezePage() {
           readonly={readonly}
           onAddItem={handleAddItem}
           onDeleteItem={handleDeleteItem}
-          onMoveItem={handleMoveItem}
+          onMoveItem={() => {}}
           onReorderItems={applyDraftItems}
         />
       ) : null}

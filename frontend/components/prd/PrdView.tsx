@@ -11,6 +11,7 @@ import type {
   PrdFeedbackLatest,
   PrdOutput,
 } from '../../lib/schemas'
+import { type ProgressStep, GenerationProgress } from '../common/GenerationProgress'
 import { HoverCard } from '../common/HoverCard'
 import { PrdBacklogPanel } from './PrdBacklogPanel'
 import { PrdFeedbackBubble } from './PrdFeedbackBubble'
@@ -22,6 +23,8 @@ type PrdViewProps = {
   feedbackLatest?: PrdFeedbackLatest
   context: DecisionContext
   loading?: boolean
+  progressSteps?: ProgressStep[]
+  progressPct?: number
   errorMessage?: string | null
   onRetry?: () => void
   onSubmitFeedback?: (payload: {
@@ -264,6 +267,8 @@ export function PrdView({
   feedbackLatest,
   context,
   loading = false,
+  progressSteps,
+  progressPct,
   errorMessage = null,
   onRetry,
   onSubmitFeedback,
@@ -389,8 +394,13 @@ export function PrdView({
       {/* Status banner */}
       <StatusBanner errorMessage={errorMessage} hasStaleOutput={hasStaleOutput} onRetry={onRetry} />
 
+      {/* Generation progress — shown whenever loading, regardless of existing output */}
+      {loading && progressSteps ? (
+        <GenerationProgress steps={progressSteps} isActive={loading} pct={progressPct} />
+      ) : null}
+
       {/* Main content */}
-      {output ? (
+      {output && !loading ? (
         <div className="space-y-4">
           {/* Tab bar */}
           <div className="flex w-full max-w-fit items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-1">
@@ -576,20 +586,14 @@ export function PrdView({
             </ul>
           ) : null}
         </div>
-      ) : (
-        /* Empty state — loading spinner or placeholder */
-        <div className="space-y-4">
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
-            <p className="text-sm text-slate-500">
-              {loading
-                ? 'Waiting for agent\u2026'
-                : errorMessage
-                  ? 'Generation failed.'
-                  : 'No PRD generated yet.'}
-            </p>
-          </div>
+      ) : !loading ? (
+        /* Empty state — only shown when not loading and no output */
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
+          <p className="text-sm text-slate-500">
+            {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
+          </p>
         </div>
-      )}
+      ) : null}
 
       {showFeedbackBubble && onSubmitFeedback ? (
         <PrdFeedbackBubble

@@ -15,6 +15,7 @@ import type {
   ScopeBaselineResponse,
   ScopeDraftResponse,
   ScopeDraftUpdateRequest,
+  ScopeInput,
   ScopeVersionedRequest,
   PrdFeedbackLatest,
   PrdFeedbackRequest,
@@ -352,6 +353,20 @@ export const postIdeaScopedAgent = async <TRequest, TData>(
     `/ideas/${ideaId}/agents/${route}`,
     payload
   )
+}
+
+export const streamScopeAgent = async (
+  ideaId: string,
+  payload: ScopeInput & { version: number },
+  handlers: {
+    onProgress?: (data: unknown) => void
+    onAgentThought?: (data: { agent: string; thought: string }) => void
+    onDone?: (data: unknown) => void
+  },
+  signal?: AbortSignal
+): Promise<void> => {
+  const { streamPost } = await import('./sse')
+  return streamPost(`/ideas/${ideaId}/agents/scope/stream`, payload, handlers, signal)
 }
 
 export const postPrdFeedback = async (

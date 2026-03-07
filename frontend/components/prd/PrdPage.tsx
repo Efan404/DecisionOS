@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
+import { type ProgressStep } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
 import { ApiError, downloadPrdBacklogExport, postPrdFeedback } from '../../lib/api'
@@ -15,6 +16,33 @@ import { type PrdFeedbackDimensions } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
 
 const globalPrdGenerationRequests = new Set<string>()
+
+const PRD_STEPS: { key: string; label: string }[] = [
+  { key: 'validating', label: 'Validating idea context' },
+  { key: 'building_context', label: 'Building PRD context pack' },
+  { key: 'running_graph', label: 'Starting AI agents' },
+  { key: 'requirements_writing', label: 'Writing requirements & PRD…' },
+  { key: 'requirements_done', label: 'Requirements written' },
+  { key: 'backlog_writing', label: 'Generating backlog…' },
+  { key: 'backlog_done', label: 'Backlog generated' },
+  { key: 'saving', label: 'Saving to database' },
+]
+
+function buildPrdProgressSteps(currentStep: string | null): ProgressStep[] {
+  const currentIndex = PRD_STEPS.findIndex((s) => s.key === currentStep)
+  return PRD_STEPS.map((s, i) => ({
+    key: s.key,
+    label: s.label,
+    status:
+      currentStep === null
+        ? 'pending'
+        : i < currentIndex
+          ? 'done'
+          : i === currentIndex
+            ? 'active'
+            : 'pending',
+  }))
+}
 
 type PrdPageProps = {
   baselineId?: string | null
@@ -36,6 +64,8 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   setIdeaVersionRef.current = useIdeasStore((state) => state.setIdeaVersion)
   loadIdeaDetailRef.current = useIdeasStore((state) => state.loadIdeaDetail)
   const [loading, setLoading] = useState(false)
+  const [progressStep, setProgressStep] = useState<string | null>(null)
+  const [progressPct, setProgressPct] = useState<number>(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
@@ -97,8 +127,16 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
     let cancelled = false
     setLoading(true)
+    setProgressStep(null)
+    setProgressPct(0)
     setErrorMessage(null)
     reset()
+    // Clear stale PRD so PrdView shows the loading progress instead of old content
+    replaceContextRef.current({
+      ...useDecisionStore.getState().context,
+      prd: undefined,
+      prd_bundle: undefined,
+    })
 
     const run = async () => {
       console.log(
@@ -118,6 +156,13 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           {
             onEvent: (_event) => {
               // SSE events (requirements, backlog) are incorporated via loadIdeaDetail on done
+            },
+            onProgress: (data) => {
+              if (!cancelled && typeof data === 'object' && data !== null && 'step' in data) {
+                const d = data as { step: string; pct?: number }
+                setProgressStep(d.step)
+                if (typeof d.pct === 'number') setProgressPct(d.pct)
+              }
             },
             onDone: (data) => {
               if (!cancelled) {
@@ -165,6 +210,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         }
         globalPrdGenerationRequests.delete(requestKey)
         setLoading(false)
+        setProgressStep(null)
       }
     }
 
@@ -255,14 +301,16 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
   return (
     <main>
-      {(loading || thoughts.length > 0) && (
-        <div className="mx-auto w-full max-w-7xl px-6 pt-4">
+      {thoughts.length > 0 && (
+        <div className="mx-auto w-full max-w-7xl px-6 pt-3">
           <AgentThoughtStream thoughts={thoughts} isActive={loading} />
         </div>
       )}
       <PrdView
         prd={context.prd_bundle?.output ?? context.prd}
         bundle={context.prd_bundle}
+        progressSteps={loading ? buildPrdProgressSteps(progressStep) : undefined}
+        progressPct={loading ? progressPct : undefined}
         context={context}
         loading={loading}
         errorMessage={errorMessage}

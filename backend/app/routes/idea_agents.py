@@ -165,6 +165,72 @@ async def post_scope(idea_id: str, payload: ScopeIdeaRequest) -> ScopeAgentRespo
     return ScopeAgentResponse(idea_id=idea_id, idea_version=idea_version, data=output)
 
 
+@router.post("/scope/stream")
+async def stream_scope(idea_id: str, payload: ScopeIdeaRequest) -> EventSourceResponse:
+    """SSE-streaming scope generation. Wraps synchronous llm.generate_scope in a thread pool."""
+    _logger.info("agent.scope.stream.start idea_id=%s version=%s", idea_id, payload.version)
+
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
+        yield _sse_event("progress", {"step": "received_request", "pct": 5})
+
+        current = _repo.get_idea(idea_id)
+        if current is None:
+            yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+            return
+        if current.version != payload.version:
+            yield _sse_event("error", {
+                "code": "IDEA_VERSION_CONFLICT",
+                "message": f"Version conflict: expected {current.version}, got {payload.version}",
+            })
+            return
+
+        yield _sse_agent_thought("Architect", "Analyzing confirmed path and feasibility plan...")
+        yield _sse_event("progress", {"step": "analyzing_context", "pct": 15})
+
+        loop = asyncio.get_running_loop()
+        try:
+            output: ScopeOutput = await loop.run_in_executor(None, llm.generate_scope, payload)
+        except Exception as exc:
+            _raise_if_no_provider(exc)
+            _logger.exception("agent.scope.stream.failed idea_id=%s", idea_id)
+            yield _sse_event("error", {"code": "SCOPE_GENERATION_FAILED", "message": str(exc)})
+            return
+
+        yield _sse_agent_thought(
+            "Architect",
+            f"Generated {len(output.in_scope)} in-scope and {len(output.out_scope)} out-of-scope items",
+        )
+        yield _sse_event("progress", {"step": "saving", "pct": 85})
+
+        result = _repo.apply_agent_update(
+            idea_id,
+            version=payload.version,
+            mutate_context=lambda context: _apply_scope(context, payload, output),
+            allow_conflict_retry=True,
+        )
+        error_payload = _sse_error_payload(result)
+        if error_payload is not None:
+            _logger.warning(
+                "agent.scope.stream.failed idea_id=%s version=%s code=%s",
+                idea_id,
+                payload.version,
+                error_payload.get("code", "UNKNOWN_ERROR"),
+            )
+            yield _sse_event("error", error_payload)
+            return
+
+        assert result.idea is not None
+        _logger.info("agent.scope.stream.done idea_id=%s idea_version=%s", idea_id, result.idea.version)
+        yield _sse_event("progress", {"step": "done", "pct": 100})
+        yield _sse_event("done", {
+            "idea_id": idea_id,
+            "idea_version": result.idea.version,
+            "data": output.model_dump(),
+        })
+
+    return EventSourceResponse(event_generator())
+
+
 @router.post("/prd", response_model=PRDAgentResponse)
 async def post_prd(idea_id: str, payload: PRDIdeaRequest) -> PRDAgentResponse:
     _logger.info(
@@ -644,40 +710,68 @@ async def stream_prd(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRespon
 
         yield _sse_event("progress", {"step": "running_graph", "pct": 15})
 
-        # ── Stream LangGraph node updates ─────────────────────────────────────
+        # ── Stream LangGraph node events ───────────────────────────────────────
+        # Use astream_events so we get on_chain_start for each node BEFORE the
+        # blocking LLM call completes — this drives the progress bar forward in
+        # real time instead of waiting for a node to finish.
+        #
+        # Node → progress step mapping:
+        #   context_loader start      → running_graph (already emitted above)
+        #   requirements_writer start → "requirements_writing" (fake step, maps to "running_graph" visually)
+        #   markdown_writer start     → same
+        #   backlog_writer start      → "backlog_writing"
+        #   requirements_writer end   → requirements_done
+        #   backlog_writer end        → backlog_done
+        _NODE_START_STEPS: dict[str, tuple[str, int]] = {
+            "requirements_writer": ("requirements_writing", 25),
+            "markdown_writer":     ("requirements_writing", 30),
+            "backlog_writer":      ("backlog_writing", 55),
+        }
         try:
             graph = build_prd_graph()
             final_state: dict[str, object] = dict(initial_state)  # type: ignore[assignment]
 
-            # LangGraph's astream yields {node_name: state_updates} dicts
-            async for chunk in graph.astream(initial_state, stream_mode="updates"):
-                for node_name, updates in chunk.items():
-                    if not isinstance(updates, dict):
+            async for event in graph.astream_events(initial_state, version="v2"):
+                kind = event.get("event", "")
+                name = event.get("name", "")
+
+                # ── Node started → push progress immediately ───────────────────
+                if kind == "on_chain_start" and name in _NODE_START_STEPS:
+                    step, pct = _NODE_START_STEPS[name]
+                    yield _sse_event("progress", {"step": step, "pct": pct})
+
+                # ── Node finished → extract state updates ─────────────────────
+                elif kind == "on_chain_end" and name in (
+                    "requirements_writer", "markdown_writer",
+                    "backlog_writer", "prd_reviewer", "memory_writer",
+                ):
+                    output = event.get("data", {}).get("output") or {}
+                    if not isinstance(output, dict):
                         continue
 
-                    # Emit each agent thought as a dedicated SSE event
-                    for thought in updates.get("agent_thoughts", []):
+                    # Emit agent thoughts
+                    for thought in output.get("agent_thoughts", []):
                         yield _sse_agent_thought(
-                            thought.get("agent", node_name),
+                            thought.get("agent", name),
                             thought.get("detail", ""),
                         )
 
-                    # Emit requirements as soon as they're ready (progressive render)
-                    if "prd_requirements" in updates and updates["prd_requirements"]:
+                    # Progressive render: requirements ready
+                    if "prd_requirements" in output and output["prd_requirements"]:
                         yield _sse_event("requirements", {
-                            "requirements": updates["prd_requirements"]
+                            "requirements": output["prd_requirements"]
                         })
                         yield _sse_event("progress", {"step": "requirements_done", "pct": 45})
 
-                    # Emit backlog as soon as it's ready
-                    if "prd_backlog_items" in updates and updates["prd_backlog_items"]:
+                    # Progressive render: backlog ready
+                    if "prd_backlog_items" in output and output["prd_backlog_items"]:
                         yield _sse_event("backlog", {
-                            "items": updates["prd_backlog_items"]
+                            "items": output["prd_backlog_items"]
                         })
                         yield _sse_event("progress", {"step": "backlog_done", "pct": 75})
 
-                    # Accumulate final state
-                    for k, v in updates.items():
+                    # Accumulate into final_state
+                    for k, v in output.items():
                         if k == "agent_thoughts":
                             existing = final_state.get("agent_thoughts", [])
                             final_state["agent_thoughts"] = list(existing) + list(v)  # type: ignore[arg-type]

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
+import { type ProgressStep, GenerationProgress } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
-import { MarketEvidencePanel } from '../evidence/MarketEvidencePanel'
 import { PlanCards } from './PlanCards'
 import { getIdea, postIdeaScopedAgent } from '../../lib/api'
 import { buildConfirmedPathContext, getLatestPath } from '../../lib/dag-api'
@@ -26,6 +26,34 @@ const isAbortError = (error: unknown): boolean => {
   return error instanceof DOMException && error.name === 'AbortError'
 }
 
+const FEASIBILITY_STEPS: { key: string; label: string }[] = [
+  { key: 'received_request', label: 'Received request' },
+  { key: 'waiting', label: 'Generating 3 plans in parallel' },
+  { key: 'plan_1', label: 'Plan 1 ready' },
+  { key: 'plan_2', label: 'Plan 2 ready' },
+  { key: 'plan_3', label: 'Plan 3 ready' },
+  { key: 'saving', label: 'Saving results' },
+]
+
+function buildFeasibilityProgressSteps(currentStep: string | null): ProgressStep[] {
+  // plan_1/2/3 are sequential — map all three to a single "waiting" bucket while < plan_3
+  const normalizedStep =
+    currentStep === 'plan_1' || currentStep === 'plan_2' ? 'waiting' : currentStep
+  const currentIndex = FEASIBILITY_STEPS.findIndex((s) => s.key === normalizedStep)
+  return FEASIBILITY_STEPS.map((s, i) => ({
+    key: s.key,
+    label: s.label,
+    status:
+      currentStep === null
+        ? 'pending'
+        : i < currentIndex
+          ? 'done'
+          : i === currentIndex
+            ? 'active'
+            : 'pending',
+  }))
+}
+
 export function FeasibilityPage() {
   const context = useDecisionStore((state) => state.context)
   const setFeasibility = useDecisionStore((state) => state.feasibility)
@@ -36,7 +64,7 @@ export function FeasibilityPage() {
   const setIdeaVersion = useIdeasStore((state) => state.setIdeaVersion)
   const [plans, setPlans] = useState<FeasibilityPlan[]>(context.feasibility?.plans ?? [])
   const [loading, setLoading] = useState(false)
-  const [progressPct, setProgressPct] = useState<number>(0)
+  const [progressStep, setProgressStep] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [confirmedPathContext, setConfirmedPathContext] = useState<ConfirmedPathContext | null>(
     null
@@ -141,7 +169,7 @@ export function FeasibilityPage() {
     abortRef.current = controller
     setErrorMessage(null)
     setPlans([])
-    setProgressPct(0)
+    setProgressStep(null)
     setLoading(true)
     reset()
 
@@ -160,10 +188,9 @@ export function FeasibilityPage() {
                 mountedRef.current &&
                 typeof data === 'object' &&
                 data !== null &&
-                'pct' in data
+                'step' in data
               ) {
-                const pct = Number((data as { pct: number }).pct)
-                setProgressPct(Number.isFinite(pct) ? pct : 0)
+                setProgressStep((data as { step: string }).step)
               }
             },
             onPartial: (data) => {
@@ -311,21 +338,13 @@ export function FeasibilityPage() {
         </p>
       </div>
 
-      {/* Progress bar */}
+      {/* Generation progress */}
       {loading ? (
         <div className="mt-4">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs text-[#1e1e1e]/40">
-              {plans.length > 0 ? `${plans.length}/3 plans ready` : 'Analyzing…'}
-            </span>
-            <span className="text-xs font-medium text-[#1e1e1e]/60">{progressPct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e0e0e0]">
-            <div
-              className="h-full rounded-full bg-[#b9eb10] transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+          <GenerationProgress
+            steps={buildFeasibilityProgressSteps(progressStep)}
+            isActive={loading}
+          />
         </div>
       ) : null}
 
@@ -339,9 +358,7 @@ export function FeasibilityPage() {
       </div>
 
       {/* Market Evidence */}
-      <div className="mt-4">
-        <MarketEvidencePanel ideaId={activeIdeaId} />
-      </div>
+      <div className="mt-4"></div>
 
       {showEmptyState ? (
         <section className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-10 text-center">
