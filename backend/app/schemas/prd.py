@@ -69,6 +69,14 @@ class PRDBacklogOutput(BaseModel):
     backlog: PRDBacklog
 
 
+class PRDFullOutput(BaseModel):
+    """Single-call output combining requirements + markdown + backlog."""
+    requirements: list[PRDRequirement] = Field(min_length=6, max_length=12)
+    markdown: str
+    sections: list[PRDSection] = Field(min_length=6)
+    backlog: PRDBacklog
+
+
 class PRDOutput(BaseModel):
     markdown: str
     sections: list[PRDSection] = Field(min_length=6)

@@ -20,11 +20,9 @@ const globalPrdGenerationRequests = new Set<string>()
 const PRD_STEPS: { key: string; label: string }[] = [
   { key: 'validating', label: 'Validating idea context' },
   { key: 'building_context', label: 'Building PRD context pack' },
-  { key: 'running_graph', label: 'Starting AI agents' },
-  { key: 'requirements_writing', label: 'Writing requirements & PRD…' },
-  { key: 'requirements_done', label: 'Requirements written' },
-  { key: 'backlog_writing', label: 'Generating backlog…' },
-  { key: 'backlog_done', label: 'Backlog generated' },
+  { key: 'generating', label: 'Generating PRD…' },
+  { key: 'requirements_done', label: 'Requirements ready' },
+  { key: 'backlog_done', label: 'Backlog ready' },
   { key: 'saving', label: 'Saving to database' },
 ]
 

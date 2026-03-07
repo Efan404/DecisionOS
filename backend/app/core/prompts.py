@@ -267,6 +267,35 @@ def build_prd_markdown_prompt(*, context: dict[str, object]) -> str:
     )
 
 
+def build_prd_full_prompt(*, context: dict[str, object]) -> str:
+    """Single-call prompt: generate requirements + markdown + backlog in one shot."""
+    return (
+        "You are a senior PM writing a delivery-ready PRD. "
+        "Given the product context below, produce ALL of the following in ONE JSON response.\n\n"
+        "1. requirements (6-12 items):\n"
+        "   - id: req-001, req-002, ... in order\n"
+        "   - title: concise noun phrase (≤10 words)\n"
+        "   - description: 2-3 sentences — what + why, specific to this product\n"
+        "   - rationale: 1-2 sentences on business/user value, must NOT restate description\n"
+        "   - acceptance_criteria: 3-6 verifiable behaviour statements each as "
+        '"[Actor] can [action] and [observable outcome]"\n'
+        "   - source_refs: one or more of [step2, step3, step4]\n\n"
+        "2. markdown: full PRD document as clean GitHub-flavoured markdown with 6-12 named sections.\n"
+        "   Required sections: Executive Summary, Problem Statement, User Personas, "
+        "Key Capabilities, Out of Scope, plus others (success metrics, technical considerations, etc.).\n"
+        "   Each section: ≥3 substantive sentences, self-contained.\n\n"
+        "3. sections: structured representation of each section from the markdown "
+        "(id, title, content).\n\n"
+        "4. backlog.items (8-15 items): executable backlog items referencing the requirement IDs above.\n"
+        "   Each item: id (bl-001...), title, requirement_id (must match a req-NNN above), "
+        "priority (P0/P1/P2), type (epic/story/task), summary, "
+        "2-8 acceptance_criteria, source_refs, depends_on (bl-ids, may be empty).\n"
+        "   Out-of-scope items must not be P0.\n\n"
+        f"context={json.dumps(context, ensure_ascii=False)}\n"
+        'Return JSON: {"requirements":[...],"markdown":"...","sections":[...],"backlog":{"items":[...]}}'
+    )
+
+
 def build_prd_backlog_prompt(
     *,
     context: dict[str, object],
