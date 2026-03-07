@@ -14,7 +14,7 @@ import {
   getAuthSessionServerSnapshot,
   subscribeAuthSession,
 } from '../../lib/auth'
-import { Ghost, LogOut, Settings } from 'lucide-react'
+import { Ghost, LogOut, Settings, TrendingUp } from 'lucide-react'
 import { NotificationBell } from '../notifications/NotificationBell'
 
 type StepItem = {
@@ -309,6 +309,14 @@ export function AppShell({ children }: AppShellProps) {
             {/* Grouped toolbar pill: Settings | Profile | Logout */}
             <div className="hidden items-center divide-x divide-[#1e1e1e]/10 overflow-hidden rounded-lg border border-[#1e1e1e]/12 bg-white sm:flex">
               <Link
+                href="/insights"
+                aria-label="Market Insights"
+                title="Market Insights"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#1e1e1e]/45 transition-colors duration-150 hover:bg-[#f5f5f5] hover:text-[#1e1e1e]/80"
+              >
+                <TrendingUp size={14} />
+              </Link>
+              <Link
                 href="/settings"
                 aria-label="Settings"
                 title="Settings"
@@ -422,6 +430,14 @@ export function AppShell({ children }: AppShellProps) {
               >
                 <Ghost size={13} />
                 {authSession.username}
+              </Link>
+              <Link
+                href="/insights"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#1e1e1e]/12 bg-[#f5f5f5] px-3 py-2 text-xs font-medium text-[#1e1e1e]/70 transition hover:bg-[#ebebeb]"
+              >
+                <TrendingUp size={13} />
+                Insights
               </Link>
               <Link
                 href="/settings"
