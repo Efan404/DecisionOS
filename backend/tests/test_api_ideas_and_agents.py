@@ -205,6 +205,16 @@ def _mock_prd_backlog(context: object, requirement_ids: list) -> object:
     ]))
 
 
+def _mock_prd_ppt(*, prd: object) -> object:
+    from app.schemas.prd import PrdPptOutput
+    meta = getattr(prd, "generation_meta", None)
+    return PrdPptOutput(
+        title="DecisionOS PRD Demo",
+        markdown="# DecisionOS Demo\n\n---\n\nSlide 2",
+        generation_meta=prd.generation_meta,  # type: ignore[attr-defined]
+    )
+
+
 class IdeasAndAgentsApiTestCase(unittest.TestCase):
     def setUp(self) -> None:
         ensure_required_seed_env()
@@ -235,6 +245,9 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self._patch_prd = patch(
             "app.core.llm.generate_prd_strict", side_effect=_mock_prd
         )
+        self._patch_prd_ppt = patch(
+            "app.core.llm.generate_prd_ppt", side_effect=_mock_prd_ppt
+        )
         self._patch_path_summary = patch(
             "app.core.llm.generate_path_summary", return_value="Mock path summary."
         )
@@ -243,6 +256,7 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self._patch_single_plan.start()
         self._patch_scope.start()
         self._patch_prd.start()
+        self._patch_prd_ppt.start()
         self._patch_path_summary.start()
 
         self.idea_id, _ = self._create_idea("Delete Test Idea")
@@ -253,6 +267,7 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self._patch_single_plan.stop()
         self._patch_scope.stop()
         self._patch_prd.stop()
+        self._patch_prd_ppt.stop()
         self._patch_path_summary.stop()
         self._tmpdir.cleanup()
 
@@ -343,6 +358,13 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
                 "version": version,
                 "baseline_id": baseline_id,
             },
+        )
+
+    def _generate_prd_ppt(self, idea_id: str, *, version: int) -> tuple[int, dict | None]:
+        return self.client.request_json(
+            "POST",
+            f"/ideas/{idea_id}/agents/prd/ppt",
+            {"version": version},
         )
 
     def _post_prd_feedback(
@@ -1137,6 +1159,33 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         assert persisted is not None
         self.assertEqual(persisted["context"]["selected_plan_id"], selected_plan_id)
         self.assertEqual(persisted["stage"], "scope_freeze")
+
+    # ── PRD PPT ───────────────────────────────────────────────────────────────
+
+    def test_prd_ppt_requires_prd(self) -> None:
+        idea_id, version = self._create_idea("PRD PPT requires PRD")
+        status, payload = self._generate_prd_ppt(idea_id, version=version)
+        self.assertEqual(status, 409)
+        assert payload is not None
+        self.assertEqual(payload["detail"]["code"], "PRD_REQUIRED")
+
+    def test_prd_ppt_generation_persists_context(self) -> None:
+        idea_id, version = self._create_idea("PRD PPT success")
+        baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+        prd_status, prd = self._generate_prd(idea_id, version=ready_version, baseline_id=baseline_id)
+        self.assertEqual(prd_status, 200)
+        assert prd is not None
+
+        ppt_status, ppt = self._generate_prd_ppt(idea_id, version=prd["idea_version"])
+        self.assertEqual(ppt_status, 200)
+        assert ppt is not None
+        self.assertEqual(ppt["idea_id"], idea_id)
+        self.assertIn("markdown", ppt["data"])
+
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+        self.assertIsNotNone(detail["context"]["prd_ppt"])
 
     # ── PRD Backlog Export ────────────────────────────────────────────────────
 
