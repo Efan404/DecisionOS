@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { GuardPanel } from '../common/GuardPanel'
+import { MarketEvidencePanel } from '../evidence/MarketEvidencePanel'
 import { PrdView } from './PrdView'
 import { ApiError, downloadPrdBacklogExport, postPrdFeedback } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
@@ -260,6 +261,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           <AgentThoughtStream thoughts={thoughts} isActive={loading} />
         </div>
       )}
+      <div className="mx-auto w-full max-w-7xl px-6 pb-2">
+        <MarketEvidencePanel ideaId={activeIdeaId} />
+      </div>
       <PrdView
         prd={context.prd_bundle?.output ?? context.prd}
         bundle={context.prd_bundle}

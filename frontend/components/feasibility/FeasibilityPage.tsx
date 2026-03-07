@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
 import { GuardPanel } from '../common/GuardPanel'
+import { MarketEvidencePanel } from '../evidence/MarketEvidencePanel'
 import { PlanCards } from './PlanCards'
 import { getIdea, postIdeaScopedAgent } from '../../lib/api'
 import { buildConfirmedPathContext, getLatestPath } from '../../lib/dag-api'
@@ -335,6 +336,12 @@ export function FeasibilityPage() {
       <div className="mt-4">
         <AgentThoughtStream thoughts={thoughts} isActive={loading} />
       </div>
+
+      {/* Market Evidence */}
+      <div className="mt-4">
+        <MarketEvidencePanel ideaId={activeIdeaId} />
+      </div>
+
       {showEmptyState ? (
         <section className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-[#1e1e1e]/15 p-10 text-center">
           <p className="text-sm text-[#1e1e1e]/40">
