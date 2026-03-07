@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 import { AgentThoughtStream, useAgentThoughts } from '../agent/AgentThoughtStream'
@@ -17,22 +18,29 @@ import { useDecisionStore } from '../../lib/store'
 
 const globalPrdGenerationRequests = new Set<string>()
 
-const PRD_STEPS: { key: string; label: string }[] = [
-  { key: 'validating', label: 'Validating idea context' },
-  { key: 'building_context', label: 'Building PRD context pack' },
-  { key: 'running_graph', label: 'Starting AI agents' },
-  { key: 'requirements_writing', label: 'Writing requirements & PRD…' },
-  { key: 'requirements_done', label: 'Requirements written' },
-  { key: 'backlog_writing', label: 'Generating backlog…' },
-  { key: 'backlog_done', label: 'Backlog generated' },
-  { key: 'saving', label: 'Saving to database' },
-]
+const PRD_STEP_KEYS = [
+  'validating',
+  'building_context',
+  'running_graph',
+  'requirements_writing',
+  'requirements_done',
+  'backlog_writing',
+  'backlog_done',
+  'saving',
+] as const
 
-function buildPrdProgressSteps(currentStep: string | null): ProgressStep[] {
-  const currentIndex = PRD_STEPS.findIndex((s) => s.key === currentStep)
-  return PRD_STEPS.map((s, i) => ({
-    key: s.key,
-    label: s.label,
+function buildPrdProgressSteps(
+  currentStep: string | null,
+  t: (key: string) => string
+): ProgressStep[] {
+  const currentIndex = PRD_STEP_KEYS.findIndex((k) => k === currentStep)
+  return PRD_STEP_KEYS.map((key, i) => ({
+    key,
+    label: ['requirements_writing', 'backlog_writing'].includes(key)
+      ? key === 'requirements_writing'
+        ? 'Writing requirements & PRD…'
+        : 'Generating backlog…'
+      : t(`steps.${key}`),
     status:
       currentStep === null
         ? 'pending'
@@ -49,6 +57,7 @@ type PrdPageProps = {
 }
 
 export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
+  const t = useTranslations('prd')
   const searchParams = useSearchParams()
   const context = useDecisionStore((state) => state.context)
   const replaceContextRef = useRef(useDecisionStore.getState().replaceContext)
@@ -106,7 +115,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       return
     }
     if (!baselineId) {
-      setErrorMessage('Select a frozen baseline to generate PRD and backlog.')
+      setErrorMessage(t('errorNoBaseline'))
       return
     }
     const hasLocalOutput = Boolean(context.prd || context.prd_bundle?.output)
@@ -290,10 +299,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     return (
       <main>
         <section className="mx-auto mt-6 w-full max-w-4xl px-6">
-          <GuardPanel
-            title="PRD context not ready"
-            description="Complete Scope Freeze before opening the PRD page."
-          />
+          <GuardPanel title={t('guardTitle')} description={t('guardDesc')} />
         </section>
       </main>
     )
@@ -309,7 +315,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       <PrdView
         prd={context.prd_bundle?.output ?? context.prd}
         bundle={context.prd_bundle}
-        progressSteps={loading ? buildPrdProgressSteps(progressStep) : undefined}
+        progressSteps={loading ? buildPrdProgressSteps(progressStep, t) : undefined}
         progressPct={loading ? progressPct : undefined}
         context={context}
         loading={loading}

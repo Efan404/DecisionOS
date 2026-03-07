@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 import type { PrdFeedbackDimensions } from '../../lib/schemas'
 
@@ -38,6 +39,7 @@ export function PrdFeedbackBubble({
   submitting = false,
   onDismiss,
 }: PrdFeedbackBubbleProps) {
+  const t = useTranslations('prd')
   const [submitted, setSubmitted] = useState(false)
 
   const handleClick = async (level: FeedbackLevel) => {
@@ -54,10 +56,10 @@ export function PrdFeedbackBubble({
     <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-[bubble-in_0.3s_ease-out]">
       <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-lg">
         {submitted ? (
-          <span className="text-sm text-emerald-600 font-medium">Thanks for your feedback!</span>
+          <span className="text-sm font-medium text-emerald-600">Thanks for your feedback!</span>
         ) : (
           <>
-            <span className="text-sm font-medium text-slate-700">How&apos;s this PRD?</span>
+            <span className="text-sm font-medium text-slate-700">{t('feedback.title')}</span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -87,10 +89,17 @@ export function PrdFeedbackBubble({
             <button
               type="button"
               onClick={onDismiss}
-              aria-label="Dismiss feedback"
+              aria-label={t('feedback.dismiss')}
               className="ml-1 cursor-pointer rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             >
-              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
             </button>

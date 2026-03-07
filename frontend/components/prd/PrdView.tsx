@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTranslations } from 'next-intl'
 
 import type {
   DecisionContext,
@@ -47,6 +48,7 @@ function StatusBanner({
   hasStaleOutput: boolean
   onRetry?: () => void
 }) {
+  const t = useTranslations('prd')
   if (errorMessage) {
     return (
       <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
@@ -63,9 +65,7 @@ function StatusBanner({
           ) : null}
         </div>
         {hasStaleOutput ? (
-          <p className="mt-1.5 text-xs text-amber-700">
-            Showing last successful output as stale snapshot.
-          </p>
+          <p className="mt-1.5 text-xs text-amber-700">{t('staleSnapshot')}</p>
         ) : null}
       </div>
     )
@@ -149,6 +149,7 @@ function CursorIcon({ className }: { className?: string }) {
 
 // Open-in-Cursor button — sends PRD content directly to Cursor Composer via deeplink
 function OpenInCursorButton({ markdown }: { markdown: string }) {
+  const t = useTranslations('prd')
   const [state, setState] = useState<'idle' | 'opening'>('idle')
 
   const handleOpen = useCallback(() => {
@@ -198,12 +199,12 @@ function OpenInCursorButton({ markdown }: { markdown: string }) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l3.5 3.5L13 4.5" />
           </svg>
-          Opening Cursor...
+          {t('openingCursor')}
         </>
       ) : (
         <>
           <CursorIcon className="h-3.5 w-3.5" />
-          Open in Cursor
+          {t('openInCursor')}
         </>
       )}
     </button>
@@ -212,6 +213,7 @@ function OpenInCursorButton({ markdown }: { markdown: string }) {
 
 // PRD document panel — rendered markdown + raw toggle + copy
 function MarkdownPanel({ markdown }: { markdown: string }) {
+  const t = useTranslations('prd')
   const [showRaw, setShowRaw] = useState(false)
 
   return (
@@ -226,7 +228,7 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
               !showRaw ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Preview
+            {t('preview')}
           </button>
           <button
             type="button"
@@ -235,11 +237,11 @@ function MarkdownPanel({ markdown }: { markdown: string }) {
               showRaw ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            Raw
+            {t('raw')}
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <CopyButton text={markdown} label="Copy Markdown" />
+          <CopyButton text={markdown} label={t('copyMarkdown')} />
           <OpenInCursorButton markdown={markdown} />
         </div>
       </div>
@@ -277,6 +279,7 @@ export function PrdView({
   onExportCsv,
   exporting = false,
 }: PrdViewProps) {
+  const t = useTranslations('prd')
   const output = prd ?? bundle?.output
   const [selectedRequirementIdInput, setSelectedRequirementIdInput] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('markdown')
@@ -307,9 +310,9 @@ export function PrdView({
 
   const tabs: { id: MainTab; label: string; count?: number }[] = output
     ? [
-        { id: 'markdown', label: 'PRD' },
-        { id: 'requirements', label: 'Requirements', count: output.requirements.length },
-        { id: 'sections', label: 'Sections', count: output.sections.length },
+        { id: 'markdown', label: t('tabMarkdown') },
+        { id: 'requirements', label: t('tabRequirements'), count: output.requirements.length },
+        { id: 'sections', label: t('tabSections'), count: output.sections.length },
       ]
     : []
 
@@ -317,7 +320,7 @@ export function PrdView({
     <section id="onboarding-prd-content" className="mx-auto w-full max-w-7xl space-y-4 px-6 py-5">
       {/* Page header */}
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">PRD</h1>
+        <h1 className="text-lg font-bold tracking-tight text-slate-900">{t('title')}</h1>
         {baselineId ? (
           <HoverCard
             align="left"
@@ -356,7 +359,7 @@ export function PrdView({
             >
               <path d="M2 6.5L4.5 9 10 3" />
             </svg>
-            Scope frozen
+            {t('scopeFrozen')}
           </span>
         ) : null}
         {onRetry ? (
@@ -386,7 +389,7 @@ export function PrdView({
                 <path d="M2.5 2.5v3.5H6" />
               </svg>
             )}
-            {output ? 'Regenerate' : 'Generate'}
+            {output ? t('regenerate') : t('generate')}
           </button>
         ) : null}
       </header>
@@ -462,7 +465,7 @@ export function PrdView({
                             {item.acceptance_criteria.length > 0 ? (
                               <div className="mb-1.5">
                                 <p className="mb-1 text-[11px] font-medium text-slate-600">
-                                  Acceptance criteria
+                                  {t('acceptanceCriteria')}
                                 </p>
                                 <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
                                   {item.acceptance_criteria.map((ac, i) => (
@@ -531,7 +534,7 @@ export function PrdView({
                             {req.acceptance_criteria.length > 0 ? (
                               <div>
                                 <p className="mb-0.5 text-[11px] font-medium text-slate-600">
-                                  Acceptance criteria
+                                  {t('acceptanceCriteria')}
                                 </p>
                                 <ul className="list-disc space-y-0.5 pl-3.5 text-[11px] text-slate-500">
                                   {req.acceptance_criteria.map((ac, i) => (
@@ -547,7 +550,7 @@ export function PrdView({
                   </div>
                 ) : (
                   <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
-                    Select a requirement to filter linked backlog items.
+                    {t('selectRequirement')}
                   </p>
                 )}
                 <PrdBacklogPanel
@@ -590,7 +593,7 @@ export function PrdView({
         /* Empty state — only shown when not loading and no output */
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-5 py-16 text-center">
           <p className="text-sm text-slate-500">
-            {errorMessage ? 'Generation failed.' : 'No PRD generated yet.'}
+            {errorMessage ? t('generationFailed') : t('noOutput')}
           </p>
         </div>
       ) : null}
