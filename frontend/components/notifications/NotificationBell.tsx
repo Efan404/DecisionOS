@@ -150,7 +150,25 @@ export function NotificationBell() {
                     className={`flex items-start gap-3 px-4 py-3 transition-opacity ${isDismissing ? 'opacity-50' : ''}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs leading-snug font-medium text-[#1e1e1e]">{n.title}</p>
+                      {(() => {
+                        const meta = (n.metadata ?? {}) as Record<string, unknown>
+                        const actionUrl =
+                          typeof meta.action_url === 'string' && meta.action_url
+                            ? meta.action_url
+                            : null
+
+                        return actionUrl ? (
+                          <a
+                            href={actionUrl}
+                            onClick={() => void handleDismiss(n.id)}
+                            className="text-xs leading-snug font-medium text-[#1e1e1e] hover:text-[#b9eb10] hover:underline transition-colors"
+                          >
+                            {n.title}
+                          </a>
+                        ) : (
+                          <p className="text-xs leading-snug font-medium text-[#1e1e1e]">{n.title}</p>
+                        )
+                      })()}
                       <p className="mt-0.5 text-[11px] leading-snug text-[#1e1e1e]/50">{n.body}</p>
                     </div>
                     <button
