@@ -1,6 +1,37 @@
 {
-  "nav": {},
-  "common": {},
+  "nav": {
+    "ideas": "Ideas",
+    "ideaCanvas": "Idea Canvas",
+    "feasibility": "Feasibility",
+    "scopeFreeze": "Scope Freeze",
+    "prd": "PRD",
+    "descriptions": {
+      "ideas": "Workspace ideas",
+      "ideaCanvas": "DAG path confirm",
+      "feasibility": "Plan generation",
+      "scopeFreeze": "Boundaries",
+      "prd": "Output document"
+    }
+  },
+  "common": {
+    "syncing": "Syncing",
+    "done": "Done",
+    "locked": "Locked",
+    "open": "Open",
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "regenerate": "Regenerate",
+    "export": "Export",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "switchLang": "中文"
+  },
   "feasibility": {},
   "scope": {},
   "prd": {},

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -18,10 +19,12 @@ import { CircleHelp, Ghost, LogOut, Settings, TrendingUp } from 'lucide-react'
 import { useTour } from '../onboarding/OnboardingProvider'
 import { NotificationBell } from '../notifications/NotificationBell'
 
+type NavKey = 'ideas' | 'ideaCanvas' | 'feasibility' | 'scopeFreeze' | 'prd'
+
 type StepItem = {
   step: 'ideas' | IdeaStep
-  label: string
-  description: string
+  navKey: NavKey
+  descKey: NavKey
   locked: boolean
   done: boolean
 }
@@ -30,14 +33,18 @@ type AppShellProps = Readonly<{
   children: React.ReactNode
 }>
 
-// Step labels only — colors are computed from active/done/locked state
-const STEP_LABELS = [
-  { step: 'ideas', label: 'Ideas', description: 'Workspace ideas' },
-  { step: 'idea-canvas', label: 'Idea Canvas', description: 'DAG path confirm' },
-  { step: 'feasibility', label: 'Feasibility', description: 'Plan generation' },
-  { step: 'scope-freeze', label: 'Scope Freeze', description: 'Boundaries' },
-  { step: 'prd', label: 'PRD', description: 'Output document' },
-] as const
+// Step nav keys — labels resolved via useTranslations('nav') at render time
+const NAV_STEPS = [
+  { step: 'ideas' as const, navKey: 'ideas' as const, descKey: 'ideas' as const },
+  { step: 'idea-canvas' as const, navKey: 'ideaCanvas' as const, descKey: 'ideaCanvas' as const },
+  { step: 'feasibility' as const, navKey: 'feasibility' as const, descKey: 'feasibility' as const },
+  {
+    step: 'scope-freeze' as const,
+    navKey: 'scopeFreeze' as const,
+    descKey: 'scopeFreeze' as const,
+  },
+  { step: 'prd' as const, navKey: 'prd' as const, descKey: 'prd' as const },
+]
 
 const getIsActive = (pathname: string, step: StepItem['step']): boolean => {
   if (step === 'ideas') return pathname === '/' || pathname === '/ideas'
@@ -46,13 +53,19 @@ const getIsActive = (pathname: string, step: StepItem['step']): boolean => {
   return pathname.startsWith(segment)
 }
 
-const getBadgeLabel = (item: StepItem, isHydrated: boolean) => {
-  if (!isHydrated) return 'Syncing'
-  if (item.done) return 'Done'
-  return item.locked ? 'Locked' : 'Open'
+const getBadgeLabel = (
+  item: StepItem,
+  isHydrated: boolean,
+  tCommon: ReturnType<typeof useTranslations<'common'>>
+) => {
+  if (!isHydrated) return tCommon('syncing')
+  if (item.done) return tCommon('done')
+  return item.locked ? tCommon('locked') : tCommon('open')
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const tNav = useTranslations('nav')
+  const tCommon = useTranslations('common')
   const pathname = usePathname()
   const router = useRouter()
   const { startTour } = useTour()
@@ -121,43 +134,28 @@ export function AppShell({ children }: AppShellProps) {
   const scopeOpen = hydratedContext ? canOpenScope(hydratedContext) : false
   const prdOpen = hydratedContext ? canOpenPrd(hydratedContext) : false
 
-  const steps: StepItem[] = [
-    {
-      step: 'ideas',
-      label: 'Ideas',
-      description: 'Workspace ideas',
-      locked: false,
-      done: Boolean(hydratedContext?.idea_seed),
-    },
-    {
-      step: 'idea-canvas',
-      label: 'Idea Canvas',
-      description: 'DAG path confirm',
-      locked: false,
-      done: Boolean(hydratedContext?.confirmed_dag_path_id),
-    },
-    {
-      step: 'feasibility',
-      label: 'Feasibility',
-      description: 'Plan generation',
-      locked: !feasibilityOpen,
-      done: Boolean(hydratedContext?.selected_plan_id),
-    },
-    {
-      step: 'scope-freeze',
-      label: 'Scope Freeze',
-      description: 'Boundaries',
-      locked: !scopeOpen,
-      done: Boolean(hydratedContext?.scope_frozen),
-    },
-    {
-      step: 'prd',
-      label: 'PRD',
-      description: 'Output document',
-      locked: !prdOpen,
-      done: Boolean(hydratedContext?.scope_frozen && hydratedContext?.prd),
-    },
-  ]
+  const lockedByStep: Record<string, boolean> = {
+    ideas: false,
+    'idea-canvas': false,
+    feasibility: !feasibilityOpen,
+    'scope-freeze': !scopeOpen,
+    prd: !prdOpen,
+  }
+  const doneByStep: Record<string, boolean> = {
+    ideas: Boolean(hydratedContext?.idea_seed),
+    'idea-canvas': Boolean(hydratedContext?.confirmed_dag_path_id),
+    feasibility: Boolean(hydratedContext?.selected_plan_id),
+    'scope-freeze': Boolean(hydratedContext?.scope_frozen),
+    prd: Boolean(hydratedContext?.scope_frozen && hydratedContext?.prd),
+  }
+
+  const steps: StepItem[] = NAV_STEPS.map(({ step, navKey, descKey }) => ({
+    step,
+    navKey,
+    descKey,
+    locked: lockedByStep[step],
+    done: doneByStep[step],
+  }))
 
   const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
   const getStepHref = (step: StepItem['step']): string => {
@@ -182,7 +180,7 @@ export function AppShell({ children }: AppShellProps) {
   // ── Step card renderer ──────────────────────────────────────────────────────
   const renderStepCard = (item: StepItem, index: number) => {
     const isActive = getIsActive(pathname, item.step)
-    const badgeLabel = getBadgeLabel(item, isHydrated)
+    const badgeLabel = getBadgeLabel(item, isHydrated, tCommon)
     const noIdeaSelected = item.step !== 'ideas' && !routeIdeaId
     const disabled = item.locked || noIdeaSelected
 
@@ -233,10 +231,10 @@ export function AppShell({ children }: AppShellProps) {
         {/* Label + description */}
         <div className="mt-2">
           <p className="text-sm leading-tight font-bold" style={{ color: titleColor }}>
-            {item.label}
+            {tNav(item.navKey)}
           </p>
           <p className="mt-0.5 text-[11px]" style={{ color: descColor }}>
-            {item.description}
+            {tNav(`descriptions.${item.descKey}`)}
           </p>
         </div>
 
@@ -415,7 +413,7 @@ export function AppShell({ children }: AppShellProps) {
                       isActive ? 'bg-[#1e1e1e] text-[#b9eb10]' : 'text-[#1e1e1e]/30'
                     }`}
                   >
-                    {item.label}
+                    {tNav(item.navKey)}
                   </span>
                 ) : (
                   <Link
@@ -428,7 +426,7 @@ export function AppShell({ children }: AppShellProps) {
                         : 'text-[#1e1e1e]/60 hover:bg-[#f5f5f5]'
                     }`}
                   >
-                    {item.label}
+                    {tNav(item.navKey)}
                   </Link>
                 )}
               </span>

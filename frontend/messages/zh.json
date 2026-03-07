@@ -1,6 +1,37 @@
 {
-  "nav": {},
-  "common": {},
+  "nav": {
+    "ideas": "想法",
+    "ideaCanvas": "想法画布",
+    "feasibility": "可行性",
+    "scopeFreeze": "范围冻结",
+    "prd": "产品需求",
+    "descriptions": {
+      "ideas": "工作区想法",
+      "ideaCanvas": "DAG 路径确认",
+      "feasibility": "方案生成",
+      "scopeFreeze": "边界划定",
+      "prd": "输出文档"
+    }
+  },
+  "common": {
+    "syncing": "同步中",
+    "done": "完成",
+    "locked": "已锁定",
+    "open": "开放",
+    "loading": "加载中…",
+    "error": "出现错误。",
+    "retry": "重试",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中…",
+    "generate": "生成",
+    "generating": "生成中…",
+    "regenerate": "重新生成",
+    "export": "导出",
+    "copy": "复制",
+    "copied": "已复制！",
+    "switchLang": "English"
+  },
   "feasibility": {},
   "scope": {},
   "prd": {},
