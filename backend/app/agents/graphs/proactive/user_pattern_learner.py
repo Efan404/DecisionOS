@@ -81,7 +81,11 @@ def _extract_patterns(state: PatternLearnerState) -> dict[str, object]:
                 "- risk_tolerance: short description (e.g. 'Low — prefers incremental MVPs')\n"
                 "- focus_area: product domain pattern (e.g. 'Developer tools and AI productivity')\n"
                 "- decision_style: how they make choices (e.g. 'Data-driven, iterative')\n"
-                "Each value must be a specific, evidence-based string of <=15 words.\n"
+                "- advisor_note: an object with two fields:\n"
+                "    - text: 2-3 actionable bullet points (each prefixed with '• ') synthesizing advice based on the patterns above\n"
+                "    - linked_patterns: a list of 2-3 pattern keys (from: business_model_preference, risk_tolerance, focus_area, decision_style) that each bullet references, in the same order as the bullets\n"
+                "Each pattern value must be a specific, evidence-based string of <=15 words.\n"
+                "The advisor_note.text bullets should each be <=20 words and reference specific pattern insights.\n"
                 "Return only valid JSON."
             ),
         )

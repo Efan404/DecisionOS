@@ -500,7 +500,7 @@ export const getCrossIdeaInsightsForIdea = async (
 }
 
 export type UserPatternsResult = {
-  preferences: Record<string, string>
+  preferences: Record<string, unknown>
 }
 
 export const getUserPatterns = async (): Promise<UserPatternsResult> => {
