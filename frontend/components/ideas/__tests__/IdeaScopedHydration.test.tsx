@@ -98,4 +98,22 @@ describe('IdeaScopedHydration', () => {
     expect(await screen.findByText('hydrated child')).toBeInTheDocument()
     expect(useDecisionStore.getState().context.idea_seed).toBe('second idea')
   })
+
+  test('shows a recoverable error state when the idea detail cannot be loaded', async () => {
+    const loadIdeaDetail = vi.fn().mockResolvedValue(null)
+
+    useIdeasStore.setState({
+      loadIdeaDetail,
+    })
+
+    render(
+      <IdeaScopedHydration ideaId="missing-idea">
+        <div>hydrated child</div>
+      </IdeaScopedHydration>
+    )
+
+    expect(screen.getByText('Syncing idea context...')).toBeInTheDocument()
+    expect(await screen.findByText('Idea not found or unavailable.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to ideas' })).toHaveAttribute('href', '/ideas')
+  })
 })
