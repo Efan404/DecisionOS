@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -10,6 +11,7 @@ import { PlanCards } from './PlanCards'
 import { getIdea, postIdeaScopedAgent } from '../../lib/api'
 import { buildConfirmedPathContext, getLatestPath } from '../../lib/dag-api'
 import { canRunFeasibility } from '../../lib/guards'
+import { resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
 import { isSseEventError, streamPost } from '../../lib/sse'
 import {
@@ -60,6 +62,7 @@ function buildFeasibilityProgressSteps(
 export function FeasibilityPage() {
   const t = useTranslations('feasibility')
   const tCommon = useTranslations('common')
+  const pathname = usePathname()
 
   const FEASIBILITY_STEPS: { key: string; label: string }[] = [
     { key: 'received_request', label: t('steps.received_request') },
@@ -70,8 +73,9 @@ export function FeasibilityPage() {
   const context = useDecisionStore((state) => state.context)
   const setFeasibility = useDecisionStore((state) => state.feasibility)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
+  const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
   const activeIdea = useIdeasStore(
-    (state) => state.ideas.find((idea) => idea.id === state.activeIdeaId) ?? null
+    (state) => state.ideas.find((idea) => idea.id === routeIdeaId) ?? null
   )
   const setIdeaVersion = useIdeasStore((state) => state.setIdeaVersion)
   const [plans, setPlans] = useState<FeasibilityPlan[]>(context.feasibility?.plans ?? [])
@@ -104,7 +108,7 @@ export function FeasibilityPage() {
   }, [context.feasibility])
 
   useEffect(() => {
-    if (!canOpen || !activeIdeaId) {
+    if (!canOpen || !routeIdeaId) {
       setConfirmedPathContext(null)
       return
     }
@@ -117,11 +121,11 @@ export function FeasibilityPage() {
         // confirm-path and its background summary task each bump the version, so the
         // store is stale by the time the user arrives here from IdeaCanvas.
         const [latestPath, freshIdea] = await Promise.all([
-          getLatestPath(activeIdeaId),
-          getIdea(activeIdeaId).catch(() => null),
+          getLatestPath(routeIdeaId),
+          getIdea(routeIdeaId).catch(() => null),
         ])
         if (freshIdea && !cancelled) {
-          setIdeaVersion(activeIdeaId, freshIdea.version)
+          setIdeaVersion(routeIdeaId, freshIdea.version)
           freshIdeaVersionRef.current = freshIdea.version
         }
         if (!latestPath) {
@@ -149,14 +153,14 @@ export function FeasibilityPage() {
     return () => {
       cancelled = true
     }
-  }, [activeIdeaId, canOpen, context.confirmed_dag_path_id, setIdeaVersion])
+  }, [routeIdeaId, canOpen, context.confirmed_dag_path_id, setIdeaVersion])
 
   const handleGenerate = async () => {
     if (!canOpen || !confirmedPathContext) {
       setErrorMessage(t('errorNoDagPath'))
       return
     }
-    if (!activeIdeaId || !activeIdea) {
+    if (!routeIdeaId || !activeIdea) {
       setErrorMessage(t('errorMissingIdea'))
       return
     }
@@ -194,9 +198,9 @@ export function FeasibilityPage() {
     if (freshIdeaVersionRef.current === null) {
       // Init effect hasn't resolved yet — fetch fresh now to avoid VERSION_CONFLICT.
       try {
-        const freshIdea = await getIdea(activeIdeaId)
+        const freshIdea = await getIdea(routeIdeaId)
         versionToUse = freshIdea.version
-        setIdeaVersion(activeIdeaId, freshIdea.version)
+        setIdeaVersion(routeIdeaId, freshIdea.version)
         freshIdeaVersionRef.current = freshIdea.version
       } catch {
         // Proceed with store version; the backend will reject if it's wrong.
@@ -210,7 +214,7 @@ export function FeasibilityPage() {
 
       try {
         await streamPost(
-          `/ideas/${activeIdeaId}/agents/feasibility/stream`,
+          `/ideas/${routeIdeaId}/agents/feasibility/stream`,
           { ...payload, version: versionToUse },
           {
             onProgress: (data) => {
@@ -263,7 +267,7 @@ export function FeasibilityPage() {
         }
 
         const streamedOutput: FeasibilityOutput = parsedData.data
-        setIdeaVersion(activeIdeaId, envelope.data.idea_version)
+        setIdeaVersion(routeIdeaId, envelope.data.idea_version)
 
         if (mountedRef.current) {
           setPlans(streamedOutput.plans)
@@ -284,11 +288,11 @@ export function FeasibilityPage() {
         const envelope = await postIdeaScopedAgent<
           FeasibilityInput & { version: number },
           FeasibilityOutput
-        >(activeIdeaId, 'feasibility', {
+        >(routeIdeaId, 'feasibility', {
           ...payload,
           version: versionToUse,
         })
-        setIdeaVersion(activeIdeaId, envelope.idea_version)
+        setIdeaVersion(routeIdeaId, envelope.idea_version)
         const parsed = feasibilityOutputSchema.safeParse(envelope.data)
 
         if (!parsed.success) {

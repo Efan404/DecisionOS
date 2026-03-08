@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -11,6 +11,7 @@ import { PrdView } from './PrdView'
 import { ApiError, downloadPrdBacklogExport, getIdea, postPrdFeedback } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
+import { resolveIdeaIdForRouting } from '../../lib/idea-routes'
 import { useIdeasStore } from '../../lib/ideas-store'
 import { type PrdFeedbackDimensions } from '../../lib/schemas'
 import { useDecisionStore } from '../../lib/store'
@@ -53,13 +54,15 @@ type PrdPageProps = {
 
 export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   const t = useTranslations('prd')
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const context = useDecisionStore((state) => state.context)
   const replaceContextRef = useRef(useDecisionStore.getState().replaceContext)
   const canOpen = canOpenPrd(context)
   const activeIdeaId = useIdeasStore((state) => state.activeIdeaId)
+  const routeIdeaId = resolveIdeaIdForRouting(pathname, activeIdeaId)
   const activeIdea = useIdeasStore(
-    (state) => state.ideas.find((idea) => idea.id === state.activeIdeaId) ?? null
+    (state) => state.ideas.find((idea) => idea.id === routeIdeaId) ?? null
   )
   const setIdeaVersionRef = useRef(useIdeasStore.getState().setIdeaVersion)
   const loadIdeaDetailRef = useRef(useIdeasStore.getState().loadIdeaDetail)
@@ -113,7 +116,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   }, [baselineId, context.confirmed_dag_path_id, context.prd_bundle, context.selected_plan_id])
 
   useEffect(() => {
-    if (!canOpen || !activeIdeaId || !activeIdea) {
+    if (!canOpen || !routeIdeaId || !activeIdea) {
       return
     }
     if (!baselineId) {
@@ -160,19 +163,19 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         // scope) each bump idea.version in the DB, but the store only knows about the last
         // version it was explicitly told. Sending a stale version causes a VERSION_CONFLICT
         // SSE error that silently stops the stream.
-        const freshIdea = await getIdea(activeIdeaId)
+        const freshIdea = await getIdea(routeIdeaId)
         if (cancelled) {
           return
         }
         console.log(
           '[PrdPage] stream start ideaId=%s baselineId=%s version=%s (fresh)',
-          activeIdeaId,
+          routeIdeaId,
           baselineId,
           freshIdea.version
         )
         let donePayload: { idea_id: string; idea_version: number } | null = null
         await streamPost(
-          `/ideas/${activeIdeaId}/agents/prd/stream`,
+          `/ideas/${routeIdeaId}/agents/prd/stream`,
           {
             baseline_id: baselineId,
             version: freshIdea.version,
@@ -201,9 +204,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         )
         if (!cancelled && donePayload) {
           const envelope = donePayload
-          setIdeaVersionRef.current(activeIdeaId, envelope.idea_version)
+          setIdeaVersionRef.current(routeIdeaId, envelope.idea_version)
           // Load fresh context from backend — prd_bundle will be populated.
-          const detail = await loadIdeaDetailRef.current(activeIdeaId)
+          const detail = await loadIdeaDetailRef.current(routeIdeaId)
           if (!cancelled) {
             if (detail?.context?.prd_bundle) {
               // Set local state first so PrdView immediately sees the bundle
@@ -215,7 +218,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
             }
             previousPrdSnapshotRef.current = null
             setRetryNonce(0)
-            setIdeaVersionRef.current(activeIdeaId, envelope.idea_version)
+            setIdeaVersionRef.current(routeIdeaId, envelope.idea_version)
             setLoading(false)
           }
         }
@@ -260,7 +263,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       // The set is cleaned up in the finally block of run().
       // Deleting here would allow a second effect (e.g. StrictMode) to bypass the guard.
     }
-  }, [activeIdeaId, activeIdea?.id, baselineId, canOpen, generationKey, retryNonce])
+  }, [routeIdeaId, activeIdea?.id, baselineId, canOpen, generationKey, retryNonce])
 
   const handleRetry = () => {
     setRetryNonce((previous) => previous + 1)
@@ -270,19 +273,19 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     rating_overall: number
     rating_dimensions: PrdFeedbackDimensions
   }) => {
-    if (!activeIdeaId || !activeIdea || !baselineId) {
+    if (!routeIdeaId || !activeIdea || !baselineId) {
       return
     }
     setFeedbackSubmitting(true)
     try {
-      const response = await postPrdFeedback(activeIdeaId, {
+      const response = await postPrdFeedback(routeIdeaId, {
         version: activeIdea.version,
         baseline_id: baselineId,
         rating_overall: payload.rating_overall,
         rating_dimensions: payload.rating_dimensions,
       })
-      setIdeaVersionRef.current(activeIdeaId, response.idea_version)
-      const detail = await loadIdeaDetailRef.current(activeIdeaId)
+      setIdeaVersionRef.current(routeIdeaId, response.idea_version)
+      const detail = await loadIdeaDetailRef.current(routeIdeaId)
       if (detail) {
         replaceContextRef.current(detail.context)
       }
@@ -301,12 +304,12 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
   }
 
   const handleExport = async (format: 'json' | 'csv') => {
-    if (!activeIdeaId) {
+    if (!routeIdeaId) {
       return
     }
     setExporting(true)
     try {
-      await downloadPrdBacklogExport(activeIdeaId, format)
+      await downloadPrdBacklogExport(routeIdeaId, format)
       toast.success(`Backlog exported as ${format.toUpperCase()}`)
     } catch (error) {
       const message =

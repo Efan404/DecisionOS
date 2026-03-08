@@ -86,6 +86,7 @@ describe('PrdPage stream recovery', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    nextNavigationMock.setPathname('/ideas/idea-1/prd')
     nextNavigationMock.setSearchParams('baseline_id=baseline-1')
     loadIdeaDetail = vi.fn().mockResolvedValue(null)
 
@@ -201,6 +202,82 @@ describe('PrdPage stream recovery', () => {
     await waitFor(() => {
       expect(loadIdeaDetail).toHaveBeenCalledWith('idea-1')
       expect(screen.getByText('Backlog 99')).toBeInTheDocument()
+    })
+  })
+
+  test('uses the route idea instead of the active store idea for PRD regeneration', async () => {
+    nextNavigationMock.setPathname('/ideas/idea-2/prd')
+    useIdeasStore.setState({
+      ideas: [
+        {
+          id: 'idea-1',
+          workspace_id: 'default',
+          title: 'Idea 1',
+          stage: 'prd',
+          status: 'draft',
+          version: 12,
+          created_at: '2026-02-20T00:00:00.000Z',
+          updated_at: '2026-02-20T00:00:00.000Z',
+        },
+        {
+          id: 'idea-2',
+          workspace_id: 'default',
+          title: 'Idea 2',
+          stage: 'prd',
+          status: 'draft',
+          version: 20,
+          created_at: '2026-02-20T00:00:00.000Z',
+          updated_at: '2026-02-20T00:00:00.000Z',
+        },
+      ],
+      activeIdeaId: 'idea-1',
+      loading: false,
+      error: null,
+      loadIdeaDetail,
+    })
+    vi.mocked(getIdea).mockResolvedValue({
+      id: 'idea-2',
+      workspace_id: 'default',
+      title: 'Idea 2',
+      stage: 'prd',
+      status: 'draft',
+      version: 21,
+      created_at: '2026-02-20T00:00:00.000Z',
+      updated_at: '2026-02-20T00:00:00.000Z',
+      archived_at: null,
+      context: useDecisionStore.getState().context,
+    })
+    loadIdeaDetail.mockResolvedValue({
+      id: 'idea-2',
+      workspace_id: 'default',
+      title: 'Idea 2',
+      stage: 'prd',
+      status: 'draft',
+      version: 22,
+      created_at: '2026-02-20T00:00:00.000Z',
+      updated_at: '2026-02-20T00:00:00.000Z',
+      archived_at: null,
+      context: {
+        ...useDecisionStore.getState().context,
+        prd_bundle: buildPrdBundle(),
+      },
+    })
+    vi.mocked(streamPost).mockImplementation(async (path, payload, handlers) => {
+      expect(path).toBe('/ideas/idea-2/agents/prd/stream')
+      expect(payload).toEqual({
+        baseline_id: 'baseline-1',
+        version: 21,
+      })
+      handlers.onDone?.({ idea_id: 'idea-2', idea_version: 22 })
+    })
+
+    render(<PrdPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'prd.regenerate' }))
+
+    await waitFor(() => {
+      expect(getIdea).toHaveBeenCalledWith('idea-2')
+      expect(loadIdeaDetail).toHaveBeenCalledWith('idea-2')
     })
   })
 })
