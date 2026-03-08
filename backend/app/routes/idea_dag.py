@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core import llm
 from app.core.time import utc_now_iso
+from app.db.engine import db_session
 from app.db import repo_dag
 from app.db.repo_decision_events import DecisionEventRepository
 from app.db.repo_ideas import IdeaRepository, UpdateIdeaResult
@@ -293,27 +294,30 @@ async def confirm_path(idea_id: str, body: ConfirmPathRequest, background_tasks:
     }
     path_md = "\n".join(lines)
 
-    path = repo_dag.create_path(
-        idea_id=idea_id,
-        node_chain=body.node_chain,
-        path_md=path_md,
-        path_json=json.dumps(path_json_data, ensure_ascii=False),
-    )
+    with db_session() as connection:
+        path = repo_dag.create_path(
+            idea_id=idea_id,
+            node_chain=body.node_chain,
+            path_md=path_md,
+            path_json=json.dumps(path_json_data, ensure_ascii=False),
+            connection=connection,
+        )
 
-    # Stamp DAG confirmation context so stage guards unlock Feasibility.
-    update = _repo.apply_agent_update(
-        idea_id,
-        version=idea.version,
-        mutate_context=lambda ctx: ctx.model_copy(
-            update={
-                "confirmed_dag_path_id": path.id,
-                "confirmed_dag_node_id": confirmed_node_id,
-                "confirmed_dag_node_content": confirmed_node_content,
-                "confirmed_dag_path_summary": None,
-            }
-        ),
-    )
-    _unwrap_update(update)
+        # Stamp DAG confirmation context so stage guards unlock Feasibility.
+        update = _repo.apply_agent_update(
+            idea_id,
+            version=idea.version,
+            mutate_context=lambda ctx: ctx.model_copy(
+                update={
+                    "confirmed_dag_path_id": path.id,
+                    "confirmed_dag_node_id": confirmed_node_id,
+                    "confirmed_dag_node_content": confirmed_node_content,
+                    "confirmed_dag_path_summary": None,
+                }
+            ),
+            connection=connection,
+        )
+        _unwrap_update(update)
 
     # Record decision event after successful path save
     node_contents = [

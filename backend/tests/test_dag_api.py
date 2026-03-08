@@ -155,6 +155,7 @@ class DagApiTestCase(unittest.TestCase):
 
     def test_confirm_path_update_conflict_returns_409(self) -> None:
         from app.db.repo_ideas import UpdateIdeaResult
+        from app.db import repo_dag
 
         idea_id = self._create_idea()
         _, root = self.client.request_json(
@@ -174,9 +175,11 @@ class DagApiTestCase(unittest.TestCase):
         self.assertEqual(status, 409)
         assert body is not None
         self.assertEqual(body["detail"]["code"], "IDEA_VERSION_CONFLICT")
+        self.assertIsNone(repo_dag.get_latest_path(idea_id))
 
     def test_confirm_path_update_archived_returns_409(self) -> None:
         from app.db.repo_ideas import UpdateIdeaResult
+        from app.db import repo_dag
 
         idea_id = self._create_idea()
         _, root = self.client.request_json(
@@ -196,6 +199,7 @@ class DagApiTestCase(unittest.TestCase):
         self.assertEqual(status, 409)
         assert body is not None
         self.assertEqual(body["detail"]["code"], "IDEA_ARCHIVED")
+        self.assertIsNone(repo_dag.get_latest_path(idea_id))
 
     def test_confirm_path_update_not_found_returns_404(self) -> None:
         from app.db.repo_ideas import UpdateIdeaResult

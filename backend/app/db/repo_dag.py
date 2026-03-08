@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -136,13 +137,15 @@ def create_path(
     node_chain: list[str],
     path_md: str,
     path_json: str,
+    *,
+    connection: sqlite3.Connection | None = None,
 ) -> IdeaPath:
     path_id = str(uuid4())
     now = utc_now_iso()
     chain_json = json.dumps(node_chain)
 
-    with db_session() as conn:
-        conn.execute(
+    if connection is not None:
+        connection.execute(
             """
             INSERT INTO idea_paths
                 (id, idea_id, node_chain, path_md, path_json, created_at)
@@ -150,6 +153,16 @@ def create_path(
             """,
             (path_id, idea_id, chain_json, path_md, path_json, now),
         )
+    else:
+        with db_session() as conn:
+            conn.execute(
+                """
+                INSERT INTO idea_paths
+                    (id, idea_id, node_chain, path_md, path_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (path_id, idea_id, chain_json, path_md, path_json, now),
+            )
 
     return IdeaPath(
         id=path_id,

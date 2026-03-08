@@ -584,6 +584,36 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         assert payload is not None
         self.assertEqual(payload["detail"]["code"], "IDEA_ARCHIVED")
 
+    def test_patch_idea_context_archived_conflict(self) -> None:
+        created_status, created = self.client.request_json(
+            "POST",
+            "/ideas",
+            {"title": "Archived Context Idea", "idea_seed": "seed"},
+        )
+        self.assertEqual(created_status, 201)
+        assert created is not None
+        idea_id = created["id"]
+
+        archived_status, archived = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}",
+            {"version": created["version"], "status": "archived"},
+        )
+        self.assertEqual(archived_status, 200)
+        assert archived is not None
+
+        next_context = dict(archived["context"])
+        next_context["idea_seed"] = "mutated-after-archive"
+
+        patch_status, patch_payload = self.client.request_json(
+            "PATCH",
+            f"/ideas/{idea_id}/context",
+            {"version": archived["version"], "context": next_context},
+        )
+        self.assertEqual(patch_status, 409)
+        assert patch_payload is not None
+        self.assertEqual(patch_payload["detail"]["code"], "IDEA_ARCHIVED")
+
     def test_idea_agent_version_conflict(self) -> None:
         created_status, created = self.client.request_json(
             "POST",
@@ -725,6 +755,56 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         assert after_done is not None
         self.assertEqual(after_done["version"], initial_version + 1)
         self.assertIsNotNone(after_done["context"]["opportunity"])
+
+    def test_opportunity_stream_returns_conflict_if_version_changes_before_save(self) -> None:
+        created_status, created = self.client.request_json(
+            "POST",
+            "/ideas",
+            {"title": "Stream Conflict Idea", "idea_seed": "seed"},
+        )
+        self.assertEqual(created_status, 201)
+        assert created is not None
+        idea_id = created["id"]
+        initial_version = created["version"]
+
+        def _conflicting_stream(payload: object) -> object:
+            from app.db.repo_ideas import IdeaRepository
+
+            repo = IdeaRepository()
+            output = _mock_opportunity(payload)
+            bumped = repo.update_idea(
+                idea_id,
+                version=initial_version,
+                title="Concurrent update",
+                status=None,
+            )
+            self.assertEqual(bumped.kind, "ok")
+            return output
+
+        with patch(
+            "app.core.llm.generate_opportunity",
+            side_effect=_conflicting_stream,
+        ):
+            conflict_stream = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/agents/opportunity/stream",
+                {"idea_seed": "seed", "version": initial_version},
+            )
+
+        self.assertEqual(conflict_stream.status_code, 200)
+        conflict_events = _read_sse_events(conflict_stream.body)
+        self.assertTrue(conflict_events)
+        self.assertEqual(conflict_events[-1][0], "error")
+        assert conflict_events[-1][1] is not None
+        self.assertEqual(conflict_events[-1][1]["code"], "IDEA_VERSION_CONFLICT")
+
+        status_after_conflict, detail_after_conflict = self.client.request_json(
+            "GET", f"/ideas/{idea_id}"
+        )
+        self.assertEqual(status_after_conflict, 200)
+        assert detail_after_conflict is not None
+        self.assertEqual(detail_after_conflict["version"], initial_version + 1)
+        self.assertIsNone(detail_after_conflict["context"]["opportunity"])
 
     def test_feasibility_stream_emits_error_for_stale_version(self) -> None:
         idea_id, initial_version = self._create_idea("Feasibility Stream Idea")

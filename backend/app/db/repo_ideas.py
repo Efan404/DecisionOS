@@ -209,7 +209,7 @@ class IdeaRepository:
             idea_id,
             version=version,
             mutate_context=lambda _: parse_context_strict(context),
-            require_not_archived=False,
+            require_not_archived=True,
         )
 
     def apply_agent_update(
@@ -219,14 +219,16 @@ class IdeaRepository:
         version: int,
         mutate_context: Callable[[DecisionContext], DecisionContext],
         allow_conflict_retry: bool = False,
+        connection: sqlite3.Connection | None = None,
     ) -> UpdateIdeaResult:
         result = self._update_context_internal(
             idea_id,
             version=version,
             mutate_context=mutate_context,
             require_not_archived=True,
+            connection=connection,
         )
-        if not allow_conflict_retry:
+        if connection is not None or not allow_conflict_retry:
             return result
         # Retry up to 2 times when a concurrent write (e.g. /paths background task,
         # scope freeze) bumped the version while the LLM was running (~90s for PRD).
@@ -245,6 +247,7 @@ class IdeaRepository:
                 version=latest.version,
                 mutate_context=mutate_context,
                 require_not_archived=True,
+                connection=None,
             )
         return result
 
@@ -255,48 +258,75 @@ class IdeaRepository:
         version: int,
         mutate_context: Callable[[DecisionContext], DecisionContext],
         require_not_archived: bool,
+        connection: sqlite3.Connection | None = None,
     ) -> UpdateIdeaResult:
-        with db_session() as connection:
-            existing = _select_idea_row(connection, idea_id)
-            if existing is None:
-                return UpdateIdeaResult(kind="not_found")
-
-            status = str(existing["status"])
-            if require_not_archived and status == "archived":
-                return UpdateIdeaResult(kind="archived")
-
-            current_context = parse_context_strict(
-                json.loads(str(existing["context_json"]))
+        if connection is not None:
+            return self._update_context_on_connection(
+                connection,
+                idea_id=idea_id,
+                version=version,
+                mutate_context=mutate_context,
+                require_not_archived=require_not_archived,
             )
-            next_context_model = mutate_context(current_context.model_copy(deep=True))
-            next_context = next_context_model.model_dump(mode="python", exclude_none=True)
-            next_stage = infer_stage_from_context(next_context_model)
 
-            idea_seed_value = next_context.get("idea_seed")
-            next_idea_seed = str(idea_seed_value) if isinstance(idea_seed_value, str) else None
-            updated_at = utc_now_iso()
-
-            result = connection.execute(
-                """
-                UPDATE idea
-                SET context_json = ?, stage = ?, idea_seed = ?, updated_at = ?, version = version + 1
-                WHERE id = ? AND version = ?
-                """,
-                (
-                    json.dumps(next_context, ensure_ascii=False),
-                    next_stage,
-                    next_idea_seed,
-                    updated_at,
-                    idea_id,
-                    version,
-                ),
+        with db_session() as session:
+            return self._update_context_on_connection(
+                session,
+                idea_id=idea_id,
+                version=version,
+                mutate_context=mutate_context,
+                require_not_archived=require_not_archived,
             )
-            if result.rowcount == 0:
-                return UpdateIdeaResult(kind="conflict")
 
-            updated = _select_idea_row(connection, idea_id)
-            assert updated is not None
-            return UpdateIdeaResult(kind="ok", idea=_row_to_idea(updated))
+    def _update_context_on_connection(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        idea_id: str,
+        version: int,
+        mutate_context: Callable[[DecisionContext], DecisionContext],
+        require_not_archived: bool,
+    ) -> UpdateIdeaResult:
+        existing = _select_idea_row(connection, idea_id)
+        if existing is None:
+            return UpdateIdeaResult(kind="not_found")
+
+        status = str(existing["status"])
+        if require_not_archived and status == "archived":
+            return UpdateIdeaResult(kind="archived")
+
+        current_context = parse_context_strict(
+            json.loads(str(existing["context_json"]))
+        )
+        next_context_model = mutate_context(current_context.model_copy(deep=True))
+        next_context = next_context_model.model_dump(mode="python", exclude_none=True)
+        next_stage = infer_stage_from_context(next_context_model)
+
+        idea_seed_value = next_context.get("idea_seed")
+        next_idea_seed = str(idea_seed_value) if isinstance(idea_seed_value, str) else None
+        updated_at = utc_now_iso()
+
+        result = connection.execute(
+            """
+            UPDATE idea
+            SET context_json = ?, stage = ?, idea_seed = ?, updated_at = ?, version = version + 1
+            WHERE id = ? AND version = ?
+            """,
+            (
+                json.dumps(next_context, ensure_ascii=False),
+                next_stage,
+                next_idea_seed,
+                updated_at,
+                idea_id,
+                version,
+            ),
+        )
+        if result.rowcount == 0:
+            return UpdateIdeaResult(kind="conflict")
+
+        updated = _select_idea_row(connection, idea_id)
+        assert updated is not None
+        return UpdateIdeaResult(kind="ok", idea=_row_to_idea(updated))
 
 
 def _select_idea_row(connection: sqlite3.Connection, idea_id: str) -> sqlite3.Row | None:

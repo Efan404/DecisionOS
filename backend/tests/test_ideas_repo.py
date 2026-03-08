@@ -115,6 +115,26 @@ class IdeasRepoTestCase(unittest.TestCase):
         )
         self.assertEqual(stale_result.kind, "conflict")
 
+    def test_update_context_rejects_archived_idea(self) -> None:
+        created = self.repo.create_idea(title="Archived Context", idea_seed="seed")
+        archived = self.repo.update_idea(
+            created.id,
+            version=created.version,
+            title=None,
+            status="archived",
+        )
+        self.assertEqual(archived.kind, "ok")
+
+        next_context = copy.deepcopy(created.context)
+        next_context["idea_seed"] = "mutated-after-archive"
+
+        archived_result = self.repo.update_context(
+            created.id,
+            version=2,
+            context=next_context,
+        )
+        self.assertEqual(archived_result.kind, "archived")
+
     def test_list_ideas_raises_for_invalid_context_payload(self) -> None:
         created = self.repo.create_idea(title="Legacy PRD", idea_seed="seed")
 
@@ -243,12 +263,11 @@ class ApplyAgentUpdateRetryTestCase(unittest.TestCase):
         assert result.idea is not None
         self.assertEqual(result.idea.version, idea.version + 1)
 
-    def test_apply_agent_update_retries_on_version_conflict(self):
-        """关键测试：version 已被外部操作推进，apply_agent_update 应自动重试并成功。"""
+    def test_apply_agent_update_returns_conflict_on_version_mismatch(self):
+        """Stale agent writes must fail fast instead of silently retrying."""
         idea = self._make_idea()
         original_version = idea.version
 
-        # 模拟"另一个并发操作"推进了 version（如 /paths 写库）
         bumped = self.repo.update_idea(
             idea.id,
             version=original_version,
@@ -259,48 +278,12 @@ class ApplyAgentUpdateRetryTestCase(unittest.TestCase):
         assert bumped.idea is not None
         self.assertEqual(bumped.idea.version, original_version + 1)
 
-        # apply_agent_update 仍用旧的 original_version，应自动 retry 并成功
-        result = self.repo.apply_agent_update(
-            idea.id,
-            version=original_version,       # 过期版本
-            mutate_context=self._noop_mutate(),
-            allow_conflict_retry=True,
-        )
-        self.assertEqual(result.kind, "ok", f"Expected ok but got {result.kind}")
-        assert result.idea is not None
-        self.assertEqual(result.idea.version, original_version + 2)
-
-    def test_apply_agent_update_retries_twice_on_double_conflict(self):
-        """apply_agent_update succeeds even with two consecutive concurrent bumps."""
-        idea = self._make_idea()
-        original_version = idea.version
-
-        # First concurrent bump (simulates background task)
-        bump1 = self.repo.update_idea(
-            idea.id, version=original_version, title="Bump 1", status=None
-        )
-        self.assertEqual(bump1.kind, "ok")
-        assert bump1.idea is not None
-        v1 = bump1.idea.version
-
-        # Second concurrent bump (simulates scope operation)
-        bump2 = self.repo.update_idea(
-            idea.id, version=v1, title="Bump 2", status=None
-        )
-        self.assertEqual(bump2.kind, "ok")
-        assert bump2.idea is not None
-        v2 = bump2.idea.version
-
-        # apply_agent_update with original stale version — needs 2 retries to succeed
         result = self.repo.apply_agent_update(
             idea.id,
             version=original_version,
             mutate_context=self._noop_mutate(),
-            allow_conflict_retry=True,
         )
-        self.assertEqual(result.kind, "ok", f"Expected ok but got {result.kind}")
-        assert result.idea is not None
-        self.assertEqual(result.idea.version, v2 + 1)
+        self.assertEqual(result.kind, "conflict")
 
     def test_apply_agent_update_returns_not_found_for_missing_idea(self):
         """idea 不存在时，retry 后仍应返回 not_found，不崩溃。"""
