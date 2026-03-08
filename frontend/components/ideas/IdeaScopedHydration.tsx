@@ -18,6 +18,7 @@ export function IdeaScopedHydration({ ideaId, children }: IdeaScopedHydrationPro
 
   useEffect(() => {
     let mounted = true
+    setReady(false)
 
     const run = async () => {
       setActiveIdeaId(ideaId)

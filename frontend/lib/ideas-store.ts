@@ -15,7 +15,7 @@ type IdeasStoreState = {
   setIdeaDetail: (detail: IdeaDetail) => void
   setIdeaVersion: (ideaId: string, version: number) => void
   loadIdeas: () => Promise<void>
-  createIdea: (title: string) => Promise<void>
+  createIdea: (title: string) => Promise<IdeaDetail | null>
   loadIdeaDetail: (ideaId: string) => Promise<IdeaDetail | null>
   deleteIdea: (ideaId: string) => Promise<void>
 }
@@ -81,9 +81,11 @@ export const useIdeasStore = create<IdeasStoreState>()(
             activeIdeaId: created.id,
             loading: false,
           })
+          return created
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to create idea.'
           set({ loading: false, error: message })
+          return null
         }
       },
       loadIdeaDetail: async (ideaId) => {
@@ -103,7 +105,16 @@ export const useIdeasStore = create<IdeasStoreState>()(
         set({ loading: true, error: null })
         try {
           await deleteIdea(ideaId)
-          set((s) => ({ loading: false, ideas: s.ideas.filter((i) => i.id !== ideaId) }))
+          set((state) => {
+            const nextIdeas = state.ideas.filter((idea) => idea.id !== ideaId)
+            const nextActiveIdeaId =
+              state.activeIdeaId === ideaId ? (nextIdeas[0]?.id ?? null) : state.activeIdeaId
+            return {
+              loading: false,
+              ideas: nextIdeas,
+              activeIdeaId: nextActiveIdeaId,
+            }
+          })
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to delete idea.'
           set({ loading: false, error: message })

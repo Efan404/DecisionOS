@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { CrossIdeaInsights } from '../insights/CrossIdeaInsights'
 import { useIdeasStore } from '../../lib/ideas-store'
+import { useDecisionStore } from '../../lib/store'
 
 function formatRelativeTime(isoString: string): string {
   const date = new Date(isoString)
@@ -32,8 +33,9 @@ export function IdeasDashboard() {
   const error = useIdeasStore((state) => state.error)
   const loadIdeas = useIdeasStore((state) => state.loadIdeas)
   const createIdea = useIdeasStore((state) => state.createIdea)
-  const setActiveIdeaId = useIdeasStore((state) => state.setActiveIdeaId)
+  const loadIdeaDetail = useIdeasStore((state) => state.loadIdeaDetail)
   const deleteIdea = useIdeasStore((state) => state.deleteIdea)
+  const replaceContext = useDecisionStore((state) => state.replaceContext)
 
   const [title, setTitle] = useState('')
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -50,8 +52,18 @@ export function IdeasDashboard() {
       return
     }
 
-    await createIdea(trimmed)
+    const created = await createIdea(trimmed)
+    if (created) {
+      replaceContext(created.context)
+    }
     setTitle('')
+  }
+
+  const handleSetActiveIdea = async (ideaId: string) => {
+    const detail = await loadIdeaDetail(ideaId)
+    if (detail) {
+      replaceContext(detail.context)
+    }
   }
 
   return (
@@ -156,7 +168,7 @@ export function IdeasDashboard() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveIdeaId(idea.id)}
+                    onClick={() => void handleSetActiveIdea(idea.id)}
                     className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                       isActive
                         ? 'bg-[#b9eb10] text-[#1e1e1e]'
