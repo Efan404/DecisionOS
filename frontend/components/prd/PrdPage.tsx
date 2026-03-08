@@ -78,6 +78,11 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     import('../../lib/schemas').PrdBundle | null
   >(null)
   const inFlightGenerationKeyRef = useRef<string | null>(null)
+  const previousPrdSnapshotRef = useRef<{
+    localBundle: import('../../lib/schemas').PrdBundle | null
+    prd: typeof context.prd
+    prdBundle: typeof context.prd_bundle
+  } | null>(null)
   // Resolve baseline_id: explicit prop > URL param > current scope baseline from context.
   // This prevents a spurious "Select a frozen baseline" error when navigating via the
   // sidebar (which omits the query param) but a frozen baseline already exists.
@@ -132,10 +137,21 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     globalPrdGenerationRequests.add(requestKey)
 
     let cancelled = false
+    previousPrdSnapshotRef.current = {
+      localBundle: localPrdOutput,
+      prd: useDecisionStore.getState().context.prd,
+      prdBundle: useDecisionStore.getState().context.prd_bundle,
+    }
     setLoading(true)
     setProgressStep(null)
     setProgressPct(0)
     setErrorMessage(null)
+    setLocalPrdOutput(null)
+    replaceContextRef.current({
+      ...useDecisionStore.getState().context,
+      prd: undefined,
+      prd_bundle: undefined,
+    })
 
     const run = async () => {
       try {
@@ -148,7 +164,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
         if (cancelled) {
           return
         }
-        setIdeaVersionRef.current(activeIdeaId, freshIdea.version)
         console.log(
           '[PrdPage] stream start ideaId=%s baselineId=%s version=%s (fresh)',
           activeIdeaId,
@@ -198,7 +213,9 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
             } else if (detail) {
               replaceContextRef.current(detail.context)
             }
+            previousPrdSnapshotRef.current = null
             setRetryNonce(0)
+            setIdeaVersionRef.current(activeIdeaId, envelope.idea_version)
             setLoading(false)
           }
         }
@@ -210,6 +227,15 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
           const message =
             error instanceof Error ? error.message : 'Request failed. Please try again.'
           console.error('[PrdPage] stream error', error)
+          const previousSnapshot = previousPrdSnapshotRef.current
+          if (previousSnapshot) {
+            setLocalPrdOutput(previousSnapshot.localBundle)
+            replaceContextRef.current({
+              ...useDecisionStore.getState().context,
+              prd: previousSnapshot.prd,
+              prd_bundle: previousSnapshot.prdBundle,
+            })
+          }
           setErrorMessage(message)
           toast.error(message)
         }
@@ -234,7 +260,7 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
       // The set is cleaned up in the finally block of run().
       // Deleting here would allow a second effect (e.g. StrictMode) to bypass the guard.
     }
-  }, [activeIdea, activeIdeaId, baselineId, canOpen, generationKey, retryNonce])
+  }, [activeIdeaId, activeIdea?.id, baselineId, canOpen, generationKey, retryNonce])
 
   const handleRetry = () => {
     setRetryNonce((previous) => previous + 1)

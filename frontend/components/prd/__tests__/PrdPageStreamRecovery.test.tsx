@@ -82,9 +82,12 @@ const buildPrdBundle = () => ({
 })
 
 describe('PrdPage stream recovery', () => {
+  let loadIdeaDetail: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     vi.clearAllMocks()
     nextNavigationMock.setSearchParams('baseline_id=baseline-1')
+    loadIdeaDetail = vi.fn().mockResolvedValue(null)
 
     useIdeasStore.setState({
       ideas: [
@@ -102,7 +105,7 @@ describe('PrdPage stream recovery', () => {
       activeIdeaId: 'idea-1',
       loading: false,
       error: null,
-      loadIdeaDetail: vi.fn().mockResolvedValue(null),
+      loadIdeaDetail,
     })
 
     useDecisionStore.setState({
@@ -150,6 +153,54 @@ describe('PrdPage stream recovery', () => {
     await waitFor(() => {
       expect(streamPost).toHaveBeenCalled()
       expect(screen.getByText('Backlog 1')).toBeInTheDocument()
+    })
+  })
+
+  test('loads the refreshed PRD bundle after regenerate completes', async () => {
+    loadIdeaDetail.mockResolvedValue({
+      id: 'idea-1',
+      workspace_id: 'default',
+      title: 'Idea 1',
+      stage: 'prd',
+      status: 'draft',
+      version: 14,
+      created_at: '2026-02-20T00:00:00.000Z',
+      updated_at: '2026-02-20T00:00:00.000Z',
+      archived_at: null,
+      context: {
+        ...useDecisionStore.getState().context,
+        prd_bundle: {
+          ...buildPrdBundle(),
+          output: {
+            ...buildPrdBundle().output,
+            backlog: {
+              items: [
+                {
+                  ...buildPrdBundle().output.backlog.items[0],
+                  id: 'BL-99',
+                  title: 'Backlog 99',
+                  summary: 'Backlog summary 99',
+                },
+              ],
+            },
+          },
+        },
+      },
+    })
+    vi.mocked(streamPost).mockImplementation(async (_path, _payload, handlers) => {
+      handlers.onDone?.({ idea_id: 'idea-1', idea_version: 14 })
+    })
+
+    render(<PrdPage />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /prd\.tabRequirements/i }))
+    expect(await screen.findByText('Backlog 1')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'prd.regenerate' }))
+
+    await waitFor(() => {
+      expect(loadIdeaDetail).toHaveBeenCalledWith('idea-1')
+      expect(screen.getByText('Backlog 99')).toBeInTheDocument()
     })
   })
 })
