@@ -7,7 +7,9 @@ services:
       LLM_MODE: ${LLM_MODE:-mock}
       DECISIONOS_DB_PATH: ${DECISIONOS_DB_PATH:-/data/decisionos.db}
       DECISIONOS_SECRET_KEY: ${DECISIONOS_SECRET_KEY:-decisionos-dev-secret-change-me}
-      DECISIONOS_CORS_ORIGINS: ${DECISIONOS_CORS_ORIGINS:-http://localhost:3000,http://web:3000}
+      DECISIONOS_CORS_ORIGINS: ${DECISIONOS_CORS_ORIGINS:-https://decision-os.efan404.com,https://api-decision-os.efan404.com}
+      DECISIONOS_SEED_ADMIN_USERNAME: ${DECISIONOS_SEED_ADMIN_USERNAME:-admin}
+      DECISIONOS_SEED_ADMIN_PASSWORD: ${DECISIONOS_SEED_ADMIN_PASSWORD:-admin}
     volumes:
       - decisionos_data:/data
     expose:
@@ -20,8 +22,10 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+        NEXT_PUBLIC_API_SSE_URL: ${NEXT_PUBLIC_API_SSE_URL:-https://api-decision-os.efan404.com}
     environment:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+      NEXT_PUBLIC_API_SSE_URL: ${NEXT_PUBLIC_API_SSE_URL:-https://api-decision-os.efan404.com}
     depends_on:
       - api
     ports:
