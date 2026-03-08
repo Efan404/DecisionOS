@@ -3,37 +3,32 @@ import { stream, type ServerSentEventMessage } from 'fetch-event-stream'
 import { buildApiUrl, withAuthHeaders } from './api'
 
 /**
- * For SSE streams, bypass the Next.js rewrite proxy and connect directly to the backend.
- * Next.js proxies buffer the response body, which prevents incremental SSE events from
- * reaching the browser until the stream closes. Direct connection fixes this.
+ * Build the URL for SSE streams.
  *
- * NEXT_PUBLIC_API_SSE_URL defaults to http://127.0.0.1:8000 for local dev.
- * In production / Docker, set this env var to the backend's public URL.
+ * Strategy (browser):
+ *  1. NEXT_PUBLIC_API_SSE_URL set → use it (direct backend, best latency)
+ *  2. localhost/127.0.0.1 → direct connect to http://127.0.0.1:8000
+ *  3. Production → /api/sse-proxy?path=... (Next.js Route Handler that streams
+ *     without buffering; the rewrite proxy at /api-proxy buffers SSE and has a
+ *     ~30s timeout which breaks long-running agent streams)
  */
 const buildSseUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
-  let base: string
   if (typeof window !== 'undefined') {
-    // Browser: prefer NEXT_PUBLIC_API_SSE_URL for direct backend connection (avoids
-    // Next.js proxy buffering SSE events). When unset, detect local dev automatically;
-    // in production fall back to /api-proxy (same-origin).
     const sseEnv = process.env.NEXT_PUBLIC_API_SSE_URL
     if (sseEnv) {
-      base = sseEnv
-    } else if (
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1'
-    ) {
-      base = 'http://127.0.0.1:8000'
-    } else {
-      base = '/api-proxy'
+      return `${sseEnv}${path.startsWith('/') ? path : `/${path}`}`
     }
-  } else {
-    // SSR: call backend directly (server-to-server).
-    base = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000'
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `http://127.0.0.1:8000${path.startsWith('/') ? path : `/${path}`}`
+    }
+    // Production: use the streaming SSE proxy route handler
+    return `/api/sse-proxy?path=${encodeURIComponent(path.startsWith('/') ? path : `/${path}`)}`
   }
+  // SSR: call backend directly (server-to-server).
+  const base = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000'
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 import { clearAuthSession } from './auth'

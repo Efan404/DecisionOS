@@ -601,22 +601,25 @@ export const downloadPrdBacklogExport = async (
 }
 
 /**
- * PPT generation calls the LLM synchronously (~28-35s).
- * Next.js rewrites have a ~30s hard timeout, so we bypass /api-proxy and call
- * the backend directly — same pattern as SSE streams in sse.ts.
+ * Build URL for long-running POST requests (PPT generation, etc.).
+ * Same strategy as SSE: local dev → direct, production → /api/long-proxy route
+ * handler (the rewrite proxy at /api-proxy has a ~30s timeout).
  */
 const buildDirectUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
-  const base =
-    typeof window !== 'undefined'
-      ? process.env.NEXT_PUBLIC_API_SSE_URL ||
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? 'http://127.0.0.1:8000'
-          : '/api-proxy')
-      : (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000')
-  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+  if (typeof window !== 'undefined') {
+    const sseEnv = process.env.NEXT_PUBLIC_API_SSE_URL
+    if (sseEnv) {
+      return `${sseEnv}${path.startsWith('/') ? path : `/${path}`}`
+    }
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `http://127.0.0.1:8000${path.startsWith('/') ? path : `/${path}`}`
+    }
+    return `/api/long-proxy?path=${encodeURIComponent(path.startsWith('/') ? path : `/${path}`)}`
+  }
+  return `${process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000'}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 export const postPrdPpt = async (
