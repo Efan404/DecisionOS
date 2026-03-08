@@ -114,6 +114,7 @@ class IdeaRepository:
                 raise KeyError(f"Idea {idea_id!r} not found")
             connection.execute("DELETE FROM idea_nodes WHERE idea_id = ?", (idea_id,))
             connection.execute("DELETE FROM idea_paths WHERE idea_id = ?", (idea_id,))
+            connection.execute("DELETE FROM scope_baselines WHERE idea_id = ?", (idea_id,))
             connection.execute("DELETE FROM idea WHERE id = ?", (idea_id,))
 
     def list_ideas(

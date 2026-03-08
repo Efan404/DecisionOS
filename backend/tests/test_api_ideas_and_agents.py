@@ -1362,6 +1362,17 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         r_status, r_body = self.client.request_json("GET", f"/ideas/{self.idea_id}")
         self.assertEqual(r_status, 404)
 
+    def test_delete_idea_with_scope_baselines_returns_204(self) -> None:
+        idea_id, version = self._create_idea("Delete Frozen Scope Idea")
+        _, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+
+        delete_response = self.client.request_raw("DELETE", f"/ideas/{idea_id}")
+        self.assertEqual(delete_response.status_code, 204)
+        self.assertEqual(delete_response.body, b"")
+
+        get_status, _ = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(get_status, 404)
+
 
 @dataclass(frozen=True)
 class _RawResponse:
