@@ -136,13 +136,6 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     setProgressStep(null)
     setProgressPct(0)
     setErrorMessage(null)
-    setLocalPrdOutput(null)
-    // Clear stale PRD so PrdView shows the loading progress instead of old content
-    replaceContextRef.current({
-      ...useDecisionStore.getState().context,
-      prd: undefined,
-      prd_bundle: undefined,
-    })
 
     const run = async () => {
       try {

@@ -976,42 +976,49 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         def _mock_generate_structured_for_stream(**kwargs):
             schema_model = kwargs.get("schema_model")
             from app.schemas.prd import (
-                PRDRequirementsOutput, PRDMarkdownOutput, PRDBacklogOutput,
+                PRDRequirementsOutput, PRDMarkdownOutput, PRDBacklogOutput, PRDFullOutput,
                 PRDBacklog, PRDBacklogItem, PRDRequirement, PRDSection,
             )
+            requirements = [
+                PRDRequirement(
+                    id=f"req-{i:03d}", title=f"Req {i}", description=f"Desc {i}",
+                    rationale=f"Rationale {i}", acceptance_criteria=["AC1", "AC2"],
+                    source_refs=["step2"],
+                )
+                for i in range(1, 7)
+            ]
+            sections = [
+                PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
+                for i in range(1, 7)
+            ]
+            backlog = PRDBacklog(items=[
+                PRDBacklogItem(
+                    id=f"bl-{i:03d}", title=f"Item {i}", requirement_id="req-001",
+                    priority="P1", type="story", summary=f"Summary {i}",
+                    acceptance_criteria=["AC1", "AC2"], source_refs=["step2"],
+                )
+                for i in range(1, 9)
+            ])
             if schema_model is PRDRequirementsOutput:
-                return PRDRequirementsOutput(requirements=[
-                    PRDRequirement(
-                        id=f"req-{i:03d}", title=f"Req {i}", description=f"Desc {i}",
-                        rationale=f"Rationale {i}", acceptance_criteria=["AC1", "AC2"],
-                        source_refs=["step2"],
-                    )
-                    for i in range(1, 7)
-                ])
+                return PRDRequirementsOutput(requirements=requirements)
             if schema_model is PRDMarkdownOutput:
                 return PRDMarkdownOutput(
                     markdown="# Test PRD\n\nMock markdown content with enough chars.",
-                    sections=[
-                        PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
-                        for i in range(1, 7)
-                    ],
+                    sections=sections,
                 )
             if schema_model is PRDBacklogOutput:
-                return PRDBacklogOutput(backlog=PRDBacklog(items=[
-                    PRDBacklogItem(
-                        id=f"bl-{i:03d}", title=f"Item {i}", requirement_id="req-001",
-                        priority="P1", type="story", summary=f"Summary {i}",
-                        acceptance_criteria=["AC1", "AC2"], source_refs=["step2"],
-                    )
-                    for i in range(1, 9)
-                ]))
+                return PRDBacklogOutput(backlog=backlog)
+            if schema_model is PRDFullOutput:
+                return PRDFullOutput(
+                    requirements=requirements,
+                    markdown="# Test PRD\n\nMock markdown content with enough chars.",
+                    sections=sections,
+                    backlog=backlog,
+                )
             # Fallback
             return PRDMarkdownOutput(
                 markdown="# Fallback",
-                sections=[
-                    PRDSection(id=f"s{i}", title=f"Section {i}", content=f"Content {i}")
-                    for i in range(1, 7)
-                ],
+                sections=sections,
             )
 
         with patch("app.core.ai_gateway.generate_structured", side_effect=_mock_generate_structured_for_stream):
