@@ -858,6 +858,80 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         self.assertEqual(detail_after_done["version"], current_version + 1)
         self.assertIsNotNone(detail_after_done["context"]["feasibility"])
 
+    def test_feasibility_stream_v2_persists_on_done_and_bumps_version(self) -> None:
+        idea_id, initial_version = self._create_idea("Feasibility Stream V2 Idea")
+
+        async def _mock_graph_sse(**_: object):
+            yield {"event": "progress", "data": json.dumps({"step": "starting_agents", "pct": 5})}
+            yield {
+                "event": "done",
+                "data": json.dumps(
+                    {
+                        "idea_id": idea_id,
+                        "feasibility_output": _mock_feasibility(None).model_dump(mode="python"),
+                    }
+                ),
+            }
+
+        with patch("app.agents.stream.run_feasibility_graph_sse", side_effect=_mock_graph_sse):
+            raw = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/agents/feasibility/stream/v2",
+                {
+                    "idea_seed": "seed",
+                    "confirmed_path_id": "dag-path-v2",
+                    "confirmed_node_id": "dag-node-v2",
+                    "confirmed_node_content": "Validated DAG node content",
+                    "confirmed_path_summary": "DAG path summary",
+                    "version": initial_version,
+                },
+            )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
+        done_event = next((data for name, data in events if name == "done"), None)
+        self.assertIsNotNone(done_event)
+        assert done_event is not None
+        self.assertEqual(done_event["idea_id"], idea_id)
+        self.assertEqual(done_event["idea_version"], initial_version + 1)
+        self.assertIn("data", done_event)
+        self.assertEqual(len(done_event["data"]["plans"]), 3)
+
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+        self.assertEqual(detail["version"], initial_version + 1)
+        self.assertIsNotNone(detail["context"]["feasibility"])
+
+    def test_feasibility_stream_v2_emits_error_for_stale_version(self) -> None:
+        idea_id, initial_version = self._create_idea("Feasibility Stream V2 Stale")
+        bumped = self._generate_opportunity(idea_id, initial_version)
+
+        raw = self.client.request_raw(
+            "POST",
+            f"/ideas/{idea_id}/agents/feasibility/stream/v2",
+            {
+                "idea_seed": "seed",
+                "confirmed_path_id": "dag-path-v2-stale",
+                "confirmed_node_id": "dag-node-v2-stale",
+                "confirmed_node_content": "Validated DAG node content",
+                "confirmed_path_summary": "DAG path summary",
+                "version": initial_version,
+            },
+        )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
+        error_event = next((data for name, data in events if name == "error"), None)
+        self.assertIsNotNone(error_event)
+        assert error_event is not None
+        self.assertEqual(error_event["code"], "IDEA_VERSION_CONFLICT")
+
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+        self.assertEqual(detail["version"], bumped["idea_version"])
+
     def test_scope_and_prd_version_guards(self) -> None:
         idea_id, initial_version = self._create_idea("Scope PRD Guard Idea")
         baseline_id, ready_version, selected_plan_id = self._prepare_prd_baseline(
@@ -1159,6 +1233,96 @@ class IdeasAndAgentsApiTestCase(unittest.TestCase):
         events = _read_sse_events(raw.body)
         event_names = [name for name, _ in events]
         self.assertIn("error", event_names)
+        error_event = next((data for name, data in events if name == "error"), None)
+        self.assertIsNotNone(error_event)
+        assert error_event is not None
+        self.assertEqual(error_event["code"], "IDEA_VERSION_CONFLICT")
+
+    def test_prd_stream_v2_persists_on_done_and_bumps_version(self) -> None:
+        idea_id, version = self._create_idea("PRD Stream V2 Idea")
+        baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+
+        prd_output = {
+            "markdown": "# PRD\n\nMock v2 output.",
+            "sections": [
+                {"id": "problem", "title": "Problem", "content": "Problem section"},
+                {"id": "users", "title": "Users", "content": "Users section"},
+            ],
+            "requirements": [
+                {
+                    "id": "REQ-1",
+                    "title": "Requirement 1",
+                    "description": "Requirement description 1",
+                    "rationale": "Rationale 1",
+                    "acceptance_criteria": ["AC1", "AC2"],
+                    "source_refs": ["step2", "step3"],
+                }
+            ],
+            "backlog": {
+                "items": [
+                    {
+                        "id": "BL-1",
+                        "title": "Backlog 1",
+                        "requirement_id": "REQ-1",
+                        "priority": "P1",
+                        "type": "story",
+                        "summary": "Backlog summary 1",
+                        "acceptance_criteria": ["AC1", "AC2"],
+                        "source_refs": ["step4"],
+                        "depends_on": [],
+                    }
+                ]
+            },
+        }
+
+        async def _mock_graph_sse(**_: object):
+            yield {"event": "progress", "data": json.dumps({"step": "starting_agents", "pct": 5})}
+            yield {
+                "event": "done",
+                "data": json.dumps(
+                    {
+                        "idea_id": idea_id,
+                        "prd_output": prd_output,
+                    }
+                ),
+            }
+
+        with patch("app.agents.stream.run_prd_graph_sse", side_effect=_mock_graph_sse):
+            raw = self.client.request_raw(
+                "POST",
+                f"/ideas/{idea_id}/agents/prd/stream/v2",
+                {"version": ready_version, "baseline_id": baseline_id},
+            )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
+        done_event = next((data for name, data in events if name == "done"), None)
+        self.assertIsNotNone(done_event)
+        assert done_event is not None
+        self.assertEqual(done_event["idea_id"], idea_id)
+        self.assertEqual(done_event["idea_version"], ready_version + 1)
+        self.assertIn("data", done_event)
+        self.assertIn("generation_meta", done_event["data"])
+        self.assertEqual(done_event["data"]["generation_meta"]["baseline_id"], baseline_id)
+
+        detail_status, detail = self.client.request_json("GET", f"/ideas/{idea_id}")
+        self.assertEqual(detail_status, 200)
+        assert detail is not None
+        self.assertEqual(detail["version"], ready_version + 1)
+        self.assertIsNotNone(detail["context"]["prd_bundle"])
+
+    def test_prd_stream_v2_emits_error_for_stale_version(self) -> None:
+        idea_id, version = self._create_idea("PRD Stream V2 Stale")
+        baseline_id, ready_version, _ = self._prepare_prd_baseline(idea_id, version=version)
+
+        raw = self.client.request_raw(
+            "POST",
+            f"/ideas/{idea_id}/agents/prd/stream/v2",
+            {"version": ready_version - 1, "baseline_id": baseline_id},
+        )
+
+        self.assertEqual(raw.status_code, 200)
+        events = _read_sse_events(raw.body)
         error_event = next((data for name, data in events if name == "error"), None)
         self.assertIsNotNone(error_event)
         assert error_event is not None

@@ -470,11 +470,28 @@ async def stream_opportunity_v2(idea_id: str, payload: OpportunityIdeaRequest) -
 @router.post("/feasibility/stream/v2")
 async def stream_feasibility_v2(idea_id: str, payload: FeasibilityIdeaRequest) -> EventSourceResponse:
     """Multi-agent feasibility generation with agent thought streaming."""
-    _logger.info("agent.feasibility.stream.v2.start idea_id=%s", idea_id)
+    _logger.info("agent.feasibility.stream.v2.start idea_id=%s version=%s", idea_id, payload.version)
 
     from app.agents.stream import run_feasibility_graph_sse
 
     async def event_generator() -> AsyncIterator[dict[str, str]]:
+        current = _repo.get_idea(idea_id)
+        if current is None:
+            yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
+            return
+        if current.status == "archived":
+            yield _sse_event("error", {"code": "IDEA_ARCHIVED", "message": "Idea is archived"})
+            return
+        if current.version != payload.version:
+            yield _sse_event(
+                "error",
+                {
+                    "code": "IDEA_VERSION_CONFLICT",
+                    "message": f"Version conflict: expected {current.version}, got {payload.version}",
+                },
+            )
+            return
+
         try:
             async for event in run_feasibility_graph_sse(
                 idea_id=idea_id,
@@ -482,6 +499,38 @@ async def stream_feasibility_v2(idea_id: str, payload: FeasibilityIdeaRequest) -
                 confirmed_path_summary=payload.confirmed_path_summary or "",
                 confirmed_node_content=payload.confirmed_node_content or "",
             ):
+                if event.get("event") == "done":
+                    done_data = json.loads(event["data"])
+                    raw_output = done_data.get("feasibility_output")
+                    if raw_output is None:
+                        yield _sse_event(
+                            "error",
+                            {
+                                "code": "AGENT_ERROR",
+                                "message": "Feasibility graph completed without output",
+                            },
+                        )
+                        return
+                    output = FeasibilityOutput.model_validate(raw_output)
+                    result = _repo.apply_agent_update(
+                        idea_id,
+                        version=payload.version,
+                        mutate_context=lambda context: _apply_feasibility(context, payload, output),
+                    )
+                    error_payload = _sse_error_payload(result)
+                    if error_payload is not None:
+                        yield _sse_event("error", error_payload)
+                        return
+                    assert result.idea is not None
+                    yield _sse_event(
+                        "done",
+                        {
+                            "idea_id": idea_id,
+                            "idea_version": result.idea.version,
+                            "data": output.model_dump(),
+                        },
+                    )
+                    continue
                 yield event
         except Exception as exc:
             _raise_if_no_provider(exc)
@@ -494,19 +543,47 @@ async def stream_feasibility_v2(idea_id: str, payload: FeasibilityIdeaRequest) -
 @router.post("/prd/stream/v2")
 async def stream_prd_v2(idea_id: str, payload: PRDIdeaRequest) -> EventSourceResponse:
     """Multi-agent PRD generation with agent thought streaming."""
-    _logger.info("agent.prd.stream.v2.start idea_id=%s", idea_id)
+    _logger.info("agent.prd.stream.v2.start idea_id=%s version=%s baseline_id=%s", idea_id, payload.version, payload.baseline_id)
 
     from app.agents.stream import run_prd_graph_sse
 
     async def event_generator() -> AsyncIterator[dict[str, str]]:
         try:
-            # Build context from existing idea data
             idea = _repo.get_idea(idea_id)
             if idea is None:
                 yield _sse_event("error", {"code": "IDEA_NOT_FOUND", "message": "Idea not found"})
                 return
+            if idea.status == "archived":
+                yield _sse_event("error", {"code": "IDEA_ARCHIVED", "message": "Idea is archived"})
+                return
+            if idea.version != payload.version:
+                yield _sse_event(
+                    "error",
+                    {
+                        "code": "IDEA_VERSION_CONFLICT",
+                        "message": f"Version conflict: expected {idea.version}, got {payload.version}",
+                    },
+                )
+                return
 
             context = parse_context_strict(idea.context)
+            try:
+                pack = _build_prd_context_pack(
+                    idea_id=idea_id,
+                    baseline_id=payload.baseline_id,
+                    context=context,
+                )
+            except HTTPException as exc:
+                detail = exc.detail
+                code = detail.get("code", "ERROR") if isinstance(detail, dict) else "ERROR"
+                message = (
+                    detail.get("message", str(detail))
+                    if isinstance(detail, dict)
+                    else str(detail)
+                )
+                yield _sse_event("error", {"code": code, "message": message})
+                return
+            fingerprint = _context_pack_fingerprint(pack)
 
             dag_path = None
             latest_path = repo_dag.get_latest_path(idea_id)
@@ -527,6 +604,56 @@ async def stream_prd_v2(idea_id: str, payload: PRDIdeaRequest) -> EventSourceRes
                 selected_plan_id=context.selected_plan_id or "",
                 scope_output=scope_output,
             ):
+                if event.get("event") == "done":
+                    done_data = json.loads(event["data"])
+                    raw_output = done_data.get("prd_output")
+                    if raw_output is None:
+                        yield _sse_event(
+                            "error",
+                            {"code": "AGENT_ERROR", "message": "PRD graph completed without output"},
+                        )
+                        return
+                    provider_info: dict[str, object]
+                    try:
+                        provider_info = llm._get_active_provider_info()
+                    except RuntimeError:
+                        provider_info = {"id": None, "model": None}
+
+                    graph_output = json.loads(json.dumps(raw_output))
+                    graph_output["generation_meta"] = {
+                        "provider_id": provider_info.get("id"),
+                        "model": provider_info.get("model"),
+                        "confirmed_path_id": pack.step2_path.path_id,
+                        "selected_plan_id": pack.step3_feasibility.selected_plan.id,
+                        "baseline_id": pack.step4_scope.baseline_meta.baseline_id,
+                    }
+                    output = PRDOutput.model_validate(graph_output)
+                    bundle = PrdBundle(
+                        baseline_id=pack.step4_scope.baseline_meta.baseline_id,
+                        context_fingerprint=fingerprint,
+                        generated_at=utc_now_iso(),
+                        generation_meta=output.generation_meta,
+                        output=output,
+                    )
+                    result = _repo.apply_agent_update(
+                        idea_id,
+                        version=payload.version,
+                        mutate_context=lambda current: _apply_prd(current, pack, bundle),
+                    )
+                    error_payload = _sse_error_payload(result)
+                    if error_payload is not None:
+                        yield _sse_event("error", error_payload)
+                        return
+                    assert result.idea is not None
+                    yield _sse_event(
+                        "done",
+                        {
+                            "idea_id": idea_id,
+                            "idea_version": result.idea.version,
+                            "data": output.model_dump(),
+                        },
+                    )
+                    continue
                 yield event
         except Exception as exc:
             _raise_if_no_provider(exc)
