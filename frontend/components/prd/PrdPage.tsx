@@ -256,12 +256,11 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
 
     return () => {
       cancelled = true
-      if (inFlightGenerationKeyRef.current === requestKey) {
-        inFlightGenerationKeyRef.current = null
-      }
-      // Do NOT delete from globalPrdGenerationRequests here.
-      // The set is cleaned up in the finally block of run().
-      // Deleting here would allow a second effect (e.g. StrictMode) to bypass the guard.
+      // Do NOT clear inFlightGenerationKeyRef or globalPrdGenerationRequests here.
+      // The async run() still executes after cleanup; let its finally block handle
+      // both refs. Clearing them here opens a race where the next effect fires
+      // before run() finishes, bypassing the dedup guards and causing an infinite
+      // generation loop.
     }
   }, [routeIdeaId, activeIdea?.id, baselineId, canOpen, generationKey, retryNonce])
 

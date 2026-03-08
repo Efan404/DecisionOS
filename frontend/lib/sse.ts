@@ -16,9 +16,9 @@ const buildSseUrl = (path: string): string => {
   }
   let base: string
   if (typeof window !== 'undefined') {
-    // Browser: use NEXT_PUBLIC_API_SSE_URL if set (direct backend URL for local dev),
-    // otherwise fall back to /api-proxy (same-origin, works in production/Docker).
-    base = process.env.NEXT_PUBLIC_API_SSE_URL || '/api-proxy'
+    // Browser: connect directly to backend to avoid Next.js proxy buffering SSE events.
+    // NEXT_PUBLIC_API_SSE_URL can override; default to localhost for local dev.
+    base = process.env.NEXT_PUBLIC_API_SSE_URL || 'http://127.0.0.1:8000'
   } else {
     // SSR: call backend directly (server-to-server).
     base = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000'
