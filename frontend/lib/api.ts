@@ -611,7 +611,10 @@ const buildDirectUrl = (path: string): string => {
   }
   const base =
     typeof window !== 'undefined'
-      ? process.env.NEXT_PUBLIC_API_SSE_URL || 'http://127.0.0.1:8000'
+      ? process.env.NEXT_PUBLIC_API_SSE_URL ||
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? 'http://127.0.0.1:8000'
+          : '/api-proxy')
       : (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000')
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
