@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { type ProgressStep } from '../common/GenerationProgress'
 import { GuardPanel } from '../common/GuardPanel'
 import { PrdView } from './PrdView'
-import { ApiError, downloadPrdBacklogExport, postPrdFeedback } from '../../lib/api'
+import { ApiError, downloadPrdBacklogExport, getIdea, postPrdFeedback } from '../../lib/api'
 import { streamPost } from '../../lib/sse'
 import { canOpenPrd } from '../../lib/guards'
 import { useIdeasStore } from '../../lib/ideas-store'
@@ -145,19 +145,29 @@ export function PrdPage({ baselineId: baselineIdProp = null }: PrdPageProps) {
     })
 
     const run = async () => {
-      console.log(
-        '[PrdPage] stream start ideaId=%s baselineId=%s version=%s',
-        activeIdeaId,
-        baselineId,
-        activeIdea.version
-      )
       try {
+        // Always fetch the latest version from the backend immediately before streaming.
+        // The store version is stale: prior agent steps (confirm-path, summary, feasibility,
+        // scope) each bump idea.version in the DB, but the store only knows about the last
+        // version it was explicitly told. Sending a stale version causes a VERSION_CONFLICT
+        // SSE error that silently stops the stream.
+        const freshIdea = await getIdea(activeIdeaId)
+        if (cancelled) {
+          return
+        }
+        setIdeaVersionRef.current(activeIdeaId, freshIdea.version)
+        console.log(
+          '[PrdPage] stream start ideaId=%s baselineId=%s version=%s (fresh)',
+          activeIdeaId,
+          baselineId,
+          freshIdea.version
+        )
         let donePayload: { idea_id: string; idea_version: number } | null = null
         await streamPost(
           `/ideas/${activeIdeaId}/agents/prd/stream`,
           {
             baseline_id: baselineId,
-            version: activeIdea.version,
+            version: freshIdea.version,
           },
           {
             onEvent: (_event) => {

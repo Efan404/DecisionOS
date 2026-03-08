@@ -84,6 +84,9 @@ export function FeasibilityPage() {
   )
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(false)
+  // Track the freshest idea version fetched from the backend so handleGenerate always
+  // sends the current version, not the potentially-stale value from the Zustand store.
+  const freshIdeaVersionRef = useRef<number | null>(null)
   const canOpen = canRunFeasibility(context)
 
   useEffect(() => {
@@ -119,6 +122,7 @@ export function FeasibilityPage() {
         ])
         if (freshIdea && !cancelled) {
           setIdeaVersion(activeIdeaId, freshIdea.version)
+          freshIdeaVersionRef.current = freshIdea.version
         }
         if (!latestPath) {
           throw new Error(t('errorNoPath'))
@@ -184,6 +188,21 @@ export function FeasibilityPage() {
     setProgressPct(undefined)
     setLoading(true)
 
+    // Use the freshest version we fetched from the backend, falling back to the store
+    // value if the init effect hasn't completed yet (edge case: user clicks very fast).
+    let versionToUse = freshIdeaVersionRef.current ?? activeIdea.version
+    if (freshIdeaVersionRef.current === null) {
+      // Init effect hasn't resolved yet — fetch fresh now to avoid VERSION_CONFLICT.
+      try {
+        const freshIdea = await getIdea(activeIdeaId)
+        versionToUse = freshIdea.version
+        setIdeaVersion(activeIdeaId, freshIdea.version)
+        freshIdeaVersionRef.current = freshIdea.version
+      } catch {
+        // Proceed with store version; the backend will reject if it's wrong.
+      }
+    }
+
     let streamedDonePayload: unknown = null
 
     try {
@@ -192,7 +211,7 @@ export function FeasibilityPage() {
       try {
         await streamPost(
           `/ideas/${activeIdeaId}/agents/feasibility/stream`,
-          { ...payload, version: activeIdea.version },
+          { ...payload, version: versionToUse },
           {
             onProgress: (data) => {
               if (mountedRef.current && typeof data === 'object' && data !== null) {
@@ -267,7 +286,7 @@ export function FeasibilityPage() {
           FeasibilityOutput
         >(activeIdeaId, 'feasibility', {
           ...payload,
-          version: activeIdea.version,
+          version: versionToUse,
         })
         setIdeaVersion(activeIdeaId, envelope.idea_version)
         const parsed = feasibilityOutputSchema.safeParse(envelope.data)
